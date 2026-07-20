@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
+import '../services/auth/token_storage.dart';
 
 class LocalProxy {
   static HttpServer? _server;
@@ -17,14 +19,21 @@ class LocalProxy {
           return;
         }
 
-        print('LocalProxy: proxying request for URL: $targetUrl');
-
         try {
           final client = HttpClient();
           // Explicitly ignore SSL certificate validation for local development
           client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
           
-          final targetUri = Uri.parse(targetUrl);
+          Uri targetUri = Uri.parse(targetUrl!);
+          
+          // Get fresh token from storage and inject it into the request URL
+          final freshToken = await TokenStorage().getAccessToken();
+          if (freshToken != null && freshToken.isNotEmpty) {
+             final newParams = Map<String, String>.from(targetUri.queryParameters);
+             newParams['token'] = freshToken;
+             targetUri = targetUri.replace(queryParameters: newParams);
+          }
+
           final clientRequest = await client.getUrl(targetUri);
 
           // Propagate headers (especially Range for video)
@@ -33,12 +42,11 @@ class LocalProxy {
             clientRequest.headers.set(name, values.join(','));
           });
 
-          if (jwtToken != null && jwtToken.isNotEmpty) {
-            clientRequest.headers.set('Authorization', 'Bearer $jwtToken');
+          if (freshToken != null && freshToken.isNotEmpty) {
+            clientRequest.headers.set('Authorization', 'Bearer $freshToken');
           }
 
           final clientResponse = await clientRequest.close();
-          print('LocalProxy: Backend returned status ${clientResponse.statusCode} for $targetUrl');
 
           request.response.statusCode = clientResponse.statusCode;
           clientResponse.headers.forEach((name, values) {
@@ -47,7 +55,7 @@ class LocalProxy {
 
           await clientResponse.pipe(request.response);
         } catch (e, stack) {
-          print('LocalProxy handler error for url $targetUrl: $e\n$stack');
+          debugPrint('LocalProxy handler error for url $targetUrl: $e\n$stack');
           request.response.statusCode = 500;
           await request.response.close();
         }

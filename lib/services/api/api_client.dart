@@ -21,6 +21,7 @@ class ApiClient {
   late final Dio _dio;
   final TokenStorage _tokenStorage;
   late final CookieJar _cookieJar;
+  final String deviceId;
   
   /// Callback upon session expiration
   VoidCallback? onSessionExpired;
@@ -31,7 +32,10 @@ class ApiClient {
   /// Очередь запросов, ожидающих обновления токена
   final List<_PendingRequest> _pendingRequests = [];
 
-  ApiClient({required TokenStorage tokenStorage}) : _tokenStorage = tokenStorage {
+  ApiClient({
+    required TokenStorage tokenStorage,
+    this.deviceId = '',
+  }) : _tokenStorage = tokenStorage {
     _dio = Dio(BaseOptions(
       baseUrl: AppConfig.apiBaseUrl,
       connectTimeout: AppConfig.apiTimeout,
@@ -41,6 +45,9 @@ class ApiClient {
         'User-Agent': AppConfig.userAgent,
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        'X-Device-ID': deviceId,
+        'X-Platform': Platform.isAndroid ? 'android' : (Platform.isIOS ? 'ios' : 'unknown'),
+        'X-App-Version': '2.0.0+1',
       },
     ));
 

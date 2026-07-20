@@ -103,4 +103,24 @@ class ChatService {
       return false;
     }
   }
+
+  /// Глобальный поиск людей, ботов, групп и каналов
+  Future<Map<String, dynamic>?> globalSearch(String query) async {
+    try {
+      final response = await _apiClient.get(
+        '/user/search/',
+        queryParameters: {'q': query},
+      );
+      
+      if (response.statusCode == 200 && response.data != null) {
+        if (response.data is Map) {
+          return response.data as Map<String, dynamic>;
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error performing global search for query $query: $e');
+      return null;
+    }
+  }
 }

@@ -83,34 +83,7 @@ abstract class BaseCustomModalState<T extends BaseCustomModal> extends State<T> 
                     ),
                   ),
                 ),
-                // Премиальная кнопка закрытия в углу
-                Positioned(
-                  top: 16,
-                  right: 16,
-                  child: Material(
-                    color: Colors.white.withOpacity(0.05),
-                    shape: const CircleBorder(),
-                    child: InkWell(
-                      onTap: () => Navigator.of(context).pop(),
-                      customBorder: const CircleBorder(),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.05),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          color: Colors.white70,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+
               ],
             ),
           ),

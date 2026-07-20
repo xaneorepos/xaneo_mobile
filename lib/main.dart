@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -13,16 +16,26 @@ import 'screens/auth/tfa_screen.dart';
 import 'screens/main/main_screen.dart';
 import 'services/api/api_client.dart';
 import 'services/auth/token_storage.dart';
+import 'services/auth/recent_accounts_service.dart';
 import 'services/crypto/crypto_service.dart';
 import 'services/crypto/xsec2_service.dart';
 import 'styles/app_styles.dart';
 
+import 'package:path_provider/path_provider.dart';
+import 'services/database/database_key_service.dart';
+
 import 'services/database/app_database.dart';
 import 'services/chat/chat_local_repository.dart';
 import 'services/chat/presence_service.dart';
+import 'services/webrtc/webrtc_signaling_service.dart';
+import 'services/webrtc/call_manager.dart';
+import 'services/notifications/notification_service.dart';
 import 'utils/local_proxy.dart';
 
 import 'dart:io';
+
+import 'package:logging/logging.dart' as dart_logging;
+import 'package:livekit_client/livekit_client.dart';
 
 class _DevHttpOverrides extends HttpOverrides {
   @override
@@ -34,12 +47,52 @@ class _DevHttpOverrides extends HttpOverrides {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Проверяем первый запуск приложения после установки/очистки данных
+  final prefs = await SharedPreferences.getInstance();
+  final hasRunBefore = prefs.getBool('has_run_before') ?? false;
+  if (!hasRunBefore) {
+    debugPrint('First run detected (or app data was cleared). Clearing secure storage...');
+    final tokenStorage = TokenStorage();
+    await tokenStorage.clearAll();
+    
+    // Сбрасываем ID устройства, чтобы сгенерировать новый fingerprint на сервере
+    await prefs.remove('xaneo_device_id');
+    
+    final recentAccountsService = RecentAccountsService(
+      apiClient: ApiClient(tokenStorage: tokenStorage, deviceId: ''),
+    );
+    await recentAccountsService.clearLocalAccounts();
+    
+    await prefs.setBool('has_run_before', true);
+  }
+
+  // Получаем или генерируем уникальный ID устройства
+  String? deviceId = prefs.getString('xaneo_device_id');
+  if (deviceId == null || deviceId.isEmpty) {
+    final random = Random.secure();
+    final values = List<int>.generate(16, (i) => random.nextInt(256));
+    deviceId = base64UrlEncode(values).replaceAll('=', '');
+    await prefs.setString('xaneo_device_id', deviceId);
+  }
+
+  // Инициализируем пуш-уведомления
+  await NotificationService().initialize();
+  
+  // Включаем подробное логирование для LiveKit в режиме отладки
+  if (kDebugMode) {
+    dart_logging.Logger.root.level = dart_logging.Level.ALL;
+    dart_logging.Logger.root.onRecord.listen((record) {
+      print('[LiveKit] ${record.level.name}: ${record.time}: ${record.message}');
+    });
+  }
+  
   HttpOverrides.global = _DevHttpOverrides();
   LocalProxy.start();
   
-  // Инициализируем локальную зашифрованную БД
-  final appDb = await AppDatabase.getInstance();
-  final localChatRepo = LocalChatRepository(appDb);
+  // Получаем путь к документам и ключ шифрования БД один раз при запуске
+  final dbFolder = await getApplicationDocumentsDirectory();
+  final dbKey = await DatabaseKeyService().getEncryptionKey();
   
   // Устанавливаем чёрный статус-бар
   SystemChrome.setSystemUIOverlayStyle(
@@ -51,20 +104,29 @@ void main() async {
     ),
   );
   
-  runApp(XaneoApp(localChatRepo: localChatRepo));
+  runApp(XaneoApp(dbFolder: dbFolder, dbKey: dbKey, deviceId: deviceId));
 }
 
 /// Точка входа в приложение Xaneo
 class XaneoApp extends StatelessWidget {
-  final LocalChatRepository localChatRepo;
+  final Directory dbFolder;
+  final String dbKey;
+  final String deviceId;
+  final LocalChatRepository? localChatRepoOverride;
   
-  const XaneoApp({super.key, required this.localChatRepo});
+  const XaneoApp({
+    super.key,
+    required this.dbFolder,
+    required this.dbKey,
+    required this.deviceId,
+    this.localChatRepoOverride,
+  });
 
   @override
   Widget build(BuildContext context) {
     // Создаём ApiClient один раз для всего приложения
     final tokenStorage = TokenStorage();
-    final apiClient = ApiClient(tokenStorage: tokenStorage);
+    final apiClient = ApiClient(tokenStorage: tokenStorage, deviceId: deviceId);
 
     // Создаём CryptoService для E2E шифрования (XSEC-2)
     final cryptoService = CryptoService(
@@ -80,8 +142,6 @@ class XaneoApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<PlaybackProvider>(create: (_) => PlaybackProvider()),
-        // Локальная зашифрованная БД чатов
-        Provider<LocalChatRepository>.value(value: localChatRepo),
         // ApiClient для всех экранов
         Provider<ApiClient>.value(value: apiClient),
         // CryptoService для расшифровки сообщений
@@ -107,6 +167,27 @@ class XaneoApp extends StatelessWidget {
             return authProvider;
           },
         ),
+        // Локальная зашифрованная БД чатов с разделением по пользователям (поддержка override для тестов)
+        localChatRepoOverride != null
+            ? Provider<LocalChatRepository>.value(value: localChatRepoOverride!)
+            : ProxyProvider<AuthProvider, LocalChatRepository>(
+                update: (context, auth, previousRepo) {
+                  final currentUserId = auth.user?.id.toString();
+                  if (previousRepo != null && previousRepo.userId == currentUserId) {
+                    return previousRepo;
+                  }
+                  
+                  final db = AppDatabase.createForUser(
+                    dbFolder: dbFolder,
+                    dbKey: dbKey,
+                    userId: currentUserId,
+                  );
+                  return LocalChatRepository(db, userId: currentUserId);
+                },
+                dispose: (context, repo) {
+                  repo.dispose();
+                },
+              ),
         // PresenceService для фонового и глобального отслеживания активности (в сети / не в сети)
         Provider<PresenceService>(
           lazy: false,
@@ -122,9 +203,40 @@ class XaneoApp extends StatelessWidget {
           },
           dispose: (context, service) => service.dispose(),
         ),
+        Provider<WebRTCSignalingService>(
+          create: (context) {
+            final apiClient = context.read<ApiClient>();
+            return WebRTCSignalingService(apiClient: apiClient);
+          },
+          dispose: (context, service) => service.dispose(),
+        ),
+        ChangeNotifierProvider<CallManager>(
+          lazy: false,
+          create: (context) {
+            final apiClient = context.read<ApiClient>();
+            final signalingService = context.read<WebRTCSignalingService>();
+            final authProvider = context.read<AuthProvider>();
+            final manager = CallManager(
+              apiClient: apiClient,
+              signalingService: signalingService,
+            );
+            authProvider.addListener(() {
+              if (authProvider.isAuthenticated && authProvider.user != null) {
+                signalingService.connect(authProvider.user!.id.toString());
+              } else {
+                signalingService.disconnect();
+              }
+            });
+            if (authProvider.isAuthenticated && authProvider.user != null) {
+              signalingService.connect(authProvider.user!.id.toString());
+            }
+            return manager;
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'Xaneo',
+        navigatorKey: NotificationService.navigatorKey,
         debugShowCheckedModeBanner: false,
         
         // Чёрно-белая тема

@@ -5,8 +5,14 @@ import '../database/app_database.dart';
 
 class LocalChatRepository {
   final AppDatabase _db;
+  final String? userId;
 
-  LocalChatRepository(this._db);
+  LocalChatRepository(this._db, {this.userId});
+
+  /// Освобождает ресурсы базы данных
+  Future<void> dispose() async {
+    await _db.close();
+  }
 
   /// Получение всех чатов в виде потока (Stream) для реактивного UI, уже преобразованных в ChatModel.
   Stream<List<ChatModel>> watchAllChats() {
@@ -44,7 +50,10 @@ class LocalChatRepository {
   Stream<List<Message>> watchMessagesForChat(int chatId) {
     return (_db.select(_db.messages)
           ..where((m) => m.chatId.equals(chatId))
-          ..orderBy([(m) => OrderingTerm.desc(m.timestamp)]))
+          ..orderBy([
+            (m) => OrderingTerm.desc(m.timestamp),
+            (m) => OrderingTerm.desc(m.id),
+          ]))
         .watch();
   }
 
@@ -54,7 +63,10 @@ class LocalChatRepository {
       innerJoin(_db.chats, _db.chats.id.equalsExp(_db.messages.chatId))
     ])
       ..where(_db.chats.serverChatId.equals(serverChatId))
-      ..orderBy([OrderingTerm.desc(_db.messages.timestamp)]);
+      ..orderBy([
+        OrderingTerm.desc(_db.messages.timestamp),
+        OrderingTerm.desc(_db.messages.id),
+      ]);
 
     if (limit != null) {
       query.limit(limit);
@@ -80,6 +92,11 @@ class LocalChatRepository {
 
     if (row == null) return null;
     return _mapChatToModel(row);
+  }
+
+  Future<List<ChatModel>> getAllChats() async {
+    final rows = await _db.select(_db.chats).get();
+    return rows.map(_mapChatToModel).toList();
   }
 
   Future<int> deleteChatByServerId(String serverChatId) {
@@ -145,6 +162,15 @@ class LocalChatRepository {
     });
   }
 
+  /// Очистка невалидных cached fileUrl для предотвращения эксплуатации E2EE JSON в тексте
+  Future<void> cleanupFakeFileMessages(int chatId) async {
+    await (_db.update(_db.messages)
+          ..where((tbl) => tbl.chatId.equals(chatId))
+          ..where((tbl) => tbl.fileUrl.isNotNull())
+          ..where((tbl) => tbl.fileUrl.equalsExp(tbl.textContent)))
+        .write(const MessagesCompanion(fileUrl: Value(null)));
+  }
+
   /// Получение количества сообщений в чате по его локальному числовому ID
   Future<int> getMessageCount(int chatId) async {
     final countExpr = _db.messages.id.count();
@@ -161,6 +187,67 @@ class LocalChatRepository {
     return (_db.select(_db.messages)
           ..where((m) => m.serverMessageId.isIn(serverIds)))
         .get();
+  }
+
+  /// Получение порядкового номера (индекса) сообщения по его serverMessageId при сортировке по времени убывания
+  Future<int?> getMessageIndexByServerId(String serverChatId, String serverMessageId) async {
+    final chatId = await getLocalChatId(serverChatId);
+    if (chatId == null) return null;
+
+    final targetMsg = await getMessagesByServerIds([serverMessageId]);
+    if (targetMsg.isEmpty) return null;
+    final target = targetMsg.first;
+
+    final query = _db.select(_db.messages)
+      ..where((m) => m.chatId.equals(chatId))
+      ..where((m) => m.timestamp.isBiggerOrEqualValue(target.timestamp));
+    final list = await query.get();
+
+    list.sort((a, b) {
+      final cmp = b.timestamp.compareTo(a.timestamp);
+      if (cmp != 0) return cmp;
+      return b.id.compareTo(a.id);
+    });
+
+    final idx = list.indexWhere((m) => m.serverMessageId == serverMessageId);
+    return idx == -1 ? null : idx;
+  }
+
+  /// Поиск сообщения в БД по его url или локальному пути
+  Future<Message?> getMessageByFileUrlOrPath(String urlOrPath) async {
+    String? fileId;
+    if (urlOrPath.contains('/api/files/download/')) {
+      final regExp = RegExp(r'/api/files/download/([^/]+)');
+      final match = regExp.firstMatch(urlOrPath);
+      if (match != null) {
+        fileId = match.group(1);
+      }
+    }
+
+    final query = _db.select(_db.messages)..where((m) => m.fileUrl.isNotNull());
+    final allFileMsgs = await query.get();
+
+    for (final msg in allFileMsgs) {
+      if (msg.fileUrl == null) continue;
+      try {
+        final parsed = jsonDecode(msg.fileUrl!);
+        if (parsed is Map) {
+          if (fileId != null && parsed['file_id']?.toString() == fileId) {
+            return msg;
+          }
+          if (parsed['file_id']?.toString() == urlOrPath) {
+            return msg;
+          }
+          if (parsed['local_path']?.toString() == urlOrPath) {
+            return msg;
+          }
+          if (parsed['file_url']?.toString() == urlOrPath) {
+            return msg;
+          }
+        }
+      } catch (_) {}
+    }
+    return null;
   }
 
   /// Получение сообщения по его messageId (UUID To-do/Poll)

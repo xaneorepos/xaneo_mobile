@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../../config/app_config.dart';
@@ -450,6 +451,25 @@ class AuthService {
       return null;
     } on DioException catch (e) {
       throw _handleDioError(e);
+    }
+  }
+
+  /// Регистрация FCM пуш-токена на бэкенде
+  Future<void> registerFcmToken(String token) async {
+    try {
+      await _apiClient.post(
+        '/api/notifications/register-token/',
+        data: {
+          'token': token,
+          'device_id': _apiClient.deviceId,
+          'device_type': Platform.isAndroid ? 'android' : 'ios',
+        },
+      );
+      debugPrint('FCM: Token registered with backend successfully.');
+    } on DioException catch (e) {
+      debugPrint('FCM: Error registering token with backend: ${e.message}');
+    } catch (e) {
+      debugPrint('FCM: Unexpected error registering token with backend: $e');
     }
   }
 }

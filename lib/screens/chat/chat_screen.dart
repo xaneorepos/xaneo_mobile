@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
+import 'package:file_picker/file_picker.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 import 'package:drift/drift.dart' hide Column;
@@ -23,6 +24,8 @@ import '../../services/crypto/crypto_service.dart';
 import '../../services/database/app_database.dart';
 import '../../styles/app_styles.dart';
 import '../../widgets/common/chat_info_modal.dart';
+import '../../services/webrtc/call_manager.dart';
+import '../webrtc/active_call_screen.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
@@ -96,6 +99,7 @@ class _ChatScreenState extends State<ChatScreen> {
   StreamSubscription? _wsEventsSub;
 
   final _messageController = FormattedTextEditingController();
+  final List<AttachmentComposition> _attachments = [];
   final _messageFocusNode = FocusNode();
   final _scrollController = ScrollController();
 
@@ -128,6 +132,8 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isHistoryLoading = false;
   bool _hasMoreMessages = true;
   int _limit = 20;
+  String? _highlightedMessageId;
+  List<Message> _loadedMessages = [];
 
   // Typing state variables (sending)
   bool _isTyping = false;
@@ -283,6 +289,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // Let it build the initial list straight away to avoid post-transition jank
 
     if (localId != null) {
+      await _localChatRepo.cleanupFakeFileMessages(localId);
       final localCount = await _localChatRepo.getMessageCount(localId);
       
       if (mounted) {
@@ -328,6 +335,79 @@ class _ChatScreenState extends State<ChatScreen> {
     _fetchChatDetails();
   }
 
+  String? _parseFileInfo(Map<String, dynamic> item, String? decrypted) {
+    if ((item['message_type'] == 'call' || item['type'] == 'call') && item['message_data'] != null) {
+      return jsonEncode(item['message_data']);
+    }
+    // 1. Check if it's already inside decrypted text (polls/todos or file info JSON)
+    final hasServerFile = (item['attached_file_id'] != null && item['attached_file_id'].toString().isNotEmpty) ||
+                          (item['file_id'] != null && item['file_id'].toString().isNotEmpty) ||
+                          (item['file_url'] != null && item['file_url'].toString().isNotEmpty);
+    if (hasServerFile && decrypted != null && decrypted.trim().startsWith('{')) {
+      try {
+        final parsed = jsonDecode(decrypted);
+        if (parsed is Map && (parsed['type'] == 'file' || parsed['type'] == 'voice' || parsed['type'] == 'video_message') && parsed['file_id'] != null && parsed['file_id'].toString().isNotEmpty) {
+          return decrypted;
+        }
+      } catch (_) {}
+    }
+
+    // 2. Check if we have multiple images (collage)
+    final imagesList = item['images'];
+    if (imagesList is List && imagesList.isNotEmpty) {
+      final List<Map<String, dynamic>> files = [];
+      for (final img in imagesList) {
+        if (img is Map) {
+          final fId = img['file_id']?.toString();
+          if (fId != null && fId.isNotEmpty) {
+            final fName = img['name']?.toString() ?? img['file_name']?.toString() ?? 'file';
+            final fSize = img['size'] as int? ?? img['file_size'] as int? ?? 0;
+            final fType = img['mime_type']?.toString() ?? img['file_type']?.toString() ?? 'image/jpeg';
+            String fUrl = img['url']?.toString() ?? img['file_url']?.toString() ?? '';
+            if (fUrl.isEmpty) {
+              fUrl = '/api/files/download/$fId/';
+            }
+            files.add({
+              'file_id': fId,
+              'file_name': fName,
+              'file_size': fSize,
+              'mime_type': fType,
+              'file_url': fUrl,
+              'blur_hash': img['blur_hash']?.toString(),
+            });
+          }
+        }
+      }
+      if (files.isNotEmpty) {
+        return jsonEncode({
+          'type': 'collage',
+          'files': files,
+        });
+      }
+    }
+
+    // 3. Check for single attached file
+    final fileId = item['attached_file_id']?.toString() ?? item['file_id']?.toString();
+    if (fileId != null && fileId.isNotEmpty) {
+      final fileName = item['attached_file_name']?.toString() ?? item['file_name']?.toString() ?? 'file';
+      final fileSize = item['attached_file_size'] as int? ?? item['file_size'] as int? ?? 0;
+      final fileType = item['attached_file_type']?.toString() ?? item['mime_type']?.toString() ?? 'application/octet-stream';
+      String fileUrlSuffix = item['attached_file_url']?.toString() ?? item['file_url']?.toString() ?? '';
+      if (fileUrlSuffix.isEmpty) {
+        fileUrlSuffix = '/api/files/download/$fileId/';
+      }
+      return jsonEncode({
+        'file_id': fileId,
+        'file_name': fileName,
+        'file_size': fileSize,
+        'mime_type': fileType,
+        'file_url': fileUrlSuffix,
+      });
+    }
+
+    return null;
+  }
+
   Future<void> _syncLatestMessages() async {
     final localId = _localChatId;
     if (localId == null) return;
@@ -351,7 +431,7 @@ class _ChatScreenState extends State<ChatScreen> {
             .toList();
 
         final existingMessages = await _localChatRepo.getMessagesByServerIds(msgIds);
-        final existingMap = {for (final m in existingMessages) m.serverMessageId: m.textContent};
+        final existingMap = {for (final m in existingMessages) m.serverMessageId: m};
 
         int newMessagesCount = 0;
         for (final item in results) {
@@ -364,8 +444,11 @@ class _ChatScreenState extends State<ChatScreen> {
           final timestamp = _parseDateTime(item['created_at']) ?? DateTime.now();
 
           String? decrypted;
+          String? existingFileUrl;
           if (existingMap.containsKey(msgId)) {
-            final existingText = existingMap[msgId] ?? '';
+            final existingMsg = existingMap[msgId]!;
+            final existingText = existingMsg.textContent;
+            existingFileUrl = existingMsg.fileUrl;
             if (cryptoService.isEncryptedMessage(existingText) && encryptedText.isNotEmpty) {
               decrypted = await cryptoService.decryptChatMessage(encryptedText, widget.chat.id);
               await Future.delayed(Duration.zero);
@@ -378,33 +461,7 @@ class _ChatScreenState extends State<ChatScreen> {
             await Future.delayed(Duration.zero);
           }
 
-          String? fileInfoJson;
-          final hasServerFile = item['attached_file_id'] != null || item['file_url'] != null;
-          if (hasServerFile && decrypted != null && decrypted.trim().startsWith('{')) {
-            try {
-              final parsed = jsonDecode(decrypted);
-              if (parsed is Map && (parsed['type'] == 'file' || parsed['type'] == 'voice' || parsed['type'] == 'video_message') && parsed['file_id'] != null) {
-                fileInfoJson = decrypted;
-              }
-            } catch (_) {}
-          }
-
-          if (fileInfoJson == null) {
-            final fileId = item['attached_file_id']?.toString();
-            if (fileId != null) {
-              final fileName = item['attached_file_name']?.toString() ?? 'file';
-              final fileSize = item['attached_file_size'] as int? ?? 0;
-              final fileType = item['attached_file_type']?.toString() ?? 'application/octet-stream';
-              final fileUrlSuffix = item['attached_file_url']?.toString() ?? '/api/files/download/$fileId/';
-              fileInfoJson = jsonEncode({
-                'file_id': fileId,
-                'file_name': fileName,
-                'file_size': fileSize,
-                'mime_type': fileType,
-                'file_url': fileUrlSuffix,
-              });
-            }
-          }
+          final fileInfoJson = _parseFileInfo(Map<String, dynamic>.from(item), decrypted);
 
           final messageType = item['message_type']?.toString();
           final messageId = item['message_id']?.toString();
@@ -440,6 +497,227 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } catch (e) {
       debugPrint('Error syncing latest messages: $e');
+    }
+  }
+
+  double _estimateMessageHeight(Message msg) {
+    double height = 7.0 + 3.0 + 14.0 + 5.0; // vertical padding/margins + time row + safety margin
+
+    if (msg.textContent.isNotEmpty && !msg.textContent.startsWith('{')) {
+      final textLength = msg.textContent.length;
+      final lines = (textLength / 32).ceil();
+      height += lines * 19.0;
+    }
+
+    if (msg.fileUrl != null && msg.fileUrl!.isNotEmpty) {
+      try {
+        final fileData = jsonDecode(msg.fileUrl!);
+        if (fileData is Map) {
+          final type = fileData['type'];
+          if (type == 'collage') {
+            final filesList = fileData['files'] as List?;
+            final fileCount = filesList?.length ?? 0;
+            if (fileCount > 0) {
+              height += ((fileCount / 2).ceil() * 120.0).clamp(120.0, 360.0);
+            }
+          } else if (type == 'video_message') {
+            height += 170.0;
+          } else if (type == 'voice') {
+            height += 48.0;
+          } else {
+            final mime = (fileData['mime_type'] ?? '').toString().toLowerCase();
+            final fileName = (fileData['file_name'] ?? '').toString().toLowerCase();
+            final isImage = mime.startsWith('image/') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || fileName.endsWith('.png') || fileName.endsWith('.gif') || fileName.endsWith('.webp');
+            final isVideo = mime.startsWith('video/') || fileName.endsWith('.mp4') || fileName.endsWith('.mov') || fileName.endsWith('.avi');
+
+            if (isImage || isVideo) {
+              height += 200.0;
+            } else {
+              height += 68.0;
+            }
+          }
+        }
+      } catch (_) {}
+    } else if (msg.messageType == 'poll') {
+      height += 220.0;
+    } else if (msg.messageType == 'todo_list') {
+      height += 200.0;
+    }
+
+    return height;
+  }
+
+  double _calculateScrollOffsetForIndex(int targetIndex) {
+    double offset = 16.0; // bottom padding
+    for (int i = 0; i < targetIndex; i++) {
+      if (i >= _loadedMessages.length) break;
+      offset += _estimateMessageHeight(_loadedMessages[i]);
+
+      // Add estimated height of date separator (approx. 50.0 pixels including padding and margins)
+      bool hasDateSeparator = false;
+      if (i == _loadedMessages.length - 1) {
+        hasDateSeparator = true;
+      } else {
+        final currentMsg = _loadedMessages[i];
+        final nextMsg = _loadedMessages[i + 1]; // visually above currentMsg (older)
+        if (currentMsg.timestamp.year != nextMsg.timestamp.year ||
+            currentMsg.timestamp.month != nextMsg.timestamp.month ||
+            currentMsg.timestamp.day != nextMsg.timestamp.day) {
+          hasDateSeparator = true;
+        }
+      }
+      if (hasDateSeparator) {
+        offset += 50.0;
+      }
+    }
+    return offset;
+  }
+
+  String _formatDateSeparator(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final targetDate = DateTime(dt.year, dt.month, dt.day);
+
+    if (targetDate == today) {
+      return 'Сегодня';
+    } else if (targetDate == yesterday) {
+      return 'Вчера';
+    } else {
+      const months = [
+        'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+        'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
+      ];
+      final monthStr = months[dt.month - 1];
+      if (dt.year == now.year) {
+        return '${dt.day} $monthStr';
+      } else {
+        return '${dt.day} $monthStr ${dt.year}';
+      }
+    }
+  }
+
+  Widget _buildDateSeparator(DateTime dt) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 14),
+      alignment: Alignment.center,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.04),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          _formatDateSeparator(dt),
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.6),
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            fontFamily: AppStyles.fontFamily,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Element? _findElementByKey(Key key) {
+    Element? foundElement;
+    void visitor(Element element) {
+      if (foundElement != null) return;
+      if (element.widget.key == key) {
+        foundElement = element;
+        return;
+      }
+      element.visitChildren(visitor);
+    }
+    context.visitChildElements(visitor);
+    return foundElement;
+  }
+
+  Future<void> _scrollToMessage(String msgId) async {
+    final index = await _localChatRepo.getMessageIndexByServerId(widget.chat.id, msgId);
+    debugPrint('[_scrollToMessage] Target msgId: $msgId, resolved index in SQLite: $index');
+    if (index != null && index != -1) {
+      if (index >= _limit) {
+        setState(() {
+          _limit = index + 15;
+          _updateStream();
+        });
+        
+        int retries = 0;
+        while (retries < 20 && !_loadedMessages.any((m) => m.serverMessageId == msgId)) {
+          await Future.delayed(const Duration(milliseconds: 100));
+          retries++;
+        }
+        await Future.delayed(const Duration(milliseconds: 150));
+      }
+
+      if (_loadedMessages.isEmpty) {
+        debugPrint('[_scrollToMessage] Warning: _loadedMessages is empty!');
+        return;
+      }
+      
+      final actualIndex = _loadedMessages.indexWhere((m) => m.serverMessageId == msgId);
+      debugPrint('[_scrollToMessage] Index in active list: $actualIndex, loaded count: ${_loadedMessages.length}');
+      if (actualIndex != -1) {
+        setState(() {
+          _highlightedMessageId = msgId;
+        });
+        
+        // Iterative jump loop: maxScrollExtent grows lazily as ListView
+        // builds more off-screen items, so a single jump from offset 0
+        // usually lands short. We keep recalculating and jumping until
+        // the target element actually appears in the widget tree.
+        Element? element;
+        final targetKey = ValueKey(msgId);
+        final totalCount = _loadedMessages.length;
+        final ratio = actualIndex / totalCount;
+        
+        for (int attempt = 0; attempt < 5; attempt++) {
+          if (!_scrollController.hasClients) break;
+          
+          final maxScroll = _scrollController.position.maxScrollExtent;
+          final targetOffset = (ratio * maxScroll).clamp(0.0, maxScroll);
+          
+          debugPrint('[_scrollToMessage] Attempt ${attempt + 1}: jumpTo $targetOffset (maxScroll: $maxScroll)');
+          _scrollController.jumpTo(targetOffset);
+          
+          // Let Flutter build the newly visible items
+          await Future.delayed(const Duration(milliseconds: 80));
+          
+          element = _findElementByKey(targetKey);
+          if (element != null) break;
+        }
+        
+        // Final centering with smooth animation
+        if (element != null) {
+          debugPrint('[_scrollToMessage] Found element, centering...');
+          await Scrollable.ensureVisible(
+            element,
+            alignment: 0.5,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+          );
+        } else {
+          debugPrint('[_scrollToMessage] Warning: Element not found after all attempts');
+        }
+
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted && _highlightedMessageId == msgId) {
+            setState(() {
+              _highlightedMessageId = null;
+            });
+          }
+        });
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Сообщение находится выше в истории')),
+      );
     }
   }
 
@@ -507,7 +785,7 @@ class _ChatScreenState extends State<ChatScreen> {
             .toList();
 
         final existingMessages = await _localChatRepo.getMessagesByServerIds(msgIds);
-        final existingMap = {for (final m in existingMessages) m.serverMessageId: m.textContent};
+        final existingMap = {for (final m in existingMessages) m.serverMessageId: m};
 
         for (final item in results) {
           final msgId = item['id']?.toString() ?? '';
@@ -516,8 +794,11 @@ class _ChatScreenState extends State<ChatScreen> {
           final timestamp = _parseDateTime(item['created_at']) ?? DateTime.now();
 
           String? decrypted;
+          String? existingFileUrl;
           if (existingMap.containsKey(msgId)) {
-            final existingText = existingMap[msgId] ?? '';
+            final existingMsg = existingMap[msgId]!;
+            final existingText = existingMsg.textContent;
+            existingFileUrl = existingMsg.fileUrl;
             if (cryptoService.isEncryptedMessage(existingText) && encryptedText.isNotEmpty) {
               decrypted = await cryptoService.decryptChatMessage(encryptedText, widget.chat.id);
               await Future.delayed(Duration.zero);
@@ -530,33 +811,7 @@ class _ChatScreenState extends State<ChatScreen> {
             await Future.delayed(Duration.zero);
           }
 
-          String? fileInfoJson;
-          final hasServerFile = item['attached_file_id'] != null || item['file_url'] != null;
-          if (hasServerFile && decrypted != null && decrypted.trim().startsWith('{')) {
-            try {
-              final parsed = jsonDecode(decrypted);
-              if (parsed is Map && (parsed['type'] == 'file' || parsed['type'] == 'voice' || parsed['type'] == 'video_message') && parsed['file_id'] != null) {
-                fileInfoJson = decrypted;
-              }
-            } catch (_) {}
-          }
-
-          if (fileInfoJson == null) {
-            final fileId = item['attached_file_id']?.toString();
-            if (fileId != null) {
-              final fileName = item['attached_file_name']?.toString() ?? 'file';
-              final fileSize = item['attached_file_size'] as int? ?? 0;
-              final fileType = item['attached_file_type']?.toString() ?? 'application/octet-stream';
-              final fileUrlSuffix = item['attached_file_url']?.toString() ?? '/api/files/download/$fileId/';
-              fileInfoJson = jsonEncode({
-                'file_id': fileId,
-                'file_name': fileName,
-                'file_size': fileSize,
-                'mime_type': fileType,
-                'file_url': fileUrlSuffix,
-              });
-            }
-          }
+          final fileInfoJson = _parseFileInfo(Map<String, dynamic>.from(item), decrypted);
 
           final messageType = item['message_type']?.toString();
           final messageId = item['message_id']?.toString();
@@ -778,33 +1033,7 @@ class _ChatScreenState extends State<ChatScreen> {
           'system';
       final msgId = event['id']?.toString() ?? 'ws_${DateTime.now().millisecondsSinceEpoch}';
 
-      String? fileInfoJson;
-      final hasServerFile = event['attached_file_id'] != null || event['file_id'] != null;
-      if (hasServerFile && decrypted != null && decrypted.trim().startsWith('{')) {
-        try {
-          final parsed = jsonDecode(decrypted);
-          if (parsed is Map && (parsed['type'] == 'file' || parsed['type'] == 'voice' || parsed['type'] == 'video_message') && parsed['file_id'] != null) {
-            fileInfoJson = decrypted;
-          }
-        } catch (_) {}
-      }
-
-      if (fileInfoJson == null) {
-        final fileId = event['attached_file_id']?.toString();
-        if (fileId != null) {
-          final fileName = event['attached_file_name']?.toString() ?? 'file';
-          final fileSize = event['attached_file_size'] as int? ?? 0;
-          final fileType = event['attached_file_type']?.toString() ?? 'application/octet-stream';
-          final fileUrlSuffix = event['attached_file_url']?.toString() ?? '/api/files/download/$fileId/';
-          fileInfoJson = jsonEncode({
-            'file_id': fileId,
-            'file_name': fileName,
-            'file_size': fileSize,
-            'mime_type': fileType,
-            'file_url': fileUrlSuffix,
-          });
-        }
-      }
+      String? fileInfoJson = _parseFileInfo(Map<String, dynamic>.from(event), decrypted);
 
       String? messageType = event['message_type']?.toString();
       if (messageType == null) {
@@ -1537,9 +1766,20 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty && _attachments.isEmpty) return;
 
+    if (_attachments.any((a) => a.status == 'uploading')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Пожалуйста, подождите окончания загрузки файлов')),
+      );
+      return;
+    }
+
+    final localAttachments = List<AttachmentComposition>.from(_attachments);
     _messageController.clear();
+    setState(() {
+      _attachments.clear();
+    });
 
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
@@ -1554,13 +1794,20 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final cryptoService = context.read<CryptoService>();
     final timestamp = DateTime.now();
-    // 1. Update chat preview locally
+
+    String previewText = text;
+    if (previewText.isEmpty && localAttachments.isNotEmpty) {
+      previewText = localAttachments.length == 1 
+          ? 'Файл: ${localAttachments[0].fileName}'
+          : 'Файлы (${localAttachments.length})';
+    }
+
     final updatedChat = ChatModel(
       id: widget.chat.id,
       name: widget.chat.name,
       avatar: widget.chat.avatar,
       avatarGradient: widget.chat.avatarGradient,
-      lastMessage: text,
+      lastMessage: previewText,
       lastMessageTime: timestamp,
       unreadCount: 0,
       isGroup: widget.chat.isGroup,
@@ -1574,11 +1821,65 @@ class _ChatScreenState extends State<ChatScreen> {
     );
     await _localChatRepo.saveChat(updatedChat);
 
-    // 2. Encrypt & send E2EE over WS
     try {
       final encryptedText = await cryptoService.encryptMessage(text, widget.chat.id);
-      
-      if (encryptedText != null) {
+      if (encryptedText == null) {
+        debugPrint('SEND_MSG: encryption returned null, key not available for chat ${widget.chat.id}');
+        return;
+      }
+
+      if (text.isNotEmpty && localAttachments.isNotEmpty) {
+        final allFilesList = localAttachments.map((file) => {
+          'file_id': file.fileId,
+          'name': file.fileName,
+          'size': file.fileSize,
+          'type': file.fileType,
+          'mime_type': file.fileType,
+        }).toList();
+
+        await _chatWebSocketService.send({
+          'type': 'encrypted_message',
+          'chat_id': widget.chat.id,
+          'encrypted_text': encryptedText,
+          'images': allFilesList,
+        });
+      } else if (text.isEmpty && localAttachments.isNotEmpty) {
+        final encryptedEmptyText = await cryptoService.encryptMessage("", widget.chat.id);
+        if (encryptedEmptyText == null) return;
+
+        List<Map<String, dynamic>> compressedImagesList = [];
+        String? firstFileId;
+
+        if (localAttachments.length == 1) {
+          final singleFile = localAttachments[0];
+          firstFileId = singleFile.fileId;
+          if (singleFile.fileType == 'image' || singleFile.fileType == 'video') {
+            compressedImagesList = [{
+              'file_id': singleFile.fileId,
+              'name': singleFile.fileName,
+              'size': singleFile.fileSize,
+              'type': singleFile.fileType,
+              'mime_type': singleFile.fileType,
+            }];
+          }
+        } else {
+          compressedImagesList = localAttachments.map((file) => {
+            'file_id': file.fileId,
+            'name': file.fileName,
+            'size': file.fileSize,
+            'type': file.fileType,
+            'mime_type': file.fileType,
+          }).toList();
+        }
+
+        await _chatWebSocketService.send({
+          'type': 'encrypted_message',
+          'chat_id': widget.chat.id,
+          'encrypted_text': encryptedEmptyText,
+          'file_id': firstFileId,
+          'images': compressedImagesList,
+        });
+      } else {
         await _chatWebSocketService.send({
           'type': 'encrypted_message',
           'chat_id': widget.chat.id,
@@ -1586,8 +1887,6 @@ class _ChatScreenState extends State<ChatScreen> {
           'images': [],
           'image': null,
         });
-      } else {
-        debugPrint('SEND_MSG: encryption returned null, key not available for chat ${widget.chat.id}');
       }
     } catch (e) {
       debugPrint('Error sending E2EE message over WS: $e');
@@ -1660,6 +1959,336 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  String _detectFileType(String path) {
+    final lowerPath = path.toLowerCase();
+    if (lowerPath.endsWith('.jpg') ||
+        lowerPath.endsWith('.jpeg') ||
+        lowerPath.endsWith('.png') ||
+        lowerPath.endsWith('.gif') ||
+        lowerPath.endsWith('.webp') ||
+        lowerPath.endsWith('.bmp') ||
+        lowerPath.endsWith('.svg')) {
+      return 'image';
+    }
+    if (lowerPath.endsWith('.mp4') ||
+        lowerPath.endsWith('.avi') ||
+        lowerPath.endsWith('.mov') ||
+        lowerPath.endsWith('.wmv') ||
+        lowerPath.endsWith('.flv') ||
+        lowerPath.endsWith('.webm') ||
+        lowerPath.endsWith('.mkv') ||
+        lowerPath.endsWith('.3gp') ||
+        lowerPath.endsWith('.ogv') ||
+        lowerPath.endsWith('.m4v')) {
+      return 'video';
+    }
+    if (lowerPath.endsWith('.mp3') ||
+        lowerPath.endsWith('.wav') ||
+        lowerPath.endsWith('.ogg') ||
+        lowerPath.endsWith('.m4a') ||
+        lowerPath.endsWith('.opus')) {
+      return 'audio';
+    }
+    return 'document';
+  }
+
+  Future<void> _processPickedFiles(List<File> files) async {
+    if (files.isEmpty) return;
+
+    final List<AttachmentComposition> newAttachments = [];
+    for (final file in files) {
+      final name = file.path.split('/').last;
+      final size = file.lengthSync();
+      final type = _detectFileType(file.path);
+      newAttachments.add(AttachmentComposition(
+        file: file,
+        status: 'uploading',
+        fileType: type,
+        fileSize: size,
+        fileName: name,
+      ));
+    }
+    if (newAttachments.isNotEmpty) {
+      setState(() {
+        _attachments.addAll(newAttachments);
+      });
+      for (final attachment in newAttachments) {
+        _uploadAttachment(attachment);
+      }
+    }
+  }
+
+  Future<void> _pickFilesUnified() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        allowMultiple: true,
+        type: FileType.any,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        final List<File> files = [];
+        for (final pf in result.files) {
+          if (pf.path != null) {
+            files.add(File(pf.path!));
+          }
+        }
+        if (files.isNotEmpty) {
+          await _processPickedFiles(files);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking files: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка при выборе файлов: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadAttachment(AttachmentComposition attachment) async {
+    try {
+      final formData = FormData.fromMap({
+        'file_type': attachment.fileType,
+        'chat_id': widget.chat.id,
+        'file': await MultipartFile.fromFile(
+          attachment.file.path,
+          filename: attachment.fileName,
+        ),
+      });
+
+      final apiClient = context.read<ApiClient>();
+      final response = await apiClient.post(
+        '/files/upload/',
+        data: formData,
+      );
+
+      if (response.statusCode == 201 && response.data['success'] == true) {
+        final fileId = response.data['file_id'] as String;
+        if (mounted) {
+          setState(() {
+            attachment.status = 'success';
+            attachment.fileId = fileId;
+          });
+        }
+      } else {
+        throw Exception('Failed to upload file');
+      }
+    } catch (e) {
+      debugPrint('Error uploading attachment: $e');
+      if (mounted) {
+        setState(() {
+          attachment.status = 'error';
+        });
+      }
+    }
+  }
+
+  Widget _buildAttachmentsPreviewPanel() {
+    if (_attachments.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      height: 90,
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 1,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _attachments.length,
+        itemBuilder: (context, index) {
+          final att = _attachments[index];
+          final isMedia = att.fileType == 'image' || att.fileType == 'video';
+
+          Widget previewChild;
+          if (isMedia) {
+            previewChild = Image.file(
+              att.file,
+              fit: BoxFit.cover,
+              width: 74,
+              height: 74,
+              errorBuilder: (context, error, stackTrace) => Container(
+                color: Colors.black26,
+                child: const Icon(Icons.broken_image, color: Colors.white54, size: 24),
+              ),
+            );
+          } else {
+            final icon = att.fileType == 'audio'
+                ? FontAwesomeIcons.music
+                : FontAwesomeIcons.fileLines;
+            previewChild = Container(
+              color: Colors.black26,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FaIcon(icon, color: Colors.white70, size: 24),
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                      child: Text(
+                        att.fileName,
+                        style: const TextStyle(color: Colors.white70, fontSize: 8),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return Container(
+            margin: const EdgeInsets.only(right: 8),
+            width: 74,
+            height: 74,
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: previewChild,
+                ),
+                if (att.status == 'uploading')
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black45,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (att.status == 'error')
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                    ),
+                  ),
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _attachments.removeAt(index);
+                      });
+                    },
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      padding: const EdgeInsets.all(3),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 12,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showCallTypeMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black54,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF141416),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border(
+              top: BorderSide(
+                color: Colors.white.withOpacity(0.08),
+                width: 1.5,
+              ),
+            ),
+          ),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.phone_rounded, color: Colors.white),
+                    ),
+                    title: const Text('Аудиозвонок', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    subtitle: Text('Позвонить по голосовой связи', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _initiateCall('audio');
+                    },
+                  ),
+                  Divider(color: Colors.white.withOpacity(0.04), height: 1),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.videocam_rounded, color: Colors.white),
+                    ),
+                    title: const Text('Видеозвонок', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    subtitle: Text('Позвонить с включенной камерой', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _initiateCall('video');
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _showAttachmentMenu() {
     showModalBottomSheet(
       context: context,
@@ -1678,56 +2307,75 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 12),
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(2),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      shape: BoxShape.circle,
+                  const SizedBox(height: 20),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.insert_drive_file_rounded, color: Colors.white),
                     ),
-                    child: const Icon(Icons.poll_rounded, color: Colors.white),
+                    title: const Text('Файлы', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    subtitle: Text('Отправить фото, видео, аудио или другие файлы', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickFilesUnified();
+                    },
                   ),
-                  title: const Text('Создать опрос', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                  subtitle: Text('Проведение голосования в чате', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    CreatePollModal.show(context, _sendPollMessage);
-                  },
-                ),
-                Divider(color: Colors.white.withOpacity(0.04), height: 1),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      shape: BoxShape.circle,
+                  Divider(color: Colors.white.withOpacity(0.04), height: 1),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.poll_rounded, color: Colors.white),
                     ),
-                    child: const Icon(Icons.check_box_rounded, color: Colors.white),
+                    title: const Text('Создать опрос', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    subtitle: Text('Проведение голосования в чате', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      CreatePollModal.show(context, _sendPollMessage);
+                    },
                   ),
-                  title: const Text('Создать To-Do список', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                  subtitle: Text('Список задач с отметками выполнения', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    CreateTodoModal.show(context, _sendTodoListMessage);
-                  },
-                ),
-                const SizedBox(height: 16),
-              ],
+                  Divider(color: Colors.white.withOpacity(0.04), height: 1),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.check_box_rounded, color: Colors.white),
+                    ),
+                    title: const Text('Создать To-Do список', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    subtitle: Text('Список задач с отметками выполнения', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      CreateTodoModal.show(context, _sendTodoListMessage);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           ),
         );
@@ -2083,7 +2731,13 @@ class _ChatScreenState extends State<ChatScreen> {
                   top: false,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                    child: _buildInputArea(context),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildAttachmentsPreviewPanel(),
+                        _buildInputArea(context),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -2279,33 +2933,45 @@ class _ChatScreenState extends State<ChatScreen> {
                         const SizedBox(width: 12),
                         // Title and subtitle
                         Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: AppStyles.fontFamily,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () async {
+                              final currentUrl = playbackProvider.currentAudioUrl;
+                              if (currentUrl != null && currentUrl.isNotEmpty) {
+                                final message = await _localChatRepo.getMessageByFileUrlOrPath(currentUrl);
+                                if (message != null && message.serverMessageId.isNotEmpty) {
+                                  _scrollToMessage(message.serverMessageId);
+                                }
+                              }
+                            },
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    fontFamily: AppStyles.fontFamily,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 1),
-                              Text(
-                                subtitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.5),
-                                  fontSize: 10,
-                                  fontFamily: AppStyles.fontFamily,
+                                const SizedBox(height: 1),
+                                Text(
+                                  subtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.5),
+                                    fontSize: 10,
+                                    fontFamily: AppStyles.fontFamily,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                         // Close button
@@ -2439,7 +3105,7 @@ class _ChatScreenState extends State<ChatScreen> {
         centerTitle: true,
         title: _buildHeaderDroplet(
           isCircle: false,
-          onTap: () {
+          onTap: () async {
             final currentChat = ChatModel(
               id: widget.chat.id,
               name: widget.chat.name,
@@ -2456,7 +3122,10 @@ class _ChatScreenState extends State<ChatScreen> {
               isEncrypted: widget.chat.isEncrypted,
               lastMessageType: widget.chat.lastMessageType,
             );
-            ChatInfoModal.show(context, currentChat);
+            final targetMsgId = await ChatInfoModal.show(context, currentChat);
+            if (targetMsgId != null && mounted) {
+              _scrollToMessage(targetMsgId);
+            }
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -2488,17 +3157,7 @@ class _ChatScreenState extends State<ChatScreen> {
             Center(
               child: _buildHeaderDroplet(
                 isCircle: true,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Звонок в чат "${widget.chat.name}"...'),
-                      duration: const Duration(seconds: 2),
-                      backgroundColor: const Color(0xFF1E1E22),
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  );
-                },
+                onTap: _showCallTypeMenu,
                 child: const FaIcon(FontAwesomeIcons.phone, color: Colors.white70, size: 16),
               ),
             ),
@@ -2608,6 +3267,48 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     return false;
+  }
+
+  Future<void> _initiateCall(String callType) async {
+    final hasMic = await Permission.microphone.request().isGranted;
+    final hasCam = callType == 'video' ? await Permission.camera.request().isGranted : true;
+
+    if (!hasMic || !hasCam) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Необходимы разрешения на микрофон и камеру для совершения звонка'),
+            backgroundColor: Color(0xFFEF4444),
+          ),
+        );
+      }
+      return;
+    }
+
+    final callManager = context.read<CallManager>();
+    final authProvider = context.read<AuthProvider>();
+
+    String targetId = widget.chat.id.toString();
+    if (widget.chat.isPersonal && _otherUser != null) {
+      targetId = _otherUser!['id']?.toString() ?? targetId;
+    }
+
+    await callManager.startOutgoingCall(
+      targetUserId: targetId,
+      targetName: widget.chat.name,
+      targetAvatar: widget.chat.avatar,
+      targetGradient: widget.chat.avatarGradient,
+      callerName: authProvider.user?.username ?? 'User',
+      callType: callType,
+    );
+
+    if (mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const ActiveCallScreen(),
+        ),
+      );
+    }
   }
 
   String _pluralizeParticipants(int count) {
@@ -2817,6 +3518,7 @@ class _ChatScreenState extends State<ChatScreen> {
         }
 
         final messages = snapshot.data ?? [];
+        _loadedMessages = messages;
 
         if (messages.isEmpty && _isHistoryLoading) {
           return const Center(child: CircularProgressIndicator(color: Colors.white54));
@@ -2875,25 +3577,57 @@ class _ChatScreenState extends State<ChatScreen> {
               : (widget.chat.isGroup ? msg.senderId : widget.chat.name);
 
             final bool isNewMessage = _messagesToAnimate.contains(msg.serverMessageId);
+            final isHighlighted = msg.serverMessageId == _highlightedMessageId;
 
-            return NewMessageAnimator(
-              key: ValueKey('anim_${msg.serverMessageId}'),
-              animate: isNewMessage,
-              onStartAnimating: isNewMessage
-                  ? () {
-                      _messagesToAnimate.remove(msg.serverMessageId);
-                      _animatedMessageIds.add(msg.serverMessageId);
-                    }
-                  : null,
-              child: MessageBubble(
-                key: ValueKey(msg.serverMessageId),
-                message: msg,
-                isMe: isMe,
-                currentUser: currentUser,
-                jwtToken: _jwtToken,
-                senderRealName: senderRealName,
+            bool showDateSeparator = false;
+            if (index == messages.length - 1) {
+              showDateSeparator = true;
+            } else {
+              final prevMsg = messages[index + 1]; // Visually above (older message)
+              if (msg.timestamp.year != prevMsg.timestamp.year ||
+                  msg.timestamp.month != prevMsg.timestamp.month ||
+                  msg.timestamp.day != prevMsg.timestamp.day) {
+                showDateSeparator = true;
+              }
+            }
+
+            final messageWidget = AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              color: isHighlighted
+                  ? Colors.indigo.withOpacity(0.24)
+                  : Colors.transparent,
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: NewMessageAnimator(
+                key: ValueKey('anim_${msg.serverMessageId}'),
+                animate: isNewMessage,
+                onStartAnimating: isNewMessage
+                    ? () {
+                        _messagesToAnimate.remove(msg.serverMessageId);
+                        _animatedMessageIds.add(msg.serverMessageId);
+                      }
+                    : null,
+                child: MessageBubble(
+                  key: ValueKey(msg.serverMessageId),
+                  message: msg,
+                  isMe: isMe,
+                  currentUser: currentUser,
+                  jwtToken: _jwtToken,
+                  senderRealName: senderRealName,
+                ),
               ),
             );
+
+            if (showDateSeparator) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildDateSeparator(msg.timestamp),
+                  messageWidget,
+                ],
+              );
+            }
+
+            return messageWidget;
           },
         );
       },
@@ -3067,18 +3801,22 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
               prefixIcon: Padding(
-                padding: const EdgeInsets.only(left: 8, right: 4),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(22),
-                  onTap: () {
-                    // TODO: Show sticker picker
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: FaIcon(
-                      FontAwesomeIcons.faceSmile,
-                      color: Colors.white.withValues(alpha: 0.55),
-                      size: 20,
+                padding: const EdgeInsets.only(left: 8, right: 4, bottom: 2),
+                child: Align(
+                  alignment: Alignment.center,
+                  widthFactor: 1.0,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(22),
+                    onTap: () {
+                      // TODO: Show sticker picker
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: FaIcon(
+                        FontAwesomeIcons.faceSmile,
+                        color: Colors.white.withValues(alpha: 0.55),
+                        size: 20,
+                      ),
                     ),
                   ),
                 ),
@@ -3113,7 +3851,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: ValueListenableBuilder<TextEditingValue>(
                       valueListenable: _messageController,
                       builder: (context, value, child) {
-                        final hasText = value.text.trim().isNotEmpty;
+                        final hasText = value.text.trim().isNotEmpty || _attachments.isNotEmpty;
                         return AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
                           transitionBuilder: (Widget child, Animation<double> animation) {
@@ -4137,6 +4875,335 @@ class MessageBubble extends StatelessWidget {
     required this.senderRealName,
   });
 
+  Widget _buildCollageWidget(BuildContext context, List<dynamic> filesList, String hostUrl, String? tokenToUse) {
+    final List<Map<String, dynamic>> files = [];
+    for (final item in filesList) {
+      if (item is Map) {
+        files.add(Map<String, dynamic>.from(item));
+      }
+    }
+
+    if (files.isEmpty) return const SizedBox.shrink();
+
+    // 1. Separate media and documents
+    bool isMediaFile(Map<String, dynamic> fileData) {
+      final fileName = (fileData['file_name'] ?? fileData['name'] ?? '').toString().toLowerCase();
+      final mime = (fileData['mime_type'] ?? fileData['type'] ?? '').toString().toLowerCase();
+      
+      final isImage = mime.startsWith('image/') ||
+          fileName.endsWith('.jpg') ||
+          fileName.endsWith('.jpeg') ||
+          fileName.endsWith('.png') ||
+          fileName.endsWith('.gif') ||
+          fileName.endsWith('.webp') ||
+          fileName.endsWith('.bmp') ||
+          fileName.endsWith('.svg');
+
+      final isVideo = mime.startsWith('video/') ||
+          fileName.endsWith('.mp4') ||
+          fileName.endsWith('.avi') ||
+          fileName.endsWith('.mov') ||
+          fileName.endsWith('.wmv') ||
+          fileName.endsWith('.flv') ||
+          fileName.endsWith('.webm') ||
+          fileName.endsWith('.mkv') ||
+          fileName.endsWith('.3gp') ||
+          fileName.endsWith('.ogv') ||
+          fileName.endsWith('.m4v');
+
+      return isImage || isVideo;
+    }
+
+    final List<Map<String, dynamic>> mediaFiles = [];
+    final List<Map<String, dynamic>> documentFiles = [];
+    for (final item in files) {
+      if (isMediaFile(item)) {
+        mediaFiles.add(item);
+      } else {
+        documentFiles.add(item);
+      }
+    }
+
+    // Helper to build document download card
+    Widget buildDocumentCard(Map<String, dynamic> fileData) {
+      final fileId = fileData['file_id']?.toString() ?? '';
+      final fileName = fileData['file_name'] ?? fileData['name'] ?? 'file';
+      final fileSize = fileData['file_size'] as int? ?? fileData['size'] as int? ?? 0;
+      String fileUrlSuffix = fileData['file_url']?.toString() ?? '';
+      if (fileUrlSuffix.isEmpty) {
+        fileUrlSuffix = '/api/files/download/$fileId/';
+      }
+
+      String absoluteUrl = '';
+      if (fileUrlSuffix.startsWith('http')) {
+        absoluteUrl = '$fileUrlSuffix${tokenToUse != null ? (fileUrlSuffix.contains('?') ? "&token=$tokenToUse" : "?token=$tokenToUse") : ""}';
+      } else {
+        final prefix = fileUrlSuffix.startsWith('/') ? '' : '/';
+        absoluteUrl = '$hostUrl$prefix$fileUrlSuffix${tokenToUse != null ? "?token=$tokenToUse" : ""}';
+      }
+
+      return GestureDetector(
+        onTap: () => _downloadFileSilent(context, absoluteUrl, fileName),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const FaIcon(FontAwesomeIcons.fileLines, color: Colors.white70, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      fileName,
+                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatFileSize(fileSize),
+                      style: const TextStyle(color: Colors.white54, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+              const FaIcon(FontAwesomeIcons.download, color: Colors.white54, size: 14),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget? collageWidget;
+    if (mediaFiles.isNotEmpty) {
+      final displayedFiles = mediaFiles.take(4).toList();
+      final remainingCount = mediaFiles.length - displayedFiles.length;
+
+      Widget buildMediaItem(Map<String, dynamic> fileData, {bool isLastWithOverlay = false}) {
+        final fileId = fileData['file_id']?.toString() ?? '';
+        final fileName = fileData['file_name'] ?? fileData['name'] ?? '';
+        final mime = (fileData['mime_type'] ?? fileData['type'] ?? '').toString().toLowerCase();
+        String fileUrlSuffix = fileData['file_url']?.toString() ?? '';
+        if (fileUrlSuffix.isEmpty) {
+          fileUrlSuffix = '/api/files/download/$fileId/';
+        }
+
+        String absoluteUrl = '';
+        if (fileUrlSuffix.startsWith('http')) {
+          absoluteUrl = '$fileUrlSuffix${tokenToUse != null ? (fileUrlSuffix.contains('?') ? "&token=$tokenToUse" : "?token=$tokenToUse") : ""}';
+        } else {
+          final prefix = fileUrlSuffix.startsWith('/') ? '' : '/';
+          absoluteUrl = '$hostUrl$prefix$fileUrlSuffix${tokenToUse != null ? "?token=$tokenToUse" : ""}';
+        }
+
+        final isVideo = mime.startsWith('video/') ||
+            fileName.toLowerCase().endsWith('.mp4') ||
+            fileName.toLowerCase().endsWith('.mov') ||
+            fileName.toLowerCase().endsWith('.avi');
+
+        Widget mediaWidget;
+        if (isVideo) {
+          mediaWidget = Stack(
+            alignment: Alignment.center,
+            children: [
+              VideoThumbnailWidget(
+                videoUrl: absoluteUrl,
+                jwtToken: tokenToUse,
+                width: 300,
+                height: 300,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              Container(
+                decoration: const BoxDecoration(
+                  color: Colors.black26,
+                  shape: BoxShape.circle,
+                ),
+                padding: const EdgeInsets.all(8),
+                child: const FaIcon(FontAwesomeIcons.play, color: Colors.white, size: 16),
+              ),
+            ],
+          );
+        } else {
+          mediaWidget = Image.network(
+            absoluteUrl,
+            key: ValueKey('${absoluteUrl}_${tokenToUse ?? ""}'),
+            headers: tokenToUse != null ? {'Authorization': 'Bearer $tokenToUse'} : null,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            errorBuilder: (context, error, stackTrace) => Container(
+              color: Colors.black12,
+              child: const Center(
+                child: Icon(Icons.broken_image, color: Colors.white54, size: 24),
+              ),
+            ),
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(
+                color: Colors.black12,
+                child: const Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                  ),
+                ),
+              );
+            },
+          );
+        }
+
+        return GestureDetector(
+          onTap: () {
+            if (isVideo) {
+              _showFullScreenVideo(context, absoluteUrl, senderRealName, message.timestamp);
+            } else {
+              _showFullScreenImage(context, absoluteUrl, senderRealName, message.timestamp);
+            }
+          },
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              mediaWidget,
+              if (isLastWithOverlay && remainingCount > 0)
+                Container(
+                  color: Colors.black54,
+                  child: Center(
+                    child: Text(
+                      '+$remainingCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      }
+
+      final count = displayedFiles.length;
+      double collageHeight = 200;
+      if (count == 1) {
+        collageHeight = 180;
+      } else if (count == 2) {
+        collageHeight = 120;
+      } else {
+        collageHeight = 220;
+      }
+
+      Widget grid;
+      if (count == 1) {
+        grid = ClipRRect(
+          borderRadius: isMe ? _myCorners : _otherCorners,
+          child: buildMediaItem(displayedFiles[0]),
+        );
+      } else if (count == 2) {
+        grid = ClipRRect(
+          borderRadius: isMe ? _myCorners : _otherCorners,
+          child: Row(
+            children: [
+              Expanded(child: buildMediaItem(displayedFiles[0])),
+              const SizedBox(width: 4),
+              Expanded(child: buildMediaItem(displayedFiles[1])),
+            ],
+          ),
+        );
+      } else if (count == 3) {
+        grid = ClipRRect(
+          borderRadius: isMe ? _myCorners : _otherCorners,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: buildMediaItem(displayedFiles[0]),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                flex: 2,
+                child: Column(
+                  children: [
+                    Expanded(child: buildMediaItem(displayedFiles[1])),
+                    const SizedBox(height: 4),
+                    Expanded(child: buildMediaItem(displayedFiles[2])),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      } else {
+        grid = ClipRRect(
+          borderRadius: isMe ? _myCorners : _otherCorners,
+          child: GridView.count(
+            crossAxisCount: 2,
+            crossAxisSpacing: 4,
+            mainAxisSpacing: 4,
+            physics: const NeverScrollableScrollPhysics(),
+            shrinkWrap: true,
+            children: [
+              buildMediaItem(displayedFiles[0]),
+              buildMediaItem(displayedFiles[1]),
+              buildMediaItem(displayedFiles[2]),
+              buildMediaItem(displayedFiles[3], isLastWithOverlay: true),
+            ],
+          ),
+        );
+      }
+
+      collageWidget = Container(
+        width: 250,
+        height: collageHeight,
+        margin: const EdgeInsets.only(bottom: 6),
+        child: grid,
+      );
+    }
+
+    if (collageWidget != null && documentFiles.isEmpty) {
+      return collageWidget;
+    } else if (collageWidget == null && documentFiles.isNotEmpty) {
+      return Container(
+        width: 250,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: documentFiles.map((doc) => buildDocumentCard(doc)).toList(),
+        ),
+      );
+    } else if (collageWidget != null && documentFiles.isNotEmpty) {
+      return Container(
+        width: 250,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            collageWidget,
+            const SizedBox(height: 4),
+            ...documentFiles.map((doc) => buildDocumentCard(doc)),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
   // ── Pre-cached constants ─────────────────────────────────────────
   static const _myBubbleColor    = Color(0x1FFFFFFF);  // ~0.12 white
   static const _otherBubbleColor = Color(0x0AFFFFFF);  // ~0.04 white
@@ -4188,6 +5255,8 @@ class MessageBubble extends StatelessWidget {
     final m = dt.minute.toString().padLeft(2, '0');
     return '$h:$m';
   }
+
+
 
   String _formatFileSize(int bytes) {
     if (bytes <= 0) return '0 Б';
@@ -4409,7 +5478,7 @@ class MessageBubble extends StatelessWidget {
             children: [
               // Video Player Viewer
               Center(
-                child: _FullScreenVideoPlayer(videoUrl: videoUrl, jwtToken: jwtToken),
+                child: FullScreenVideoPlayer(videoUrl: videoUrl, jwtToken: jwtToken),
               ),
 
               // Animated UI elements
@@ -4514,7 +5583,18 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (message.senderId == 'system') {
+    final systemTypes = {
+      'system',
+      'user_joined',
+      'user_left',
+      'user_joined_group',
+      'user_left_group',
+      'user_invited_group',
+      'user_invited_channel',
+      'user_subscribed_channel',
+      'user_unsubscribed_channel'
+    };
+    if (message.senderId == 'system' || systemTypes.contains(message.messageType)) {
       return Center(
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
@@ -4547,16 +5627,28 @@ class MessageBubble extends StatelessWidget {
 
     final isPoll = message.messageType == 'poll';
     final isTodo = message.messageType == 'todo_list';
+    final isCall = message.messageType == 'call';
     final hasFile = message.fileUrl != null && message.fileUrl!.isNotEmpty;
 
-    if (isPoll || isTodo || hasFile) {
+    if (isPoll || isTodo || isCall || hasFile) {
       if (hasFile) {
         try {
           final parsed = jsonDecode(message.fileUrl!);
           if (parsed is Map) {
             fileData = Map<String, dynamic>.from(parsed);
-            if (message.textContent.trim().startsWith('{')) {
+            if (isCall) {
               displayContent = '';
+            } else if (message.textContent.trim().startsWith('{')) {
+              try {
+                final textParsed = jsonDecode(message.textContent);
+                if (textParsed is Map &&
+                    (textParsed['type'] == 'file' ||
+                     textParsed['type'] == 'voice' ||
+                     textParsed['type'] == 'video_message' ||
+                     textParsed['type'] == 'collage')) {
+                  displayContent = '';
+                }
+              } catch (_) {}
             }
           }
         } catch (_) {}
@@ -4566,8 +5658,12 @@ class MessageBubble extends StatelessWidget {
           try {
             final parsed = jsonDecode(message.textContent);
             if (parsed is Map) {
-              fileData = Map<String, dynamic>.from(parsed);
-              displayContent = '';
+              final type = parsed['type']?.toString();
+              if (type == 'todo_list' ||
+                  type == 'poll') {
+                fileData = Map<String, dynamic>.from(parsed);
+                displayContent = '';
+              }
             }
           } catch (_) {}
         }
@@ -4578,13 +5674,33 @@ class MessageBubble extends StatelessWidget {
     bool isOnlyFile = false;
     bool isOnlyMedia = false;
     if (fileData != null) {
-      final fileId = fileData['file_id']?.toString() ?? '';
-      final fileName = fileData['file_name']?.toString() ?? 'file';
-      final fileSize = fileData['file_size'] as int? ?? 0;
-      final mime = (fileData['mime_type'] ?? '').toString().toLowerCase();
+      if (fileData['type'] == 'collage') {
+        final uri = Uri.parse(AppConfig.apiBaseUrl);
+        final hostUrl = '${uri.scheme}://${uri.host}${uri.hasPort ? ":${uri.port}" : ""}';
+        final tokenToUse = fileData['access_token']?.toString() ?? jwtToken;
+        final filesList = fileData['files'] as List<dynamic>? ?? [];
+
+        isOnlyFile = displayContent.isEmpty;
+        isOnlyMedia = false; // Коллаж всегда рендерится внутри bubble-контейнера с общим временем
+        attachmentWidget = _buildCollageWidget(context, filesList, hostUrl, tokenToUse);
+      } else if (message.messageType == 'call') {
+        attachmentWidget = _buildCallWidget(context, fileData, isMe);
+      } else {
+        final fileId = fileData['file_id']?.toString() ?? '';
+        final fileName = fileData['file_name']?.toString() ?? 'file';
+        final fileSize = fileData['file_size'] as int? ?? 0;
+        String mime = (fileData['mime_type'] ?? '').toString().toLowerCase();
       final accessToken = fileData['access_token']?.toString();
 
       final lowerName = fileName.toLowerCase();
+      if (mime.isEmpty) {
+        if (lowerName.endsWith('.wav')) mime = 'audio/wav';
+        else if (lowerName.endsWith('.mp3')) mime = 'audio/mp3';
+        else if (lowerName.endsWith('.ogg')) mime = 'audio/ogg';
+        else if (lowerName.endsWith('.webm')) mime = 'audio/webm';
+        else if (lowerName.endsWith('.m4a')) mime = 'audio/m4a';
+      }
+
       final isImage = mime.startsWith('image/') ||
           lowerName.endsWith('.jpg') ||
           lowerName.endsWith('.jpeg') ||
@@ -4609,13 +5725,17 @@ class MessageBubble extends StatelessWidget {
       // Формируем абсолютную ссылку для скачивания с JWT или access токеном
       final uri = Uri.parse(AppConfig.apiBaseUrl);
       final hostUrl = '${uri.scheme}://${uri.host}${uri.hasPort ? ":${uri.port}" : ""}';
-      final fileUrlSuffix = fileData['file_url']?.toString() ?? '/api/files/download/$fileId/';
+      String fileUrlSuffix = fileData['file_url']?.toString() ?? '';
+      if (fileUrlSuffix.isEmpty) {
+        fileUrlSuffix = '/api/files/download/$fileId/';
+      }
       String absoluteUrl = '';
+      final tokenToUse = accessToken ?? jwtToken;
       if (fileUrlSuffix.startsWith('http')) {
-        absoluteUrl = '$fileUrlSuffix${accessToken != null ? (fileUrlSuffix.contains('?') ? "&token=$accessToken" : "?token=$accessToken") : ""}';
+        absoluteUrl = '$fileUrlSuffix${tokenToUse != null ? (fileUrlSuffix.contains('?') ? "&token=$tokenToUse" : "?token=$tokenToUse") : ""}';
       } else {
         final prefix = fileUrlSuffix.startsWith('/') ? '' : '/';
-        absoluteUrl = '$hostUrl$prefix$fileUrlSuffix${accessToken != null ? "?token=$accessToken" : ""}';
+        absoluteUrl = '$hostUrl$prefix$fileUrlSuffix${tokenToUse != null ? "?token=$tokenToUse" : ""}';
       }
 
       final isVoice = fileData['type'] == 'voice' ||
@@ -4650,14 +5770,14 @@ class MessageBubble extends StatelessWidget {
             ? (fileData['duration'] as num).toDouble()
             : double.tryParse(fileData['duration']?.toString() ?? '') ?? 0.0;
         final localPath = fileData['local_path']?.toString();
-        final videoSource = (localPath != null && localPath.isNotEmpty) ? localPath : absoluteUrl;
         
         final videoWidget = VideoMessagePlayer(
-          videoUrl: videoSource,
+          videoUrl: absoluteUrl,
           jwtToken: jwtToken,
           duration: duration,
           localPath: localPath,
           senderName: isMe ? 'Вы' : senderRealName,
+          messageId: message.serverMessageId,
         );
         
         attachmentWidget = Stack(
@@ -4935,6 +6055,7 @@ class MessageBubble extends StatelessWidget {
         );
       }
     }
+  }
 
 
     return Align(
@@ -4985,18 +6106,128 @@ class MessageBubble extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildCallWidget(BuildContext context, Map<String, dynamic> fileData, bool isMe) {
+    final status = fileData['status']?.toString();
+    final duration = fileData['duration'] as int? ?? 0;
+    final callType = fileData['call_type']?.toString() ?? 'audio';
+
+    final isVideo = callType == 'video';
+    FaIconData callIcon = isVideo ? FontAwesomeIcons.video : FontAwesomeIcons.phone;
+    Color iconColor = Colors.grey;
+    Color iconBg = Colors.grey.withValues(alpha: 0.15);
+    String callTitle = '';
+    String callSubtext = '';
+
+    if (isMe) {
+      // Outgoing
+      callTitle = 'Исходящий звонок';
+      if (status == 'connected') {
+        iconColor = const Color(0xFF10B981);
+        iconBg = const Color(0xFF10B981).withValues(alpha: 0.15);
+        final mins = duration ~/ 60;
+        final secs = duration % 60;
+        if (mins > 0) {
+          callSubtext = '$mins мин $secs сек';
+        } else {
+          callSubtext = '$secs сек';
+        }
+      } else {
+        iconColor = const Color(0xFF9CA3AF);
+        iconBg = const Color(0xFF9CA3AF).withValues(alpha: 0.15);
+        callSubtext = 'Разговор не состоялся';
+      }
+    } else {
+      // Incoming
+      if (status == 'connected') {
+        callTitle = 'Входящий звонок';
+        iconColor = const Color(0xFF10B981);
+        iconBg = const Color(0xFF10B981).withValues(alpha: 0.15);
+        final mins = duration ~/ 60;
+        final secs = duration % 60;
+        if (mins > 0) {
+          callSubtext = '$mins мин $secs сек';
+        } else {
+          callSubtext = '$secs сек';
+        }
+      } else if (status == 'rejected') {
+        callTitle = 'Отклонённый звонок';
+        iconColor = const Color(0xFFEF4444);
+        iconBg = const Color(0xFFEF4444).withValues(alpha: 0.15);
+        callIcon = isVideo ? FontAwesomeIcons.videoSlash : FontAwesomeIcons.phoneSlash;
+        callSubtext = 'Вы отклонили вызов';
+      } else {
+        callTitle = 'Пропущенный звонок';
+        iconColor = const Color(0xFFEF4444);
+        iconBg = const Color(0xFFEF4444).withValues(alpha: 0.15);
+        callIcon = isVideo ? FontAwesomeIcons.videoSlash : FontAwesomeIcons.phoneSlash;
+        callSubtext = 'Вы пропустили вызов';
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      constraints: const BoxConstraints(minWidth: 200),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: iconBg,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: FaIcon(
+                callIcon,
+                color: iconColor,
+                size: 14,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  callTitle,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  callSubtext,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _FullScreenVideoPlayer extends StatefulWidget {
+
+class FullScreenVideoPlayer extends StatefulWidget {
   final String videoUrl;
   final String? jwtToken;
-  const _FullScreenVideoPlayer({Key? key, required this.videoUrl, this.jwtToken}) : super(key: key);
+  const FullScreenVideoPlayer({Key? key, required this.videoUrl, this.jwtToken}) : super(key: key);
 
   @override
-  State<_FullScreenVideoPlayer> createState() => _FullScreenVideoPlayerState();
+  State<FullScreenVideoPlayer> createState() => _FullScreenVideoPlayerState();
 }
 
-class _FullScreenVideoPlayerState extends State<_FullScreenVideoPlayer> {
+class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer> {
   late VideoPlayerController _videoPlayerController;
   bool _isLoading = true;
   double _downloadProgress = 0.0;
@@ -5436,4 +6667,22 @@ class _BlinkingRedDotState extends State<_BlinkingRedDot> with SingleTickerProvi
       ),
     );
   }
+}
+
+class AttachmentComposition {
+  final File file;
+  String status; // 'uploading', 'success', 'error'
+  String? fileId;
+  final String fileType; // 'image', 'video', 'audio', 'document'
+  final int fileSize;
+  final String fileName;
+
+  AttachmentComposition({
+    required this.file,
+    this.status = 'uploading',
+    this.fileId,
+    required this.fileType,
+    required this.fileSize,
+    required this.fileName,
+  });
 }

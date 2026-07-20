@@ -46,6 +46,16 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Приложению требуется доступ к микрофону для записи и отправки голосовых сообщений.</string>
+	<string>Приложению требуется доступ к микрофону для звонков и записи голосовых сообщений.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Приложению требуется доступ к камере для совершения видеозвонков.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Приложению требуется доступ к локальной сети для соединения с сервером телефонии в локальной Wi-Fi сети.</string>
 </dict>
 </plist>

@@ -168,12 +168,23 @@ class PlaybackProvider extends ChangeNotifier {
         }
       }
 
-      final safeName = url.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
-      final localFilePath = '${tempDir.path}/voice_$safeName$ext';
+      final baseUrl = url.split('?').first;
+      final safeName = baseUrl.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+      final shortName = safeName.length > 50 ? safeName.substring(safeName.length - 50) : safeName;
+      final localFilePath = '${tempDir.path}/voice_${baseUrl.hashCode}_$shortName$ext';
       final file = File(localFilePath);
 
       if (!await file.exists()) {
         final freshToken = await TokenStorage().getAccessToken();
+        
+        Uri targetUri = Uri.parse(url);
+        if (freshToken != null && freshToken.isNotEmpty) {
+           final newParams = Map<String, String>.from(targetUri.queryParameters);
+           newParams['token'] = freshToken;
+           targetUri = targetUri.replace(queryParameters: newParams);
+        }
+        final downloadUrl = targetUri.toString();
+
         final dio = Dio();
         (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
           final client = HttpClient();
@@ -182,7 +193,7 @@ class PlaybackProvider extends ChangeNotifier {
         };
 
         final response = await dio.download(
-          url,
+          downloadUrl,
           localFilePath,
           options: Options(
             headers: freshToken != null && freshToken.isNotEmpty
@@ -214,6 +225,15 @@ class PlaybackProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('❌ Playback error: $e');
+      if (_currentFilePath != null) {
+        try {
+          final file = File(_currentFilePath!);
+          if (await file.exists()) {
+            await file.delete();
+            debugPrint('🗑️ Deleted corrupt file: $_currentFilePath');
+          }
+        } catch (_) {}
+      }
       _isLoading = false;
       _isInitialized = false;
       _currentAudioUrl = null;

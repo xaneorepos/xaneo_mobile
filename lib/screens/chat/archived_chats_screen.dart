@@ -497,6 +497,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
             PremiumPageRoute(
               page: ChatScreen(chat: chat),
               transitionType: PremiumTransitionType.chatReveal,
+              settings: RouteSettings(name: 'chat_${chat.id}'),
             ),
           );
         },

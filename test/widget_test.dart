@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
 import 'package:xaneo_mobile/main.dart';
@@ -10,7 +11,12 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final localChatRepo = LocalChatRepository(db);
 
-    await tester.pumpWidget(XaneoApp(localChatRepo: localChatRepo));
+    await tester.pumpWidget(XaneoApp(
+      dbFolder: Directory.systemTemp,
+      dbKey: 'dummy_key_for_testing_12345678901234567890',
+      deviceId: 'dummy_device_id_for_testing',
+      localChatRepoOverride: localChatRepo,
+    ));
     
     // Просто проверяем, что виджет смонтировался, дожидаемся микротасок (1 кадр)
     await tester.pump();

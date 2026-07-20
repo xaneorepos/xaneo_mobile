@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../models/chat/chat_model.dart';
 import '../../services/api/api_client.dart';
 import '../../services/chat/chat_service.dart';
@@ -17,6 +18,7 @@ import '../../widgets/common/avatar_widget.dart';
 import 'chat_screen.dart';
 import 'archived_chats_screen.dart';
 import '../../widgets/common/premium_page_route.dart';
+import '../../widgets/common/global_search_modal.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
@@ -190,7 +192,20 @@ class _ChatListScreenState extends State<ChatListScreen>
                 try {
                   final parsed = jsonDecode(decrypted);
                   if (parsed is Map) {
-                    inferredType = parsed['type']?.toString() ?? chat.lastMessageType;
+                    final pType = parsed['type']?.toString();
+                    if (pType == 'todo_list' || pType == 'poll') {
+                      inferredType = pType;
+                    } else if (pType == 'file' || pType == 'voice' || pType == 'video_message') {
+                      if (chat.lastMessageType == 'file' ||
+                          chat.lastMessageType == 'voice' ||
+                          chat.lastMessageType == 'video_message') {
+                        inferredType = pType;
+                      } else {
+                        inferredType = null;
+                      }
+                    } else {
+                      inferredType = pType ?? chat.lastMessageType;
+                    }
                   }
                 } catch (_) {}
               }
@@ -568,10 +583,12 @@ class _ChatListScreenState extends State<ChatListScreen>
                     size: 14,
                   ),
                   onTap: () {
-                    setState(() {
-                      _isSearching = true;
-                    });
-                    _searchFocusNode.requestFocus();
+                    GlobalSearchModal.show(
+                      context: context,
+                      chatService: _chatService,
+                      localChatRepo: _localChatRepo,
+                      authProvider: context.read<AuthProvider>(),
+                    );
                   },
                 ),
                 const SizedBox(width: 8),
@@ -1223,6 +1240,7 @@ class _ChatListScreenState extends State<ChatListScreen>
             PremiumPageRoute(
               page: ChatScreen(chat: chat),
               transitionType: PremiumTransitionType.chatReveal,
+              settings: RouteSettings(name: 'chat_${chat.id}'),
             ),
           );
         },

@@ -20,6 +20,26 @@ class AppDatabase extends _$AppDatabase {
 
   static AppDatabase? _instance;
 
+  /// Создает экземпляр БД для конкретного пользователя (или общую, если userId null)
+  static AppDatabase createForUser({
+    required Directory dbFolder,
+    required String dbKey,
+    String? userId,
+  }) {
+    final dbName = userId != null ? 'app_db_$userId.sqlite' : 'app_db.sqlite';
+    final file = File(p.join(dbFolder.path, dbName));
+
+    return AppDatabase._(NativeDatabase.createInBackground(
+      file,
+      setup: (db) {
+        // Устанавливаем ключ для SQLCipher при открытии БД
+        db.execute("PRAGMA key = '$dbKey';");
+        // Включаем WAL-режим для параллельного чтения и записи
+        db.execute("PRAGMA journal_mode = WAL;");
+      },
+    ));
+  }
+
   static Future<AppDatabase> getInstance() async {
     if (_instance != null) return _instance!;
     

@@ -9,6 +9,9 @@ import '../../styles/app_styles.dart';
 import '../../widgets/common/liquid_glass_nav_bar.dart';
 import '../auth/login_screen.dart';
 import '../chat/chat_list_screen.dart';
+import '../../services/webrtc/call_manager.dart';
+import '../../widgets/common/incoming_call_modal.dart';
+import '../../services/notifications/notification_service.dart';
 
 /// Главный экран приложения (после авторизации)
 class MainScreen extends StatefulWidget {
@@ -26,12 +29,35 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentIndex);
+    
+    // Подписываемся на CallManager для отслеживания входящих вызовов
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<CallManager>().addListener(_handleCallStateChanged);
+        
+        // Помечаем, что приложение готово, и проверяем наличие отложенных звонков
+        NotificationService.isAppReady = true;
+        NotificationService.checkPendingCallPayload();
+      }
+    });
   }
 
   @override
   void dispose() {
+    NotificationService.isAppReady = false;
+    try {
+      context.read<CallManager>().removeListener(_handleCallStateChanged);
+    } catch (_) {}
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _handleCallStateChanged() {
+    if (!mounted) return;
+    final callManager = context.read<CallManager>();
+    if (callManager.state == CallState.incoming) {
+      IncomingCallModal.show(context);
+    }
   }
 
   @override

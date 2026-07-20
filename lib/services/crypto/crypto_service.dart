@@ -9,6 +9,7 @@ import 'package:pointycastle/digests/blake2b.dart';
 import 'package:x25519/x25519.dart' as x25519;
 import 'package:dio/dio.dart';
 import '../api/api_client.dart';
+import '../auth/token_storage.dart';
 import '../../config/app_config.dart';
 
 /// 🔐 XSEC-2 Crypto Service
@@ -848,11 +849,13 @@ class CryptoService {
         return null;
       }
 
-      // Бот — не используем E2E шифрование, возвращаем пустой маркер бота
+      // Бот — запрашиваем ключ чата с сервера (XSEC-1)
       if (theirKeyData['is_bot'] == true) {
-        final botMarker = Uint8List(0);
-        _chatKeyCache[chatId] = botMarker;
-        return botMarker;
+        final key = await _fetchLegacyChatKey(chatId);
+        if (key != null) {
+          _chatKeyCache[chatId] = key;
+        }
+        return key;
       }
 
       if (theirKeyData['x25519_public_key'] == null) {
@@ -1435,7 +1438,7 @@ class CryptoService {
           if (result != null) {
             _lastSuccessfulDecryptKey[chatId] = candidateKeys[index];
             debugPrint(
-                'XSEC-2: AES-GCM decrypted with key variant #$index: $result');
+                'XSEC-2: AES-GCM decrypted with key variant #$index');
             return result;
           }
 
@@ -1447,7 +1450,7 @@ class CryptoService {
           if (chachaResult != null) {
             _lastSuccessfulDecryptKey[chatId] = candidateKeys[index];
             debugPrint(
-                'XSEC-2: ChaCha20-Poly1305 decrypted with key variant #$index: $chachaResult');
+                'XSEC-2: ChaCha20-Poly1305 decrypted with key variant #$index');
             return chachaResult;
           }
         }
@@ -1464,7 +1467,7 @@ class CryptoService {
           if (result != null) {
             _lastSuccessfulDecryptKey[chatId] = candidateKeys[index];
             debugPrint(
-                'XSEC-2: XChaCha20 decrypted with key variant #$index: $result');
+                'XSEC-2: XChaCha20 decrypted with key variant #$index');
             return result;
           }
         }
@@ -2523,6 +2526,17 @@ class CryptoService {
   Future<String?> _getCurrentUserId() async {
     if (_currentUserId != null && _currentUserId!.isNotEmpty) {
       return _currentUserId;
+    }
+    try {
+      final tokenStorage = TokenStorage();
+      final userData = await tokenStorage.getUserData();
+      final storageUserId = userData?['id']?.toString() ?? userData?['user_id']?.toString();
+      if (storageUserId != null && storageUserId.isNotEmpty) {
+        _currentUserId = storageUserId;
+        return storageUserId;
+      }
+    } catch (e) {
+      debugPrint('XSEC-2: error reading current user ID from TokenStorage: $e');
     }
     debugPrint('XSEC-2: current user id is not initialized');
     return null;

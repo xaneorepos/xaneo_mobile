@@ -9,6 +9,7 @@ import '../services/auth/token_storage.dart';
 import '../services/api/api_client.dart';
 import '../services/crypto/crypto_service.dart';
 import '../services/crypto/xsec2_service.dart';
+import '../services/notifications/notification_service.dart';
 
 /// Состояние авторизации
 enum AuthStatus {
@@ -125,6 +126,7 @@ class AuthProvider extends ChangeNotifier {
     }
 
     notifyListeners();
+    _registerDeviceTokenIfAuthenticated();
   }
 
   Future<bool> login({
@@ -203,6 +205,7 @@ class AuthProvider extends ChangeNotifier {
         await _saveRecentAccount(_user!);
         _setLoading(false);
         notifyListeners();
+        _registerDeviceTokenIfAuthenticated();
         return true;
       }
 
@@ -247,6 +250,7 @@ class AuthProvider extends ChangeNotifier {
       _pendingPassword = null;
       _setLoading(false);
       notifyListeners();
+      _registerDeviceTokenIfAuthenticated();
       return true;
     } on ApiError catch (e) {
       _error = e;
@@ -433,6 +437,7 @@ class AuthProvider extends ChangeNotifier {
         _status = AuthStatus.authenticated;
         _setLoading(false);
         notifyListeners();
+        _registerDeviceTokenIfAuthenticated();
         return true;
       }
 
@@ -473,6 +478,20 @@ class AuthProvider extends ChangeNotifier {
       await _recentAccountsService.saveAccountLocally(account);
     } catch (e) {
       debugPrint('Error saving recent account: $e');
+    }
+  }
+
+  /// Вспомогательный метод для регистрации токена устройства при успешном входе
+  Future<void> _registerDeviceTokenIfAuthenticated() async {
+    if (_status == AuthStatus.authenticated) {
+      try {
+        final token = await NotificationService().getDeviceToken();
+        if (token != null) {
+          await _authService.registerFcmToken(token);
+        }
+      } catch (e) {
+        debugPrint('FCM: Failed to fetch/register device token: $e');
+      }
     }
   }
 }

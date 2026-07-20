@@ -84,6 +84,7 @@ class ChatModel {
 
     // Определяем, является ли чат Избранным
     final isFavorites = chatId == 'favorites' ||
+        chatId.startsWith('favorites_user_') ||
         displayName == 'Избранное' ||
         json['is_bookmark'] == true ||
         json['is_favorites'] == true;
@@ -106,6 +107,34 @@ class ChatModel {
     }
     
     messageType ??= json['last_message_type']?.toString() ?? json['message_type']?.toString();
+
+    final lastMsgMap = json['last_message'] is Map ? json['last_message'] as Map<String, dynamic> :
+                       json['lastMessage'] is Map ? json['lastMessage'] as Map<String, dynamic> : null;
+    if (lastMsgMap != null) {
+      final filesList = lastMsgMap['files'] as List<dynamic>? ?? [];
+      final hasServerFile = filesList.isNotEmpty ||
+          (lastMsgMap['attached_file_id'] != null && lastMsgMap['attached_file_id'].toString().isNotEmpty) ||
+          (lastMsgMap['image'] != null && lastMsgMap['image'].toString().isNotEmpty) ||
+          (lastMsgMap['images'] is List && (lastMsgMap['images'] as List).isNotEmpty);
+      
+      if (hasServerFile) {
+        if (messageType != 'todo_list' && messageType != 'poll') {
+          String detectedType = 'file';
+          if (filesList.isNotEmpty) {
+            final firstFile = filesList[0];
+            if (firstFile is Map) {
+              final fType = firstFile['file_type']?.toString() ?? '';
+              if (fType == 'voice' || fType == 'voice_message') {
+                detectedType = 'voice';
+              } else if (fType == 'video' || fType == 'video_message') {
+                detectedType = 'video_message';
+              }
+            }
+          }
+          messageType = detectedType;
+        }
+      }
+    }
 
     String? lastMsg;
     bool isEncrypted = false;
