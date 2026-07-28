@@ -253,6 +253,7 @@ class MobileRegisterResponse {
   final String? email;
   final String? firstName;
   final bool? hasAvatar;
+  final String? avatarUrl;
   final String? timestamp;
 
   const MobileRegisterResponse({
@@ -263,6 +264,7 @@ class MobileRegisterResponse {
     this.email,
     this.firstName,
     this.hasAvatar,
+    this.avatarUrl,
     this.timestamp,
   });
 
@@ -275,6 +277,7 @@ class MobileRegisterResponse {
       email: json['email'] as String?,
       firstName: json['first_name'] as String?,
       hasAvatar: json['has_avatar'] as bool?,
+      avatarUrl: (json['avatar'] ?? json['avatar_url']) as String?,
       timestamp: json['timestamp'] as String?,
     );
   }

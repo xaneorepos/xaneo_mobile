@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../config/app_config.dart';
-import '../../styles/app_styles.dart';
 
 /// Виджет для отображения аватара пользователя
 /// 
 /// Поддерживает:
-/// - Загрузку аватара по URL
-/// - Градиентный аватар (если нет изображения)
+/// - Загрузку растрового фото аватара по URL (.jpg, .png, .webp)
+/// - Градиентный аватар с парсингом бэкенд градиента (если нет фото или SVG)
 /// - Инициалы пользователя как fallback
 class AvatarWidget extends StatelessWidget {
   /// URL аватара
@@ -46,21 +45,26 @@ class AvatarWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final radius = borderRadius ?? size / 2;
 
-    // Определяем, какой аватар использовать
-    final bool useNetworkImage = hasAvatar && 
-        avatar != null && 
-        (avatar!.startsWith('http') || avatar!.startsWith('https'));
-    
-    // Для data URI (base64) не используем NetworkImage
-    final bool useDataImage = hasAvatar && 
-        avatar != null && 
-        avatar!.startsWith('data:');
+    // Преобразуем URL аватара с использованием AppConfig.formatImageUrl
+    final String? formattedUrl = AppConfig.formatImageUrl(avatar);
 
-    // Для data:image показываем инициалы с градиентом
-    final bool showInitialsWithGradient = !useNetworkImage && 
-        (avatar == null || !avatar!.startsWith('http') || useDataImage);
+    // ВАЖНО: Проверяем, является ли аватар реальной растровой фоткой (.png, .jpg, .jpeg, .webp)
+    final bool isSvg = formattedUrl != null && (
+      formattedUrl.toLowerCase().endsWith('.svg') ||
+      formattedUrl.toLowerCase().contains('.svg?') ||
+      formattedUrl.toLowerCase().contains('/svg/') ||
+      formattedUrl.toLowerCase().contains('data:image/svg')
+    );
+
+    final bool isPhoto = formattedUrl != null &&
+        !isSvg &&
+        !formattedUrl.startsWith('data:') &&
+        (formattedUrl.startsWith('http://') || formattedUrl.startsWith('https://'));
+
+    // Если нет реальной растровой фотки — показываем градиентный аватар с инициалами
+    final bool showInitialsWithGradient = !isPhoto;
     
-    // Используем переданный градиент или дефолтный (вычисляется детерминированно из имени для монохромной палитры)
+    // Используем переданный градиент с БЭКА (avatarGradient) или дефолтный детерминированный градиент
     final String defaultGrad;
     if (username.isEmpty) {
       defaultGrad = '333333,111111';
@@ -95,11 +99,9 @@ class AvatarWidget extends StatelessWidget {
           color: Colors.white.withOpacity(0.1),
           width: 1,
         ),
-        image: useNetworkImage
+        image: isPhoto
             ? DecorationImage(
-                image: NetworkImage(
-                  '${AppConfig.apiBaseUrl}${avatar!.startsWith('/') ? '' : '/'}$avatar',
-                ),
+                image: NetworkImage(formattedUrl),
                 fit: BoxFit.cover,
               )
             : null,
@@ -138,26 +140,44 @@ class AvatarWidget extends StatelessWidget {
     return name[0].toUpperCase();
   }
 
-  /// Парсит градиент из строки
-  ///
-  /// Формат: "color1,color2" или "color1|color2" или "color1,color2,color3"
-  /// Цвета в формате hex: "#RRGGBB" или "RRGGBB"
+  /// Парсит градиент из строки (поддерживает "FF1234,FF5678", "#123456,#654321", "linear-gradient(...)")
   LinearGradient? _parseGradient(String? gradient) {
     if (gradient == null || gradient.isEmpty) return null;
 
     try {
-      // Поддерживаем разделители , и |
-      final parts = gradient.split(RegExp(r'[,|]'));
-      if (parts.isEmpty) return null;
+      String cleanGradient = gradient;
+      // Если передана CSS функция linear-gradient(...)
+      if (cleanGradient.contains('linear-gradient')) {
+        final match = RegExp(r'#(?:[0-9a-fA-F]{3,8})').allMatches(cleanGradient);
+        final hexes = match.map((m) => m.group(0)!.substring(1)).toList();
+        if (hexes.isNotEmpty) {
+          cleanGradient = hexes.join(',');
+        }
+      }
 
-      final colors = parts.map((part) {
+      final parts = cleanGradient.split(RegExp(r'[,|]'));
+      final List<Color> colors = [];
+
+      for (var part in parts) {
         var colorStr = part.trim();
         if (colorStr.startsWith('#')) {
           colorStr = colorStr.substring(1);
         }
-        return Color(int.parse('FF$colorStr', radix: 16));
-      }).toList();
+        if (colorStr.length == 3) {
+          colorStr = colorStr.split('').map((c) => '$c$c').join();
+        }
+        if (colorStr.length == 6) {
+          colorStr = 'FF$colorStr';
+        }
+        if (colorStr.length == 8) {
+          final colorVal = int.tryParse(colorStr, radix: 16);
+          if (colorVal != null) {
+            colors.add(Color(colorVal));
+          }
+        }
+      }
 
+      if (colors.isEmpty) return null;
       if (colors.length == 1) {
         return LinearGradient(
           begin: Alignment.topLeft,

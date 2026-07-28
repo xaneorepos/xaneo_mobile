@@ -17,4 +17,9 @@ class Messages extends Table {
   TextColumn get completionStatus => text().nullable()(); // JSON string: completion status map
   TextColumn get votesByOption => text().nullable()(); // JSON string: votes by option map
   TextColumn get userVotes => text().nullable()(); // JSON string: list of option IDs voted by the current user
+
+  // Support for Replies
+  TextColumn get replyToId => text().nullable()();
+  TextColumn get replyText => text().nullable()();
+  TextColumn get replyAuthorName => text().nullable()();
 }

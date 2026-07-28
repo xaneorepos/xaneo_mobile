@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'config/app_config.dart';
 import 'providers/auth_provider.dart';
 import 'providers/playback_provider.dart';
 import 'screens/auth/login_screen.dart';
@@ -28,6 +29,7 @@ import 'services/database/app_database.dart';
 import 'services/chat/chat_local_repository.dart';
 import 'services/chat/presence_service.dart';
 import 'services/webrtc/webrtc_signaling_service.dart';
+import 'services/grpc_service.dart';
 import 'services/webrtc/call_manager.dart';
 import 'services/notifications/notification_service.dart';
 import 'utils/local_proxy.dart';
@@ -139,6 +141,13 @@ class XaneoApp extends StatelessWidget {
       cryptoService: cryptoService,
     );
 
+    // Инициализируем gRPC сервис
+    XaneoGrpcService().init(
+      host: AppConfig.grpcHost,
+      chatPort: AppConfig.grpcChatPort,
+      presencePort: AppConfig.grpcPresencePort,
+    );
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<PlaybackProvider>(create: (_) => PlaybackProvider()),
@@ -246,6 +255,24 @@ class XaneoApp extends StatelessWidget {
           scaffoldBackgroundColor: AppStyles.backgroundColor,
           fontFamily: AppStyles.fontFamily,
           
+          textTheme: const TextTheme(
+            displayLarge: TextStyle(letterSpacing: -0.8),
+            displayMedium: TextStyle(letterSpacing: -0.6),
+            displaySmall: TextStyle(letterSpacing: -0.5),
+            headlineLarge: TextStyle(letterSpacing: -0.6),
+            headlineMedium: TextStyle(letterSpacing: -0.5),
+            headlineSmall: TextStyle(letterSpacing: -0.4),
+            titleLarge: TextStyle(letterSpacing: -0.5),
+            titleMedium: TextStyle(letterSpacing: -0.4),
+            titleSmall: TextStyle(letterSpacing: -0.3),
+            bodyLarge: TextStyle(letterSpacing: -0.3),
+            bodyMedium: TextStyle(letterSpacing: -0.3),
+            bodySmall: TextStyle(letterSpacing: -0.3),
+            labelLarge: TextStyle(letterSpacing: -0.3),
+            labelMedium: TextStyle(letterSpacing: -0.3),
+            labelSmall: TextStyle(letterSpacing: -0.3),
+          ),
+
           colorScheme: const ColorScheme.dark(
             primary: AppStyles.textPrimaryColor,
             secondary: AppStyles.textSecondaryColor,
@@ -262,6 +289,7 @@ class XaneoApp extends StatelessWidget {
               color: AppStyles.textPrimaryColor,
               fontSize: 20,
               fontWeight: FontWeight.w600,
+              letterSpacing: -0.4,
             ),
           ),
           

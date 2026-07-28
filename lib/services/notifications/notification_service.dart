@@ -203,37 +203,9 @@ class NotificationService {
   // ─── Foreground сообщения ─────────────────────────────────────────
 
   void _handleForegroundMessage(RemoteMessage message) async {
-    final data = message.data;
-    final type = data['type']?.toString();
-
-    if (type == 'call') {
-      // НЕ спавним никаких уведомлений в трей, если пользователь уже в приложении!
-      // Вебсокет-сигнализация в CallManager сама покажет экран входящего звонка.
-      debugPrint('NotificationService: Call push received in foreground, ignoring in favor of WebSocket');
-      return;
-    } else {
-      final chatId = data['chat_id']?.toString();
-      bool shouldShow = true;
-      
-      navigatorKey.currentState?.popUntil((route) {
-        if (route.settings.name == 'chat_$chatId') {
-          shouldShow = false;
-        }
-        return true;
-      });
-
-      if (shouldShow) {
-        final senderName = data['sender_name']?.toString() ?? 'Новое сообщение';
-        final encryptedText = data['encrypted_text']?.toString() ?? '';
-        final decryptedText = await _decryptOrFallback(encryptedText, chatId ?? '');
-        
-        _showLocalNotification(
-          title: senderName,
-          body: decryptedText,
-          payload: jsonEncode(data),
-        );
-      }
-    }
+    // В режиме переднего плана (Foreground) системные всплывающие уведомления НЕ показываются.
+    // Все обновления списка чатов и сообщений осуществляются исключительно в реальном времени через WebSocket.
+    debugPrint('NotificationService: Message push received in foreground, ignoring banner in favor of WebSocket');
   }
 
   // ─── Локальные уведомления ────────────────────────────────────────

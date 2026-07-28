@@ -1,4 +1,4 @@
-package net.xaneo.xaneo_mobile
+package net.xaneo
 
 import io.flutter.embedding.android.FlutterActivity
 

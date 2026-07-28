@@ -930,6 +930,24 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
   late final GeneratedColumn<String> userVotes = GeneratedColumn<String>(
       'user_votes', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _replyToIdMeta =
+      const VerificationMeta('replyToId');
+  @override
+  late final GeneratedColumn<String> replyToId = GeneratedColumn<String>(
+      'reply_to_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _replyTextMeta =
+      const VerificationMeta('replyText');
+  @override
+  late final GeneratedColumn<String> replyText = GeneratedColumn<String>(
+      'reply_text', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _replyAuthorNameMeta =
+      const VerificationMeta('replyAuthorName');
+  @override
+  late final GeneratedColumn<String> replyAuthorName = GeneratedColumn<String>(
+      'reply_author_name', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -944,7 +962,10 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
         messageId,
         completionStatus,
         votesByOption,
-        userVotes
+        userVotes,
+        replyToId,
+        replyText,
+        replyAuthorName
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1062,6 +1083,12 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
           .read(DriftSqlType.string, data['${effectivePrefix}votes_by_option']),
       userVotes: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}user_votes']),
+      replyToId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}reply_to_id']),
+      replyText: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}reply_text']),
+      replyAuthorName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}reply_author_name']),
     );
   }
 
@@ -1085,6 +1112,9 @@ class Message extends DataClass implements Insertable<Message> {
   final String? completionStatus;
   final String? votesByOption;
   final String? userVotes;
+  final String? replyToId;
+  final String? replyText;
+  final String? replyAuthorName;
   const Message(
       {required this.id,
       required this.serverMessageId,
@@ -1098,7 +1128,10 @@ class Message extends DataClass implements Insertable<Message> {
       this.messageId,
       this.completionStatus,
       this.votesByOption,
-      this.userVotes});
+      this.userVotes,
+      this.replyToId,
+      this.replyText,
+      this.replyAuthorName});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1126,6 +1159,15 @@ class Message extends DataClass implements Insertable<Message> {
     }
     if (!nullToAbsent || userVotes != null) {
       map['user_votes'] = Variable<String>(userVotes);
+    }
+    if (!nullToAbsent || replyToId != null) {
+      map['reply_to_id'] = Variable<String>(replyToId);
+    }
+    if (!nullToAbsent || replyText != null) {
+      map['reply_text'] = Variable<String>(replyText);
+    }
+    if (!nullToAbsent || replyAuthorName != null) {
+      map['reply_author_name'] = Variable<String>(replyAuthorName);
     }
     return map;
   }
@@ -1157,6 +1199,15 @@ class Message extends DataClass implements Insertable<Message> {
       userVotes: userVotes == null && nullToAbsent
           ? const Value.absent()
           : Value(userVotes),
+      replyToId: replyToId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(replyToId),
+      replyText: replyText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(replyText),
+      replyAuthorName: replyAuthorName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(replyAuthorName),
     );
   }
 
@@ -1325,6 +1376,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
   final Value<String?> completionStatus;
   final Value<String?> votesByOption;
   final Value<String?> userVotes;
+  final Value<String?> replyToId;
+  final Value<String?> replyText;
+  final Value<String?> replyAuthorName;
   const MessagesCompanion({
     this.id = const Value.absent(),
     this.serverMessageId = const Value.absent(),
@@ -1339,6 +1393,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     this.completionStatus = const Value.absent(),
     this.votesByOption = const Value.absent(),
     this.userVotes = const Value.absent(),
+    this.replyToId = const Value.absent(),
+    this.replyText = const Value.absent(),
+    this.replyAuthorName = const Value.absent(),
   });
   MessagesCompanion.insert({
     this.id = const Value.absent(),
@@ -1354,6 +1411,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     this.completionStatus = const Value.absent(),
     this.votesByOption = const Value.absent(),
     this.userVotes = const Value.absent(),
+    this.replyToId = const Value.absent(),
+    this.replyText = const Value.absent(),
+    this.replyAuthorName = const Value.absent(),
   })  : serverMessageId = Value(serverMessageId),
         chatId = Value(chatId),
         senderId = Value(senderId),
@@ -1373,6 +1433,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     Expression<String>? completionStatus,
     Expression<String>? votesByOption,
     Expression<String>? userVotes,
+    Expression<String>? replyToId,
+    Expression<String>? replyText,
+    Expression<String>? replyAuthorName,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1388,6 +1451,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
       if (completionStatus != null) 'completion_status': completionStatus,
       if (votesByOption != null) 'votes_by_option': votesByOption,
       if (userVotes != null) 'user_votes': userVotes,
+      if (replyToId != null) 'reply_to_id': replyToId,
+      if (replyText != null) 'reply_text': replyText,
+      if (replyAuthorName != null) 'reply_author_name': replyAuthorName,
     });
   }
 
@@ -1404,7 +1470,10 @@ class MessagesCompanion extends UpdateCompanion<Message> {
       Value<String?>? messageId,
       Value<String?>? completionStatus,
       Value<String?>? votesByOption,
-      Value<String?>? userVotes}) {
+      Value<String?>? userVotes,
+      Value<String?>? replyToId,
+      Value<String?>? replyText,
+      Value<String?>? replyAuthorName}) {
     return MessagesCompanion(
       id: id ?? this.id,
       serverMessageId: serverMessageId ?? this.serverMessageId,
@@ -1419,6 +1488,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
       completionStatus: completionStatus ?? this.completionStatus,
       votesByOption: votesByOption ?? this.votesByOption,
       userVotes: userVotes ?? this.userVotes,
+      replyToId: replyToId ?? this.replyToId,
+      replyText: replyText ?? this.replyText,
+      replyAuthorName: replyAuthorName ?? this.replyAuthorName,
     );
   }
 
@@ -1463,6 +1535,15 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     }
     if (userVotes.present) {
       map['user_votes'] = Variable<String>(userVotes.value);
+    }
+    if (replyToId.present) {
+      map['reply_to_id'] = Variable<String>(replyToId.value);
+    }
+    if (replyText.present) {
+      map['reply_text'] = Variable<String>(replyText.value);
+    }
+    if (replyAuthorName.present) {
+      map['reply_author_name'] = Variable<String>(replyAuthorName.value);
     }
     return map;
   }

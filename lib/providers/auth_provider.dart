@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/auth/user_model.dart';
 import '../models/auth/auth_response.dart';
@@ -64,6 +65,42 @@ class AuthProvider extends ChangeNotifier {
     debugPrint('XSEC-2: synced current user id=${user.id} to CryptoService');
   }
 
+  Future<void> _ensureCryptoKeysReady({String? password, String? username, dynamic xsec2Payload}) async {
+    if (_cryptoService == null) return;
+    try {
+      await _cryptoService!.init();
+      await _cryptoService!.ensureLocalKeyMatchesServer();
+      if (!_cryptoService!.hasKeys) {
+        final restoredFromMobile = await _cryptoService!.tryRestoreKeysFromServerPayload(
+          xsec2Payload,
+          password: password,
+          username: username,
+        );
+
+        final restored = restoredFromMobile ||
+            await _cryptoService!.restoreKeysFromServerIfPossible(
+              password: password,
+              username: username,
+            );
+
+        if (restored) {
+          debugPrint('XSEC-2: Restored keys from server payload');
+        } else if (_cryptoService!.serverKeysPresentWithoutRecovery) {
+          debugPrint('XSEC-2: Server keys detected, skip regeneration to avoid key rotation');
+        } else {
+          debugPrint('XSEC-2: No keys found anywhere, generating user keys and uploading to server...');
+          final keys = await _cryptoService!.generateUserKeys();
+          await _cryptoService!.saveUserKeys(keys);
+          await _cryptoService!.uploadKeysToServer(password: password);
+        }
+      } else {
+        debugPrint('XSEC-2: Keys already exist locally');
+      }
+    } catch (e) {
+      debugPrint('XSEC-2: Error in _ensureCryptoKeysReady: $e');
+    }
+  }
+
   AuthStatus get status => _status;
   UserModel? get user => _user;
   String? get tfaToken => _tfaToken;
@@ -95,28 +132,21 @@ class AuthProvider extends ChangeNotifier {
       final isAuth = await _authService.isAuthenticated();
       if (isAuth) {
         _user = await _authService.getCurrentUser();
+        if (_user != null && (_user!.firstName == null || _user!.firstName!.isEmpty)) {
+          final locals = await _recentAccountsService.getLocalRecentAccounts();
+          for (final acc in locals) {
+            if ((acc.username == _user!.username || acc.id == _user!.id) && acc.firstName != null && acc.firstName!.isNotEmpty) {
+              _user = _user!.copyWith(firstName: acc.firstName);
+              await _authService.tokenStorage.saveUserData(_user!.toJson());
+              break;
+            }
+          }
+        }
         _syncCryptoUserId();
         _status = _user != null ? AuthStatus.authenticated : AuthStatus.unauthenticated;
 
-        if (_status == AuthStatus.authenticated && _cryptoService != null) {
-          try {
-            await _cryptoService!.ensureLocalKeyMatchesServer();
-            if (!_cryptoService!.hasKeys) {
-              final restored = await _cryptoService!.restoreKeysFromServerIfPossible();
-              if (restored) {
-                debugPrint('XSEC-2: Restored keys from server payload');
-              } else if (_cryptoService!.serverKeysPresentWithoutRecovery) {
-                debugPrint('XSEC-2: Server keys detected, skip regeneration to avoid key rotation');
-              } else {
-                debugPrint('XSEC-2: No keys found anywhere, generating...');
-                final keys = await _cryptoService!.generateUserKeys();
-                await _cryptoService!.saveUserKeys(keys);
-                await _cryptoService!.uploadKeysToServer();
-              }
-            }
-          } catch (e) {
-            debugPrint('XSEC-2: Error: $e');
-          }
+        if (_status == AuthStatus.authenticated) {
+          await _ensureCryptoKeysReady();
         }
       } else {
         _status = AuthStatus.unauthenticated;
@@ -165,42 +195,12 @@ class AuthProvider extends ChangeNotifier {
         _syncCryptoUserId();
         _status = AuthStatus.authenticated;
 
-        // Init XSEC-2 keys after successful login
-        if (_cryptoService != null) {
-          try {
-            await _cryptoService!.init();
-            await _cryptoService!.ensureLocalKeyMatchesServer();
-            if (!_cryptoService!.hasKeys) {
-              final restoredFromMobile = await _cryptoService!
-                  .tryRestoreKeysFromServerPayload(
-                    result.response?.xsec2,
-                    password: password,
-                    username: username,
-                  );
-
-              final restored = restoredFromMobile ||
-                  await _cryptoService!.restoreKeysFromServerIfPossible(
-                    password: password,
-                    username: username,
-                  );
-
-              if (restored) {
-                debugPrint('XSEC-2: Restored keys from server payload after login');
-              } else if (_cryptoService!.serverKeysPresentWithoutRecovery) {
-                debugPrint('XSEC-2: Server keys detected, skip regeneration to avoid key rotation');
-              } else {
-                debugPrint('XSEC-2: No keys after login, generating...');
-                final keys = await _cryptoService!.generateUserKeys();
-                await _cryptoService!.saveUserKeys(keys);
-                await _cryptoService!.uploadKeysToServer();
-              }
-            } else {
-              debugPrint('XSEC-2: Keys exist after login');
-            }
-          } catch (e) {
-            debugPrint('XSEC-2: Error after login: $e');
-          }
-        }
+        // Init/Ensure XSEC-2 keys after successful login
+        await _ensureCryptoKeysReady(
+          password: password,
+          username: username,
+          xsec2Payload: result.response?.xsec2,
+        );
 
         await _saveRecentAccount(_user!);
         _setLoading(false);
@@ -275,6 +275,7 @@ class AuthProvider extends ChangeNotifier {
     required String passwordConfirm,
     String? birthDate,
     String? realname,
+    File? avatarFile,
   }) async {
     _setLoading(true);
     _clearError();
@@ -287,20 +288,35 @@ class AuthProvider extends ChangeNotifier {
         passwordConfirm: passwordConfirm,
         birthDate: birthDate,
         realname: realname,
+        avatarFile: avatarFile,
       );
 
       if (registerResponse.success) {
         _user = UserModel(
           id: registerResponse.userId ?? 0,
-          username: registerResponse.username ?? '',
-          email: registerResponse.email ?? '',
+          username: registerResponse.username ?? username,
+          email: registerResponse.email ?? email,
+          firstName: registerResponse.firstName ?? realname,
           emailVerified: true,
+          avatar: registerResponse.avatarUrl,
           createdAt: DateTime.now(),
         );
+
+        if (!await _authService.tokenStorage.hasAccessToken()) {
+          try {
+            await _authService.loginWithTokens(username: username, password: password);
+          } catch (e) {
+            debugPrint('Auto-login after registration fallback failed: $e');
+          }
+        }
+
         _syncCryptoUserId();
+        await _ensureCryptoKeysReady(password: password, username: username);
+        await _saveRecentAccount(_user!);
         _status = AuthStatus.authenticated;
         _setLoading(false);
         notifyListeners();
+        _registerDeviceTokenIfAuthenticated();
         return true;
       } else {
         _error = ApiError(message: registerResponse.message ?? 'Registration failed');
@@ -426,6 +442,7 @@ class AuthProvider extends ChangeNotifier {
             id: response.userInfo!.id ?? 0,
             username: response.userInfo!.username ?? '',
             email: response.userInfo!.email ?? '',
+            firstName: response.userInfo!.firstName,
             emailVerified: response.userInfo!.isVerified ?? false,
             tfaEnabled: response.userInfo!.tfaEnabled ?? false,
             avatar: response.userInfo!.avatarUrl,
@@ -469,6 +486,7 @@ class AuthProvider extends ChangeNotifier {
         id: user.id,
         username: user.username,
         email: user.email,
+        firstName: user.firstName,
         avatar: user.avatar,
         avatarGradient: user.avatarGradient,
         hasAvatar: user.avatar != null,

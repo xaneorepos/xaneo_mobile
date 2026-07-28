@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
-import 'package:xaneo_mobile/main.dart';
-import 'package:xaneo_mobile/services/database/app_database.dart';
-import 'package:xaneo_mobile/services/chat/chat_local_repository.dart';
+import 'package:xaneo/main.dart';
+import 'package:xaneo/services/database/app_database.dart';
+import 'package:xaneo/services/chat/chat_local_repository.dart';
 
 void main() {
   testWidgets('App loads and shows splash screen', (WidgetTester tester) async {

@@ -27,6 +27,8 @@ class AuthService {
     required TokenStorage tokenStorage,
   }) : _apiClient = apiClient, _tokenStorage = tokenStorage;
 
+  TokenStorage get tokenStorage => _tokenStorage;
+
   /// Вход в систему через mobile-login API
   ///
   /// Возвращает MobileLoginResult:
@@ -173,37 +175,102 @@ class AuthService {
     String? birthDate,
     String? realname,
     bool dataProcessingConsent = true,
+    File? avatarFile,
   }) async {
     try {
+      final Map<String, dynamic> mapData = {
+        'username': username,
+        'email': email,
+        'password': password,
+        'password_confirm': passwordConfirm,
+        'birth_date': birthDate,
+        'data_processing_consent': dataProcessingConsent,
+        if (realname != null) 'first_name': realname,
+      };
+
+      dynamic dataToSend;
+      if (avatarFile != null) {
+        dataToSend = FormData.fromMap({
+          ...mapData,
+          'avatar': await MultipartFile.fromFile(
+            avatarFile.path,
+            filename: avatarFile.path.split(Platform.pathSeparator).last,
+          ),
+        });
+      } else {
+        dataToSend = mapData;
+      }
+
       final response = await _apiClient.post(
         AppConfig.authMobileRegister,
-        data: {
-          'username': username,
-          'email': email,
-          'password': password,
-          'password_confirm': passwordConfirm,
-          'birth_date': birthDate,
-          'data_processing_consent': dataProcessingConsent,
-          if (realname != null) 'first_name': realname,
-        },
+        data: dataToSend,
       );
 
       final registerResponse = MobileRegisterResponse.fromJson(response.data);
       
-      // Сохраняем данные пользователя
-      if (registerResponse.success && registerResponse.userId != null) {
-        await _tokenStorage.saveUserData({
-          'id': registerResponse.userId,
-          'username': registerResponse.username,
-          'email': registerResponse.email,
-          'first_name': registerResponse.firstName,
-          'has_avatar': registerResponse.hasAvatar,
-        });
+      // Сохраняем токены авторизации и данные пользователя
+      if (registerResponse.success) {
+        final access = response.data['access'] ?? response.data['tokens']?['access'];
+        final refresh = response.data['refresh'] ?? response.data['tokens']?['refresh'];
+
+        if (access != null && access is String) {
+          await _tokenStorage.saveAccessToken(access);
+        }
+        if (refresh != null && refresh is String) {
+          await _tokenStorage.saveRefreshToken(refresh);
+        }
+
+        if (registerResponse.userId != null) {
+          await _tokenStorage.saveUserData({
+            'id': registerResponse.userId,
+            'username': registerResponse.username,
+            'email': registerResponse.email,
+            'first_name': registerResponse.firstName,
+            'has_avatar': registerResponse.hasAvatar ?? (avatarFile != null),
+            if (registerResponse.avatarUrl != null)
+              'avatar': registerResponse.avatarUrl,
+          });
+        }
       }
       
       return registerResponse;
     } on DioException catch (e) {
       throw _handleDioError(e);
+    }
+  }
+
+  /// Обновить или удалить аватар текущего пользователя
+  Future<Map<String, dynamic>?> updateUserAvatar({
+    File? avatarFile,
+    bool removeAvatar = false,
+  }) async {
+    try {
+      dynamic dataToSend;
+      if (removeAvatar) {
+        dataToSend = {'remove_avatar': true};
+      } else if (avatarFile != null) {
+        dataToSend = FormData.fromMap({
+          'avatar': await MultipartFile.fromFile(
+            avatarFile.path,
+            filename: avatarFile.path.split(Platform.pathSeparator).last,
+          ),
+        });
+      } else {
+        return null;
+      }
+
+      final response = await _apiClient.post(
+        '/auth/avatar/',
+        data: dataToSend,
+      );
+
+      if (response.statusCode == 200 && response.data is Map) {
+        return Map<String, dynamic>.from(response.data as Map);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error updating user avatar: $e');
+      return null;
     }
   }
 

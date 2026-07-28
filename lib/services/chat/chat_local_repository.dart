@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import '../../models/chat/chat_model.dart';
 import '../database/app_database.dart';
@@ -20,7 +21,15 @@ class LocalChatRepository {
           ..where((c) => c.isArchived.equals(false))
           ..orderBy([(c) => OrderingTerm.desc(c.lastMessageTime)]))
         .watch()
-        .map((rows) => rows.map(_mapChatToModel).toList());
+        .map((rows) => rows
+            .map(_mapChatToModel)
+            .where((chat) {
+              if (chat.isGroup || chat.isChannel) {
+                return chat.otherUser?['is_member'] != false;
+              }
+              return true;
+            })
+            .toList());
   }
 
   /// Получение архивных чатов в виде потока (Stream)
@@ -29,7 +38,15 @@ class LocalChatRepository {
           ..where((c) => c.isArchived.equals(true))
           ..orderBy([(c) => OrderingTerm.desc(c.lastMessageTime)]))
         .watch()
-        .map((rows) => rows.map(_mapChatToModel).toList());
+        .map((rows) => rows
+            .map(_mapChatToModel)
+            .where((chat) {
+              if (chat.isGroup || chat.isChannel) {
+                return chat.otherUser?['is_member'] != false;
+              }
+              return true;
+            })
+            .toList());
   }
 
   /// Обновление статуса архивации чата
@@ -55,6 +72,17 @@ class LocalChatRepository {
             (m) => OrderingTerm.desc(m.id),
           ]))
         .watch();
+  }
+
+  /// Получение списка сообщений для конкретного чата (будущее/Future)
+  Future<List<Message>> getMessagesForChat(int chatId) {
+    return (_db.select(_db.messages)
+          ..where((m) => m.chatId.equals(chatId))
+          ..orderBy([
+            (m) => OrderingTerm.desc(m.timestamp),
+            (m) => OrderingTerm.desc(m.id),
+          ]))
+        .get();
   }
 
   /// Получение сообщений конкретного чата по его строковому serverChatId с возможностью лимита
@@ -118,6 +146,13 @@ class LocalChatRepository {
     return (_db.delete(_db.messages)
           ..where((m) => m.serverMessageId.equals(serverMessageId)))
         .go();
+  }
+
+  /// Обновление serverMessageId существующего (pending) сообщения в локальной БД без пересоздания
+  Future<int> updateMessageServerId(String tempServerId, String newServerId) {
+    return (_db.update(_db.messages)
+          ..where((m) => m.serverMessageId.equals(tempServerId)))
+        .write(MessagesCompanion(serverMessageId: Value(newServerId)));
   }
 
   /// Пакетное сохранение чатов из API в локальную БД
@@ -272,6 +307,22 @@ class LocalChatRepository {
     }
   }
 
+  /// Отметить сообщения в локальной базе данных как прочитанные
+  Future<void> markMessagesAsReadInDb(int chatId, {List<String>? serverMessageIds}) async {
+    int updatedCount = 0;
+    if (serverMessageIds != null && serverMessageIds.isNotEmpty) {
+      updatedCount = await (_db.update(_db.messages)
+            ..where((m) => m.chatId.equals(chatId))
+            ..where((m) => m.serverMessageId.isIn(serverMessageIds)))
+          .write(const MessagesCompanion(isRead: Value(true)));
+    } else {
+      updatedCount = await (_db.update(_db.messages)
+            ..where((m) => m.chatId.equals(chatId)))
+          .write(const MessagesCompanion(isRead: Value(true)));
+    }
+    debugPrint('[READ_STATUS_LOG] markMessagesAsReadInDb: chatId=$chatId, serverMessageIds=$serverMessageIds => updated $updatedCount rows to isRead=true');
+  }
+
   ChatModel _mapChatToModel(Chat row) {
     Map<String, dynamic>? otherUser;
     if (row.otherUserJson != null && row.otherUserJson!.isNotEmpty) {
@@ -279,6 +330,10 @@ class LocalChatRepository {
         otherUser = jsonDecode(row.otherUserJson!) as Map<String, dynamic>;
       } catch (_) {}
     }
+    final rawCallsEnabled = otherUser?['group_calls_enabled'];
+    bool groupCallsEnabled = rawCallsEnabled != null
+        ? (rawCallsEnabled == true || rawCallsEnabled == 1 || rawCallsEnabled == 'true')
+        : true;
 
     return ChatModel(
       id: row.serverChatId,
@@ -297,14 +352,14 @@ class LocalChatRepository {
       isArchived: row.isArchived,
       archivedAt: row.archivedAt,
       lastMessageType: row.lastMessageType,
+      groupCallsEnabled: groupCallsEnabled,
     );
   }
 
   ChatsCompanion _mapModelToCompanion(ChatModel model) {
-    String? otherUserJson;
-    if (model.otherUser != null) {
-      otherUserJson = jsonEncode(model.otherUser);
-    }
+    Map<String, dynamic> otherUserMap = Map<String, dynamic>.from(model.otherUser ?? {});
+    otherUserMap['group_calls_enabled'] = model.groupCallsEnabled;
+    final otherUserJson = jsonEncode(otherUserMap);
 
     return ChatsCompanion(
       serverChatId: Value(model.id),
@@ -357,6 +412,16 @@ class LocalChatRepository {
       incomingIsLatest = true;
     }
 
+    // Merge user_profiles from existing otherUser if incoming does not have them
+    Map<String, dynamic>? mergedOtherUser;
+    if (incoming.otherUser != null || existing.otherUser != null) {
+      mergedOtherUser = Map<String, dynamic>.from(incoming.otherUser ?? {});
+      final existingProfiles = existing.otherUser?['user_profiles'];
+      if (existingProfiles != null && mergedOtherUser['user_profiles'] == null) {
+        mergedOtherUser['user_profiles'] = existingProfiles;
+      }
+    }
+
     return ChatModel(
       id: incoming.id,
       name: incoming.name,
@@ -369,11 +434,12 @@ class LocalChatRepository {
       isChannel: incoming.isChannel,
       isPersonal: incoming.isPersonal,
       isFavorites: incoming.isFavorites,
-      otherUser: incoming.otherUser ?? existing.otherUser,
+      otherUser: mergedOtherUser,
       isEncrypted: incomingIsLatest ? incoming.isEncrypted : existing.isEncrypted,
       isArchived: incoming.isArchived,
       archivedAt: incoming.archivedAt ?? existing.archivedAt,
       lastMessageType: incomingIsLatest ? incoming.lastMessageType : existing.lastMessageType,
+      groupCallsEnabled: incoming.groupCallsEnabled || existing.groupCallsEnabled,
     );
   }
 }

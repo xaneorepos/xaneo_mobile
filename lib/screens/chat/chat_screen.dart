@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/app_config.dart';
 import '../../models/chat/chat_model.dart';
+import '../../widgets/common/avatar_widget.dart';
 import '../../widgets/common/video_thumbnail_widget.dart';
 import '../../models/auth/user_model.dart';
 import '../../providers/auth_provider.dart';
@@ -20,7 +21,9 @@ import '../../services/api/api_client.dart';
 import '../../services/chat/chat_local_repository.dart';
 import '../../services/chat/chat_service.dart';
 import '../../services/chat/chat_websocket_service.dart';
+import '../../services/chat/group_channel_service.dart';
 import '../../services/crypto/crypto_service.dart';
+import '../../services/grpc_service.dart';
 import '../../services/database/app_database.dart';
 import '../../styles/app_styles.dart';
 import '../../widgets/common/chat_info_modal.dart';
@@ -44,6 +47,40 @@ import '../../providers/playback_provider.dart';
 import '../../widgets/voice_waveform_slider.dart';
 
 /// Immutable state class для оптимизации Selector
+String? _parseReplyField(dynamic val) {
+  if (val == null) return null;
+  final str = val.toString().trim();
+  if (str.isEmpty || str == 'null' || str == 'None' || str == '0') return null;
+  return str;
+}
+
+bool _areSameChat(String? id1, String? id2) {
+  if (id1 == null || id2 == null) return false;
+  if (id1 == id2) return true;
+
+  final s1 = id1.toString().trim();
+  final s2 = id2.toString().trim();
+  if (s1 == s2) return true;
+
+  if (s1.startsWith('personal_') && s2.startsWith('personal_')) {
+    final parts1 = s1.replaceFirst('personal_', '').split('_');
+    final parts2 = s2.replaceFirst('personal_', '').split('_');
+    if (parts1.length == 2 && parts2.length == 2) {
+      return (parts1[0] == parts2[0] && parts1[1] == parts2[1]) ||
+             (parts1[0] == parts2[1] && parts1[1] == parts2[0]);
+    }
+  }
+
+  String norm(String s) {
+    if (s.startsWith('group_')) return s.replaceFirst('group_', '');
+    if (s.startsWith('channel_')) return s.replaceFirst('channel_', '');
+    if (s.startsWith('favorites_')) return s.replaceFirst('favorites_', '');
+    return s;
+  }
+
+  return norm(s1) == norm(s2);
+}
+
 class _VoicePlaybackState {
   final String? currentAudioUrl;
   final bool isPlaying;
@@ -148,6 +185,46 @@ class _ChatScreenState extends State<ChatScreen> {
   final Map<String, String> _typingUsers = {};
   final Map<String, String> _typingLottiePaths = {};
   final Map<String, Timer> _typingTimers = {};
+  final Map<String, Map<String, dynamic>> _userProfiles = {};
+
+  void _cacheUserProfileFromMap(Map<String, dynamic> item) {
+    final senderId = item['author_username']?.toString() ??
+        item['sender_id']?.toString() ??
+        item['author_id']?.toString();
+    if (senderId != null && senderId.isNotEmpty && senderId != 'unknown') {
+      String? firstName;
+      String? avatar;
+      String? gradient;
+
+      if (item['author'] is Map) {
+        final authorMap = Map<String, dynamic>.from(item['author']);
+        firstName = authorMap['first_name']?.toString();
+        avatar = authorMap['avatar']?.toString() ?? authorMap['avatar_url']?.toString();
+        gradient = authorMap['avatar_gradient']?.toString();
+      }
+
+      firstName ??= item['author_first_name']?.toString() ?? item['first_name']?.toString();
+      avatar ??= item['author_avatar']?.toString() ?? item['avatar']?.toString();
+      gradient ??= item['author_avatar_gradient']?.toString() ?? item['avatar_gradient']?.toString();
+
+      final existing = _userProfiles[senderId];
+      if (existing != null) {
+        firstName ??= existing['first_name']?.toString();
+        avatar ??= existing['avatar']?.toString();
+        if (gradient == null || gradient.isEmpty) {
+          gradient = existing['avatar_gradient']?.toString();
+        }
+      }
+
+      if (firstName != null || avatar != null || (gradient != null && gradient.isNotEmpty)) {
+        _userProfiles[senderId] = {
+          'first_name': (firstName != null && firstName.isNotEmpty) ? firstName : senderId,
+          'avatar': avatar,
+          'avatar_gradient': gradient,
+        };
+      }
+    }
+  }
 
   // Sets of message IDs to manage animations
   final Set<String> _initialMessageIds = {};
@@ -155,11 +232,30 @@ class _ChatScreenState extends State<ChatScreen> {
   final Set<String> _animatedMessageIds = {};
   final Set<String> _messagesToAnimate = {};
   bool _isOwner = false;
+  bool _isMember = true;
+  bool _canWrite = true;
+  bool _isJoining = false;
+  bool _isEphemeralPreview = false;
+  String? _chatName;
+  Message? _replyingToMessage;
+
+  Future<void> _ensureChatSavedLocally() async {
+    if (_localChatId != null && !_isEphemeralPreview) return;
+    await _localChatRepo.saveChat(widget.chat);
+    final localId = await _localChatRepo.getLocalChatId(widget.chat.id);
+    if (mounted && localId != null) {
+      setState(() {
+        _localChatId = localId;
+        _isEphemeralPreview = false;
+      });
+    }
+  }
 
   // Оптимистичная отправка голосовых: temp-сообщение показывается сразу,
   // затем сверяется с эхом сервера по file_id (чтобы не плодить дубли).
   final Map<String, String> _pendingVoiceTempIds = {}; // file_id -> temp serverMessageId
   final Map<String, String> _pendingVoiceLocalPaths = {}; // file_id -> локальный путь к записи
+  final List<String> _pendingTextTempIds = []; // temp serverMessageId for optimistic text messages
 
   Future<void> _loadJwtToken() async {
     final token = await TokenStorage().getAccessToken();
@@ -181,6 +277,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _chatName = widget.chat.name;
     _loadJwtToken();
     _loadCameras();
     _otherUser = widget.chat.otherUser != null ? Map<String, dynamic>.from(widget.chat.otherUser!) : null;
@@ -195,6 +292,19 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollController.addListener(_scrollListener);
     _messageController.addListener(_onTextChanged);
     _initChat();
+
+    if (widget.chat.isGroup) {
+      final callsEnabled = widget.chat.groupCallsEnabled;
+      final rawCallsEnabled = widget.chat.raw['group_calls_enabled'];
+      final otherCallsEnabled = widget.chat.otherUser?['group_calls_enabled'];
+      debugPrint('====================================================');
+      debugPrint('👥 [GROUP CALL LOG] Заход в групповой чат ID=${widget.chat.id} "${widget.chat.name}":');
+      debugPrint('   -> widget.chat.groupCallsEnabled = $callsEnabled');
+      debugPrint('   -> widget.chat.raw["group_calls_enabled"] = $rawCallsEnabled');
+      debugPrint('   -> widget.chat.otherUser["group_calls_enabled"] = $otherCallsEnabled');
+      debugPrint('   -> Кнопка звонка разрешена в UI (_canCall()): ${_canCall()}');
+      debugPrint('====================================================');
+    }
   }
 
   @override
@@ -278,15 +388,56 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initChat() async {
-    // 1. Get or create local chatId
+    // Pre-load saved user profiles from widget.chat.otherUser
+    if (widget.chat.otherUser != null && widget.chat.otherUser!['user_profiles'] is Map) {
+      try {
+        final savedProfiles = widget.chat.otherUser!['user_profiles'] as Map<String, dynamic>;
+        savedProfiles.forEach((key, val) {
+          if (val is Map) {
+            _userProfiles[key] = Map<String, dynamic>.from(val);
+          }
+        });
+      } catch (e) {
+        debugPrint('Error restoring user_profiles from otherUser: $e');
+      }
+    }
+
+    if (widget.chat.otherUser != null) {
+      if (widget.chat.otherUser!['is_member'] != null) {
+        _isMember = widget.chat.otherUser!['is_member'] == true;
+      }
+      if (widget.chat.otherUser!['can_write'] != null) {
+        _canWrite = widget.chat.otherUser!['can_write'] == true;
+      }
+    }
+
+    // 1. Check if chat exists locally
     var localId = await _localChatRepo.getLocalChatId(widget.chat.id);
+    final isGroupOrChannel = widget.chat.isGroup || widget.chat.isChannel;
+    final bool initialIsMember;
+    if (!isGroupOrChannel) {
+      initialIsMember = true;
+    } else if (widget.chat.otherUser?['is_member'] != null) {
+      initialIsMember = widget.chat.otherUser!['is_member'] == true;
+    } else if (localId != null) {
+      initialIsMember = true;
+    } else {
+      // Brand new group/channel not in local DB with no explicit is_member -> default to false
+      initialIsMember = false;
+    }
+
     if (localId == null) {
-      // If chat doesn't exist locally, save it first
-      await _localChatRepo.saveChat(widget.chat);
+      final existingOtherUser = Map<String, dynamic>.from(widget.chat.otherUser ?? {});
+      if (isGroupOrChannel) {
+        existingOtherUser['is_member'] = initialIsMember;
+      }
+      final chatToSave = widget.chat.copyWith(otherUser: existingOtherUser);
+      await _localChatRepo.saveChat(chatToSave);
       localId = await _localChatRepo.getLocalChatId(widget.chat.id);
     }
 
-    // Let it build the initial list straight away to avoid post-transition jank
+    _isEphemeralPreview = !initialIsMember;
+    _isMember = initialIsMember;
 
     if (localId != null) {
       await _localChatRepo.cleanupFakeFileMessages(localId);
@@ -295,6 +446,8 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) {
         setState(() {
           _localChatId = localId;
+          _isEphemeralPreview = !initialIsMember;
+          _isMember = initialIsMember;
           if (localCount > 0) {
             _isLoading = false;
           }
@@ -316,12 +469,6 @@ class _ChatScreenState extends State<ChatScreen> {
           });
         }
       }
-    } else {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
 
     // 3. Connect to WebSocket for E2EE updates
@@ -329,10 +476,131 @@ class _ChatScreenState extends State<ChatScreen> {
     _wsEventsSub = _chatWebSocketService.events.listen(_handleWsEvent);
     
     // 4. Mark messages as read since the chat is open
-    _chatService.markMessagesAsRead(widget.chat.id);
+    _markChatAsRead();
 
     // 5. Fetch group/channel details for owner check
     _fetchChatDetails();
+
+    if (_localChatId != null) {
+      _sweepEncryptedMessages(_localChatId!);
+    }
+  }
+
+  Future<void> _sweepEncryptedMessages(int localId) async {
+    try {
+      final messages = await _localChatRepo.getMessagesForChat(localId);
+      final List<MessagesCompanion> companionsToUpdate = [];
+      final cryptoService = context.read<CryptoService>();
+
+      for (final m in messages) {
+        bool needsUpdate = false;
+        String? newTextContent = m.textContent;
+        String? newReplyText = m.replyText;
+
+        if (cryptoService.isEncryptedMessage(m.textContent)) {
+          final decrypted = await cryptoService.decryptChatMessage(m.textContent, widget.chat.id);
+          if (decrypted != null && decrypted != m.textContent) {
+            newTextContent = decrypted;
+            needsUpdate = true;
+          }
+        }
+
+        if (m.replyText != null && cryptoService.isEncryptedMessage(m.replyText!)) {
+          final decryptedReply = await cryptoService.decryptChatMessage(m.replyText!, widget.chat.id);
+          if (decryptedReply != null && decryptedReply != m.replyText) {
+            newReplyText = decryptedReply;
+            needsUpdate = true;
+          }
+        }
+
+        if (needsUpdate) {
+          companionsToUpdate.add(MessagesCompanion(
+            id: Value(m.id),
+            serverMessageId: Value(m.serverMessageId),
+            chatId: Value(m.chatId),
+            senderId: Value(m.senderId),
+            textContent: Value(newTextContent),
+            fileUrl: Value(m.fileUrl),
+            isRead: Value(m.isRead),
+            timestamp: Value(m.timestamp),
+            messageType: Value(m.messageType),
+            messageId: Value(m.messageId),
+            completionStatus: Value(m.completionStatus),
+            votesByOption: Value(m.votesByOption),
+            userVotes: Value(m.userVotes),
+            replyToId: Value(m.replyToId),
+            replyText: Value(newReplyText),
+            replyAuthorName: Value(m.replyAuthorName),
+          ));
+        }
+      }
+
+      if (companionsToUpdate.isNotEmpty) {
+        await _localChatRepo.saveMessagesBatch(companionsToUpdate);
+        debugPrint('XSEC-2: Swept and decrypted ${companionsToUpdate.length} previously encrypted messages');
+      }
+    } catch (e) {
+      debugPrint('XSEC-2: Error during encrypted messages sweep: $e');
+    }
+  }
+
+  bool _parseIsRead(Map<String, dynamic> item, {bool isFavorites = false}) {
+    if (isFavorites) {
+      debugPrint('[READ_STATUS_LOG] _parseIsRead: favorites chat => isRead=true');
+      return true;
+    }
+
+    final isReadVal = item['is_read_by_recipient'] ??
+        item['is_read'] ??
+        item['isRead'] ??
+        item['read'] ??
+        item['is_read_by_current_user'];
+
+    if (isReadVal == true || isReadVal == 1 || isReadVal == 'true' || isReadVal == '1') {
+      debugPrint('[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched value=$isReadVal (by_recipient=${item['is_read_by_recipient']}, is_read=${item['is_read']}) => isRead=true');
+      return true;
+    }
+
+    final status = item['status']?.toString().toLowerCase();
+    if (status == 'read' || status == 'seen') {
+      debugPrint('[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched status=$status => isRead=true');
+      return true;
+    }
+
+    final readAt = item['read_at'] ?? item['readAt'] ?? item['read_time'];
+    if (readAt != null && readAt.toString().isNotEmpty && readAt.toString() != 'null') {
+      debugPrint('[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched readAt=$readAt => isRead=true');
+      return true;
+    }
+
+    final readBy = item['read_by'] ?? item['readBy'] ?? item['readers'];
+    if (readBy is List && readBy.isNotEmpty) {
+      debugPrint('[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched readBy=$readBy => isRead=true');
+      return true;
+    }
+
+    debugPrint('[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} NO READ MATCH (is_read_by_recipient=${item['is_read_by_recipient']}, is_read=${item['is_read']}, is_read_by_current_user=${item['is_read_by_current_user']}) => isRead=false');
+    return false;
+  }
+
+  void _markChatAsRead() async {
+    final localId = _localChatId;
+    debugPrint('[READ_STATUS_LOG] _markChatAsRead called for chat=${widget.chat.id}, localId=$localId');
+    if (localId != null) {
+      await _localChatRepo.markMessagesAsReadInDb(localId);
+      if (mounted) {
+        setState(() {});
+      }
+    }
+    _chatService.markMessagesAsRead(widget.chat.id);
+    final currentUser = context.read<AuthProvider>().user;
+    if (currentUser != null) {
+      XaneoGrpcService().markAsRead(widget.chat.id, currentUser.id.toString());
+    }
+    _chatWebSocketService.send({
+      'type': 'mark_read',
+      'chat_id': widget.chat.id,
+    });
   }
 
   String? _parseFileInfo(Map<String, dynamic> item, String? decrypted) {
@@ -435,6 +703,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
         int newMessagesCount = 0;
         for (final item in results) {
+          _cacheUserProfileFromMap(Map<String, dynamic>.from(item));
           final msgId = item['id']?.toString() ?? '';
           if (msgId.isNotEmpty && !existingMap.containsKey(msgId)) {
             newMessagesCount++;
@@ -468,6 +737,16 @@ class _ChatScreenState extends State<ChatScreen> {
           final completionStatusVal = item['completion_status'] != null ? jsonEncode(item['completion_status']) : null;
           final votesByOptionVal = item['votes_by_option'] != null ? jsonEncode(item['votes_by_option']) : null;
 
+          final isServerRead = _parseIsRead(Map<String, dynamic>.from(item), isFavorites: widget.chat.isFavorites);
+          final isReadFinal = isServerRead || (existingMap.containsKey(msgId) && existingMap[msgId]!.isRead);
+          final replyToIdVal = _parseReplyField(item['reply_to_id'] ?? item['reply_to_ref'] ?? item['reply_to']);
+          final replyTextRaw = _parseReplyField(item['reply_text']);
+          String? replyTextVal;
+          if (replyTextRaw != null) {
+            replyTextVal = await cryptoService.decryptChatMessage(replyTextRaw, widget.chat.id) ?? replyTextRaw;
+          }
+          final replyAuthorNameVal = _parseReplyField(item['reply_author_name'] ?? item['reply_author']);
+
           companions.add(
             MessagesCompanion(
               serverMessageId: Value(msgId),
@@ -480,6 +759,10 @@ class _ChatScreenState extends State<ChatScreen> {
               messageId: Value(messageId),
               completionStatus: Value(completionStatusVal),
               votesByOption: Value(votesByOptionVal),
+              isRead: Value(isReadFinal),
+              replyToId: Value(replyToIdVal),
+              replyText: Value(replyTextVal),
+              replyAuthorName: Value(replyAuthorNameVal),
             ),
           );
         }
@@ -673,7 +956,7 @@ class _ChatScreenState extends State<ChatScreen> {
         // usually lands short. We keep recalculating and jumping until
         // the target element actually appears in the widget tree.
         Element? element;
-        final targetKey = ValueKey(msgId);
+        final targetKey = ValueKey('msg_${_loadedMessages[actualIndex].id}');
         final totalCount = _loadedMessages.length;
         final ratio = actualIndex / totalCount;
         
@@ -788,6 +1071,7 @@ class _ChatScreenState extends State<ChatScreen> {
         final existingMap = {for (final m in existingMessages) m.serverMessageId: m};
 
         for (final item in results) {
+          _cacheUserProfileFromMap(Map<String, dynamic>.from(item));
           final msgId = item['id']?.toString() ?? '';
           final senderId = item['author_username']?.toString() ?? 'unknown';
           final encryptedText = item['encrypted_text']?.toString() ?? '';
@@ -818,6 +1102,17 @@ class _ChatScreenState extends State<ChatScreen> {
           final completionStatusVal = item['completion_status'] != null ? jsonEncode(item['completion_status']) : null;
           final votesByOptionVal = item['votes_by_option'] != null ? jsonEncode(item['votes_by_option']) : null;
 
+          final isServerRead = _parseIsRead(Map<String, dynamic>.from(item), isFavorites: widget.chat.isFavorites);
+          final isReadFinal = isServerRead || (existingMap.containsKey(msgId) && existingMap[msgId]!.isRead);
+
+          final replyToIdVal = _parseReplyField(item['reply_to_id'] ?? item['reply_to_ref'] ?? item['reply_to']);
+          final replyTextRaw = _parseReplyField(item['reply_text']);
+          String? replyTextVal;
+          if (replyTextRaw != null) {
+            replyTextVal = await cryptoService.decryptChatMessage(replyTextRaw, widget.chat.id) ?? replyTextRaw;
+          }
+          final replyAuthorNameVal = _parseReplyField(item['reply_author_name'] ?? item['reply_author']);
+
           companions.add(
             MessagesCompanion(
               serverMessageId: Value(msgId),
@@ -830,6 +1125,10 @@ class _ChatScreenState extends State<ChatScreen> {
               messageId: Value(messageId),
               completionStatus: Value(completionStatusVal),
               votesByOption: Value(votesByOptionVal),
+              isRead: Value(isReadFinal),
+              replyToId: Value(replyToIdVal),
+              replyText: Value(replyTextVal),
+              replyAuthorName: Value(replyAuthorNameVal),
             ),
           );
         }
@@ -863,6 +1162,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _handleWsEvent(Map<String, dynamic> event) async {
     final type = event['type']?.toString();
+    if (type != null && (type.contains('read') || type.contains('mark'))) {
+      debugPrint('[READ_STATUS_LOG] Incoming WS Event with read/mark: type=$type, payload=$event');
+    }
 
     // Handle server-side error responses
     if (type == 'error') {
@@ -874,6 +1176,15 @@ class _ChatScreenState extends State<ChatScreen> {
       final userId = event['user_id']?.toString() ?? '';
       final eventIsTyping = event['is_typing'] == true;
       final action = event['action']?.toString() ?? 'typing';
+      
+      // 🟢 Игнорируем собственные события "печатает"
+      final currentUser = context.read<AuthProvider>().user;
+      final currentUserId = currentUser?.id.toString();
+      final currentUsername = currentUser?.username;
+      if ((currentUserId != null && currentUserId.isNotEmpty && userId == currentUserId) ||
+          (currentUsername != null && currentUsername.isNotEmpty && event['username']?.toString() == currentUsername)) {
+        return;
+      }
       
       String getActionText(String? action) {
         switch (action) {
@@ -992,6 +1303,32 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
+    if (type == 'messages_read' ||
+        type == 'message_read' ||
+        type == 'read_event' ||
+        type == 'messages_marked_read' ||
+        type == 'read_receipt') {
+      final eventChatId = event['chat_id']?.toString() ?? event['chatId']?.toString();
+      debugPrint('[READ_STATUS_LOG] WS READ EVENT: type=$type, eventChatId=$eventChatId, activeChatId=${widget.chat.id}, payload=$event');
+      if (eventChatId == null || _areSameChat(eventChatId, widget.chat.id)) {
+        final localId = _localChatId;
+        if (localId != null) {
+          final rawIds = event['message_ids'] ?? event['ids'] ?? event['message_id'] ?? event['server_message_id'];
+          List<String>? serverMessageIds;
+          if (rawIds is List) {
+            serverMessageIds = rawIds.map((e) => e.toString()).toList();
+          } else if (rawIds != null) {
+            serverMessageIds = [rawIds.toString()];
+          }
+          await _localChatRepo.markMessagesAsReadInDb(localId, serverMessageIds: serverMessageIds);
+          if (mounted) {
+            setState(() {});
+          }
+        }
+      }
+      return;
+    }
+
     if (type == 'voice_message') {
       await _handleIncomingVoiceMessage(event);
       return;
@@ -1002,7 +1339,7 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    if (type != 'encrypted_message' && type != 'poll_message' && type != 'todo_list_message') {
+    if (type != 'encrypted_message' && type != 'poll_message' && type != 'todo_list_message' && type != 'file_message' && type != 'file') {
       if (type == 'todo_completion_update') {
         await _handleTodoCompletionUpdate(event);
         return;
@@ -1017,10 +1354,12 @@ class _ChatScreenState extends State<ChatScreen> {
     final chatId = event['chat_id']?.toString();
     final encryptedText = event['encrypted_text']?.toString() ?? event['encrypted_content']?.toString();
 
-    if (chatId == null || chatId != widget.chat.id || encryptedText == null) return;
+    if (chatId == null || !_areSameChat(chatId, widget.chat.id) || encryptedText == null) return;
+
+    _cacheUserProfileFromMap(Map<String, dynamic>.from(event));
 
     final cryptoService = context.read<CryptoService>();
-    final decrypted = await cryptoService.decryptChatMessage(encryptedText, chatId);
+    final decrypted = await cryptoService.decryptChatMessage(encryptedText, widget.chat.id);
 
     final localId = _localChatId;
     if (localId != null) {
@@ -1046,20 +1385,42 @@ class _ChatScreenState extends State<ChatScreen> {
 
       final bool isAlreadyKnown = _initialMessageIds.contains(msgId) || _animatedMessageIds.contains(msgId);
 
-      await _localChatRepo.saveMessage(
-        MessagesCompanion(
-          serverMessageId: Value(msgId),
-          chatId: Value(localId),
-          senderId: Value(senderId),
-          textContent: Value(decrypted ?? encryptedText),
-          timestamp: Value(timestamp),
-          fileUrl: Value(fileInfoJson),
-          messageType: Value(messageType),
-          messageId: Value(messageId),
-          completionStatus: Value(completionStatusVal),
-          votesByOption: Value(votesByOptionVal),
-        ),
-      );
+      final replyToIdVal = _parseReplyField(event['reply_to_id'] ?? event['reply_to_ref'] ?? event['reply_to']);
+      final replyTextRaw = _parseReplyField(event['reply_text']);
+      String? replyTextVal;
+      if (replyTextRaw != null) {
+        replyTextVal = await cryptoService.decryptChatMessage(replyTextRaw, widget.chat.id) ?? replyTextRaw;
+      }
+      final replyAuthorNameVal = _parseReplyField(event['reply_author_name'] ?? event['reply_author']);
+
+      if (_pendingTextTempIds.isNotEmpty) {
+        final tempId = _pendingTextTempIds.removeAt(0);
+        await _localChatRepo.updateMessageServerId(tempId, msgId);
+        _messagesToAnimate.remove(tempId);
+        _animatedMessageIds.add(msgId);
+      } else {
+        final currentUser2 = context.read<AuthProvider>().user;
+        final isOutgoing = senderId == currentUser2?.username ||
+            senderId == currentUser2?.id?.toString();
+        await _localChatRepo.saveMessage(
+          MessagesCompanion(
+            serverMessageId: Value(msgId),
+            chatId: Value(localId),
+            senderId: Value(senderId),
+            textContent: Value(decrypted ?? encryptedText),
+            timestamp: Value(timestamp),
+            fileUrl: Value(fileInfoJson),
+            messageType: Value(messageType),
+            messageId: Value(messageId),
+            completionStatus: Value(completionStatusVal),
+            votesByOption: Value(votesByOptionVal),
+            isRead: Value(isOutgoing ? false : _parseIsRead(Map<String, dynamic>.from(event), isFavorites: widget.chat.isFavorites)),
+            replyToId: Value(replyToIdVal),
+            replyText: Value(replyTextVal),
+            replyAuthorName: Value(replyAuthorNameVal),
+          ),
+        );
+      }
 
       if (!isAlreadyKnown) {
         _messagesToAnimate.add(msgId);
@@ -1071,8 +1432,13 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       }
 
-      // Mark the message as read on the server since we are viewing it
-      _chatService.markMessagesAsRead(widget.chat.id);
+      // Mark the message as read on the server only for incoming messages
+      final currentUser = context.read<AuthProvider>().user;
+      final isMyMessage = senderId == currentUser?.username ||
+          senderId == currentUser?.id?.toString();
+      if (!isMyMessage) {
+        _markChatAsRead();
+      }
 
       // Update local chat preview
       final updatedChat = ChatModel(
@@ -1099,7 +1465,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _handleIncomingVoiceMessage(Map<String, dynamic> event) async {
     final chatId = event['chat_id']?.toString();
-    if (chatId == null || chatId != widget.chat.id) return;
+    if (chatId == null || !_areSameChat(chatId, widget.chat.id)) return;
 
     final localId = _localChatId;
     if (localId == null) return;
@@ -1170,7 +1536,7 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     }
 
-    _chatService.markMessagesAsRead(widget.chat.id);
+    _markChatAsRead();
 
     final updatedChat = ChatModel(
       id: widget.chat.id,
@@ -1195,7 +1561,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _handleIncomingVideoMessage(Map<String, dynamic> event) async {
     final chatId = event['chat_id']?.toString();
-    if (chatId == null || chatId != widget.chat.id) return;
+    if (chatId == null || !_areSameChat(chatId, widget.chat.id)) return;
 
     final localId = _localChatId;
     if (localId == null) return;
@@ -1261,7 +1627,7 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     }
 
-    _chatService.markMessagesAsRead(widget.chat.id);
+    _markChatAsRead();
 
     final updatedChat = ChatModel(
       id: widget.chat.id,
@@ -1789,6 +2155,7 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     }
 
+    await _ensureChatSavedLocally();
     final localId = _localChatId;
     if (localId == null) return;
 
@@ -1821,6 +2188,47 @@ class _ChatScreenState extends State<ChatScreen> {
     );
     await _localChatRepo.saveChat(updatedChat);
 
+    final replyToId = _replyingToMessage?.serverMessageId;
+    final replyText = _replyingToMessage?.textContent;
+    if (_replyingToMessage != null) {
+      setState(() {
+        _replyingToMessage = null;
+      });
+    }
+
+    final tempId = 'temp_text_${timestamp.millisecondsSinceEpoch}';
+    final currentUser = context.read<AuthProvider>().user;
+    final currentSenderId = currentUser?.username ?? currentUser?.id.toString() ?? 'me';
+
+    await _localChatRepo.saveMessage(
+      MessagesCompanion(
+        serverMessageId: Value(tempId),
+        chatId: Value(localId),
+        senderId: Value(currentSenderId),
+        textContent: Value(text),
+        timestamp: Value(timestamp),
+        isRead: const Value(false),
+        replyToId: Value(replyToId),
+        replyText: Value(replyText),
+      ),
+    );
+
+    _messagesToAnimate.add(tempId);
+    _pendingTextTempIds.add(tempId);
+    if (mounted) {
+      setState(() {
+        _limit++;
+        _updateStream();
+      });
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    }
+
     try {
       final encryptedText = await cryptoService.encryptMessage(text, widget.chat.id);
       if (encryptedText == null) {
@@ -1842,6 +2250,7 @@ class _ChatScreenState extends State<ChatScreen> {
           'chat_id': widget.chat.id,
           'encrypted_text': encryptedText,
           'images': allFilesList,
+          if (replyToId != null) 'reply_to_id': replyToId,
         });
       } else if (text.isEmpty && localAttachments.isNotEmpty) {
         final encryptedEmptyText = await cryptoService.encryptMessage("", widget.chat.id);
@@ -1878,6 +2287,7 @@ class _ChatScreenState extends State<ChatScreen> {
           'encrypted_text': encryptedEmptyText,
           'file_id': firstFileId,
           'images': compressedImagesList,
+          if (replyToId != null) 'reply_to_id': replyToId,
         });
       } else {
         await _chatWebSocketService.send({
@@ -1886,6 +2296,7 @@ class _ChatScreenState extends State<ChatScreen> {
           'encrypted_text': encryptedText,
           'images': [],
           'image': null,
+          if (replyToId != null) 'reply_to_id': replyToId,
         });
       }
     } catch (e) {
@@ -2735,7 +3146,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _buildAttachmentsPreviewPanel(),
-                        _buildInputArea(context),
+                        _buildBottomBar(context),
                       ],
                     ),
                   ),
@@ -3138,7 +3549,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      widget.chat.name,
+                      _chatName ?? widget.chat.name,
                       style: AppStyles.bodyMedium.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -3253,17 +3664,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // 4. Группы
     if (chat.isGroup) {
-      final other = _otherUser;
-      if (other != null) {
-        if (other['allow_calls'] == false ||
-            other['can_call'] == false ||
-            other['calls_allowed'] == false ||
-            other['calls_enabled'] == false ||
-            other['voice_calls_enabled'] == false) {
-          return false;
-        }
-      }
-      return true;
+      return widget.chat.groupCallsEnabled;
     }
 
     return false;
@@ -3287,6 +3688,26 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final callManager = context.read<CallManager>();
     final authProvider = context.read<AuthProvider>();
+
+    if (widget.chat.isGroup) {
+      final groupId = widget.chat.id.toString().replaceAll(RegExp(r'[^0-9]'), '');
+      await callManager.startOutgoingGroupCall(
+        groupId: groupId,
+        groupName: widget.chat.name,
+        groupAvatar: widget.chat.avatar,
+        groupGradient: widget.chat.avatarGradient,
+        callType: callType,
+      );
+
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => const ActiveCallScreen(),
+          ),
+        );
+      }
+      return;
+    }
 
     String targetId = widget.chat.id.toString();
     if (widget.chat.isPersonal && _otherUser != null) {
@@ -3446,9 +3867,11 @@ class _ChatScreenState extends State<ChatScreen> {
         color = const Color(0xFF38BDF8); // sky blue for typing
         lottiePath = _typingLottiePaths.isNotEmpty ? _typingLottiePaths.values.first : null;
       } else {
-        final membersCount = _otherUser?['members_count'] as int? ?? 0;
-        final onlineCount = _otherUser?['online_count'] as int? ?? 0;
-        
+        final rawMem = _otherUser?['members_count'];
+        final membersCount = rawMem is int ? rawMem : (rawMem is num ? rawMem.toInt() : int.tryParse(rawMem?.toString() ?? '') ?? 0);
+        final rawOnline = _otherUser?['online_count'];
+        final onlineCount = rawOnline is int ? rawOnline : (rawOnline is num ? rawOnline.toInt() : int.tryParse(rawOnline?.toString() ?? '') ?? 0);
+
         statusText = _pluralizeParticipants(membersCount);
         if (onlineCount > 0) {
           statusText += ', $onlineCount в сети';
@@ -3456,7 +3879,8 @@ class _ChatScreenState extends State<ChatScreen> {
       }
       icon = FontAwesomeIcons.users;
     } else if (widget.chat.isChannel) {
-      final subscribersCount = _otherUser?['subscribers_count'] as int? ?? 0;
+      final rawSub = _otherUser?['subscribers_count'];
+      final subscribersCount = rawSub is int ? rawSub : (rawSub is num ? rawSub.toInt() : int.tryParse(rawSub?.toString() ?? '') ?? 0);
       statusText = _formatSubscribers(subscribersCount);
       icon = FontAwesomeIcons.bullhorn;
     }
@@ -3571,10 +3995,27 @@ class _ChatScreenState extends State<ChatScreen> {
               );
             }
             final msg = messages[index];
-            final isMe = msg.senderId == currentUser?.username || msg.senderId == currentUser?.id.toString();
-            final senderRealName = isMe 
-              ? (currentUser?.username ?? 'Вы') 
-              : (widget.chat.isGroup ? msg.senderId : widget.chat.name);
+            final isMe = msg.senderId == currentUser?.username || msg.senderId == currentUser?.id.toString() || msg.senderId == 'me';
+            final myName = (currentUser?.firstName != null && currentUser!.firstName!.isNotEmpty)
+                ? currentUser.firstName!
+                : 'Вы';
+            final otherFirstName = widget.chat.otherUser?['first_name']?.toString() ??
+                widget.chat.otherUser?['firstName']?.toString() ??
+                widget.chat.otherUser?['name']?.toString();
+            final otherName = (otherFirstName != null && otherFirstName.isNotEmpty)
+                ? otherFirstName
+                : widget.chat.name;
+
+            final senderProfile = _userProfiles[msg.senderId];
+            final senderFirstName = senderProfile?['first_name']?.toString();
+            final senderAvatar = senderProfile?['avatar']?.toString();
+            final senderGradient = senderProfile?['avatar_gradient']?.toString();
+
+            final senderRealName = (isMe || widget.chat.isFavorites) 
+              ? myName 
+              : (widget.chat.isGroup 
+                  ? ((senderFirstName != null && senderFirstName.isNotEmpty) ? senderFirstName : msg.senderId)
+                  : otherName);
 
             final bool isNewMessage = _messagesToAnimate.contains(msg.serverMessageId);
             final isHighlighted = msg.serverMessageId == _highlightedMessageId;
@@ -3598,7 +4039,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   : Colors.transparent,
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: NewMessageAnimator(
-                key: ValueKey('anim_${msg.serverMessageId}'),
+                key: ValueKey('anim_${msg.id}'),
                 animate: isNewMessage,
                 onStartAnimating: isNewMessage
                     ? () {
@@ -3607,12 +4048,23 @@ class _ChatScreenState extends State<ChatScreen> {
                       }
                     : null,
                 child: MessageBubble(
-                  key: ValueKey(msg.serverMessageId),
+                  key: ValueKey('msg_${msg.id}'),
                   message: msg,
                   isMe: isMe,
+                  isGroup: widget.chat.isGroup,
                   currentUser: currentUser,
                   jwtToken: _jwtToken,
                   senderRealName: senderRealName,
+                  senderAvatar: senderAvatar,
+                  senderGradient: senderGradient,
+                  onReply: (messageToReply) {
+                    setState(() {
+                      _replyingToMessage = messageToReply;
+                    });
+                  },
+                  onTapReplyQuote: (replyServerId) {
+                    _scrollToReplyMessage(replyServerId);
+                  },
                 ),
               ),
             );
@@ -3634,7 +4086,391 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  void _scrollToReplyMessage(String replyServerId) async {
+    setState(() {
+      _highlightedMessageId = replyServerId;
+    });
+    final idx = await _localChatRepo.getMessageIndexByServerId(widget.chat.id, replyServerId);
+    if (idx != null && _scrollController.hasClients) {
+      _scrollController.animateTo(
+        idx * 65.0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && _highlightedMessageId == replyServerId) {
+        setState(() {
+          _highlightedMessageId = null;
+        });
+      }
+    });
+  }
 
+  Widget _buildReplyPreviewBar(BuildContext context) {
+    if (_replyingToMessage == null) return const SizedBox.shrink();
+
+    final currentUser = context.read<AuthProvider>().user;
+    final isMe = _replyingToMessage!.senderId == currentUser?.id?.toString() || _replyingToMessage!.senderId == currentUser?.username;
+    final senderName = isMe ? 'Вы' : (widget.chat.isPersonal ? widget.chat.name : _replyingToMessage!.senderId);
+
+    String textPreview = _replyingToMessage!.textContent;
+    if (textPreview.trim().startsWith('{')) {
+      try {
+        final parsed = jsonDecode(textPreview);
+        if (parsed is Map) {
+          if (parsed['type'] == 'voice') textPreview = '🎤 Голосовое сообщение';
+          else if (parsed['type'] == 'video_message') textPreview = '📹 Видеосообщение';
+          else if (parsed['type'] == 'file') textPreview = '📁 Файл: ${parsed['file_name'] ?? ''}';
+          else if (parsed['type'] == 'todo_list') textPreview = '📋 Список задач';
+          else if (parsed['type'] == 'poll') textPreview = '📊 Опрос';
+        }
+      } catch (_) {}
+    }
+    if (textPreview.isEmpty && _replyingToMessage!.fileUrl != null) {
+      textPreview = '📎 Вложение';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(16),
+        border: const Border(
+          left: BorderSide(color: Color(0xFF3B82F6), width: 4),
+        ),
+      ),
+      child: Row(
+        children: [
+          const FaIcon(FontAwesomeIcons.reply, size: 14, color: Color(0xFF3B82F6)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Ответ для $senderName',
+                  style: const TextStyle(
+                    color: Color(0xFF60A5FA),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  textPreview,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _replyingToMessage = null;
+              });
+            },
+            child: const Padding(
+              padding: EdgeInsets.all(4.0),
+              child: Icon(Icons.close, color: Colors.white54, size: 18),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(BuildContext context) {
+    if ((widget.chat.isGroup || widget.chat.isChannel) && !_isMember) {
+      return _buildJoinButton(context);
+    }
+
+    if (widget.chat.isChannel && _isMember && !_canWrite) {
+      return _buildChannelSubscribedBar(context);
+    }
+
+    if (_replyingToMessage != null) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildReplyPreviewBar(context),
+          _buildInputArea(context),
+        ],
+      );
+    }
+
+    return _buildInputArea(context);
+  }
+
+  Widget _buildJoinButton(BuildContext context) {
+    final String label = widget.chat.isChannel
+        ? 'Присоединиться к каналу'
+        : 'Присоединиться к группе';
+
+    return Container(
+      width: double.infinity,
+      height: 52,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6366F1).withOpacity(0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(26),
+          onTap: _isJoining ? null : _handleJoinGroupOrChannel,
+          child: Center(
+            child: _isJoining
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const FaIcon(
+                        FontAwesomeIcons.userPlus,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: AppStyles.fontFamily,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChannelSubscribedBar(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 52,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1B1B22),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.12),
+          width: 1,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          const FaIcon(
+            FontAwesomeIcons.bullhorn,
+            color: Colors.white54,
+            size: 16,
+          ),
+          const SizedBox(width: 10),
+          const Text(
+            'Вы подписаны',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              fontFamily: AppStyles.fontFamily,
+            ),
+          ),
+          const Spacer(),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: _isJoining ? null : _handleUnsubscribeChannel,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.redAccent.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: _isJoining
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          color: Colors.redAccent,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FaIcon(
+                            FontAwesomeIcons.arrowRightFromBracket,
+                            color: Colors.redAccent,
+                            size: 13,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Отписаться',
+                            style: TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: AppStyles.fontFamily,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleJoinGroupOrChannel() async {
+    if (_isJoining) return;
+    setState(() {
+      _isJoining = true;
+    });
+
+    try {
+      final apiClient = context.read<ApiClient>();
+      final groupChannelService = GroupChannelService(apiClient: apiClient);
+      bool success = false;
+
+      if (widget.chat.isGroup) {
+        final groupId = int.tryParse(widget.chat.id.replaceFirst('group_', ''));
+        if (groupId != null) {
+          success = await groupChannelService.joinGroup(groupId);
+        }
+      } else if (widget.chat.isChannel) {
+        final channelId = int.tryParse(widget.chat.id.replaceFirst('channel_', ''));
+        if (channelId != null) {
+          success = await groupChannelService.toggleChannelSubscription(channelId, subscribe: true);
+        }
+      }
+
+      if (success) {
+        await _ensureChatSavedLocally();
+        if (mounted) {
+          setState(() {
+            _isMember = true;
+            _isJoining = false;
+          });
+          _fetchChatDetails();
+          // Загружаем сообщения, так как мы только что вступили
+          _loadMoreMessages();
+          if (_localChatId != null) {
+            _sweepEncryptedMessages(_localChatId!);
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(widget.chat.isChannel ? 'Вы успешно подписались на канал!' : 'Вы успешно вступили в группу!'),
+              backgroundColor: const Color(0xFF6366F1),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isJoining = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Не удалось присоединиться. Попробуйте еще раз.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error joining chat: $e');
+      if (mounted) {
+        setState(() {
+          _isJoining = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleUnsubscribeChannel() async {
+    if (_isJoining) return;
+    setState(() {
+      _isJoining = true;
+    });
+
+    try {
+      final apiClient = context.read<ApiClient>();
+      final groupChannelService = GroupChannelService(apiClient: apiClient);
+      final channelId = int.tryParse(widget.chat.id.replaceFirst('channel_', ''));
+      bool success = false;
+
+      if (channelId != null) {
+        success = await groupChannelService.toggleChannelSubscription(channelId, subscribe: false);
+      }
+
+      if (success) {
+        if (mounted) {
+          setState(() {
+            _isMember = false;
+            _isJoining = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Вы отписались от канала'),
+              backgroundColor: Colors.grey,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isJoining = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error unsubscribing channel: $e');
+      if (mounted) {
+        setState(() {
+          _isJoining = false;
+        });
+      }
+    }
+  }
 
   Widget _buildInputArea(BuildContext context) {
     // Removed BackdropFilter — it was recomputing blur on every rebuild.
@@ -4153,16 +4989,106 @@ class _ChatScreenState extends State<ChatScreen> {
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
         if (data is Map<String, dynamic>) {
+          final fetchedGradient = data['avatar_gradient']?.toString() ?? data['gradient']?.toString();
+          final fetchedAvatar = data['avatar']?.toString() ?? data['avatar_url']?.toString();
+          final fetchedName = data['name']?.toString() ?? data['title']?.toString();
+
+          if (data['members'] is List) {
+            for (final m in (data['members'] as List)) {
+              if (m is Map) {
+                final username = m['username']?.toString();
+                final firstName = m['first_name']?.toString();
+                final avatar = m['avatar']?.toString() ?? m['avatar_url']?.toString();
+                final gradient = m['avatar_gradient']?.toString();
+
+                if (username != null && username.isNotEmpty) {
+                  _userProfiles[username] = {
+                    'first_name': (firstName != null && firstName.isNotEmpty) ? firstName : username,
+                    'avatar': avatar,
+                    'avatar_gradient': gradient,
+                  };
+                }
+              }
+            }
+          }
+
           final isOwner = data['is_creator'] == true || data['is_owner'] == true;
+          final isMember = data['is_member'] == true || data['is_joined'] == true || data['is_subscribed'] == true || isOwner;
+          
+          bool canWrite = true;
+          if (widget.chat.isChannel) {
+            canWrite = data['can_post'] == true || data['can_write'] == true || data['is_admin'] == true || isOwner;
+          } else if (widget.chat.isGroup) {
+            canWrite = isMember && (data['can_post'] != false && data['can_write'] != false);
+          }
+
+          final existingOtherUser = Map<String, dynamic>.from(widget.chat.otherUser ?? {});
+          existingOtherUser['user_profiles'] = _userProfiles;
+          existingOtherUser['is_member'] = isMember;
+          existingOtherUser['can_write'] = canWrite;
+          if (data['description'] != null) {
+            existingOtherUser['description'] = data['description'];
+          }
+          if (data['username'] != null) {
+            existingOtherUser['username'] = data['username'];
+          }
+          if (data['members_count'] != null) {
+            existingOtherUser['members_count'] = data['members_count'];
+          }
+          if (data['subscribers_count'] != null) {
+            existingOtherUser['subscribers_count'] = data['subscribers_count'];
+          } else if (data['subscribersCount'] != null) {
+            existingOtherUser['subscribers_count'] = data['subscribersCount'];
+          }
+
+          final updatedChat = widget.chat.copyWith(
+            name: (fetchedName != null && fetchedName.isNotEmpty) ? fetchedName : widget.chat.name,
+            avatar: fetchedAvatar ?? widget.chat.avatar,
+            avatarGradient: fetchedGradient ?? widget.chat.avatarGradient,
+            otherUser: existingOtherUser,
+          );
+
+          // Сохраняем обновленный чат в локальной БД (с установленным флагом членства)
+          await _localChatRepo.saveChat(updatedChat);
+
           if (mounted) {
             setState(() {
+              _otherUser = existingOtherUser;
               _isOwner = isOwner;
+              _isMember = isMember;
+              _canWrite = canWrite;
+              _isEphemeralPreview = !isMember;
+              if (fetchedName != null && fetchedName.isNotEmpty) {
+                _chatName = fetchedName;
+              }
             });
           }
         }
       }
     } catch (e) {
       debugPrint('Error fetching chat details: $e');
+      bool shouldDelete = false;
+      if (e is DioException) {
+        final statusCode = e.response?.statusCode;
+        if (statusCode == 403 || statusCode == 404) {
+          shouldDelete = true;
+        }
+      } else if (e.toString().contains('403') || e.toString().contains('404')) {
+        shouldDelete = true;
+      }
+
+      if (shouldDelete) {
+        if (!_isEphemeralPreview) {
+          await _localChatRepo.deleteChatByServerId(widget.chat.id);
+        }
+        if (mounted) {
+          setState(() {
+            _isEphemeralPreview = true;
+            _localChatId = null;
+            _isMember = false;
+          });
+        }
+      }
     }
   }
 
@@ -4862,18 +5788,95 @@ class _NewMessageAnimatorState extends State<NewMessageAnimator> with SingleTick
 class MessageBubble extends StatelessWidget {
   final Message message;
   final bool isMe;
+  final bool isGroup;
   final UserModel? currentUser;
   final String? jwtToken;
   final String senderRealName;
+  final String? senderAvatar;
+  final String? senderGradient;
+  final void Function(Message)? onReply;
+  final void Function(String replyToId)? onTapReplyQuote;
 
   const MessageBubble({
     super.key,
     required this.message,
     required this.isMe,
+    this.isGroup = false,
     required this.currentUser,
     required this.jwtToken,
     required this.senderRealName,
+    this.senderAvatar,
+    this.senderGradient,
+    this.onReply,
+    this.onTapReplyQuote,
   });
+
+  Widget _buildReplyQuote(BuildContext context) {
+    final replyAuthor = message.replyAuthorName ?? 'Сообщение';
+    String replyText = message.replyText ?? '';
+
+    if (replyText.trim().startsWith('{')) {
+      try {
+        final parsed = jsonDecode(replyText);
+        if (parsed is Map) {
+          if (parsed['type'] == 'voice') replyText = '🎤 Голосовое сообщение';
+          else if (parsed['type'] == 'video_message') replyText = '📹 Видеосообщение';
+          else if (parsed['type'] == 'file') replyText = '📁 Файл: ${parsed['file_name'] ?? ''}';
+          else if (parsed['type'] == 'todo_list') replyText = '📋 Список задач';
+          else if (parsed['type'] == 'poll') replyText = '📊 Опрос';
+        }
+      } catch (_) {}
+    }
+    if (replyText.isEmpty) replyText = 'Вложение';
+
+    return GestureDetector(
+      onTap: () {
+        if (message.replyToId != null && message.replyToId!.isNotEmpty) {
+          onTapReplyQuote?.call(message.replyToId!);
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isMe ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(8),
+          border: Border(
+            left: BorderSide(
+              color: isMe ? Colors.white70 : const Color(0xFF60A5FA),
+              width: 3,
+            ),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              replyAuthor,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+                color: isMe ? Colors.white : const Color(0xFF60A5FA),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              replyText,
+              style: TextStyle(
+                fontSize: 11.5,
+                color: isMe ? Colors.white70 : Colors.white60,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildCollageWidget(BuildContext context, List<dynamic> filesList, String hostUrl, String? tokenToUse) {
     final List<Map<String, dynamic>> files = [];
@@ -5254,6 +6257,22 @@ class MessageBubble extends StatelessWidget {
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');
     return '$h:$m';
+  }
+
+  Widget _buildMessageStatusIcon(Message message, {Color? color}) {
+    final isPending = message.serverMessageId.startsWith('temp_');
+    if (isPending) {
+      return FaIcon(
+        FontAwesomeIcons.clock,
+        size: 10,
+        color: color ?? (message.isRead ? _checkReadColor : _checkColor),
+      );
+    }
+    return FaIcon(
+      message.isRead ? FontAwesomeIcons.checkDouble : FontAwesomeIcons.check,
+      size: 10,
+      color: message.isRead ? _checkReadColor : (color ?? _checkColor),
+    );
   }
 
 
@@ -5803,11 +6822,7 @@ class MessageBubble extends StatelessWidget {
                       ),
                       if (isMe) ...[
                         const SizedBox(width: 4),
-                        FaIcon(
-                          message.isRead ? FontAwesomeIcons.checkDouble : FontAwesomeIcons.check,
-                          size: 10,
-                          color: Colors.white,
-                        ),
+                        _buildMessageStatusIcon(message, color: Colors.white),
                       ]
                     ],
                   ),
@@ -5898,11 +6913,7 @@ class MessageBubble extends StatelessWidget {
                         ),
                         if (isMe) ...[
                           const SizedBox(width: 4),
-                          FaIcon(
-                            message.isRead ? FontAwesomeIcons.checkDouble : FontAwesomeIcons.check,
-                            size: 10,
-                            color: Colors.white, 
-                          ),
+                          _buildMessageStatusIcon(message, color: Colors.white),
                         ]
                       ],
                     ),
@@ -5968,11 +6979,7 @@ class MessageBubble extends StatelessWidget {
                             ),
                             if (isMe) ...[
                               const SizedBox(width: 4),
-                              FaIcon(
-                                message.isRead ? FontAwesomeIcons.checkDouble : FontAwesomeIcons.check,
-                                size: 10,
-                                color: Colors.white,
-                              ),
+                              _buildMessageStatusIcon(message, color: Colors.white),
                             ]
                           ],
                         ),
@@ -6058,53 +7065,126 @@ class MessageBubble extends StatelessWidget {
   }
 
 
+    final showGroupSenderInfo = !isMe && isGroup;
+    final senderNameColor = _getSenderNameColor(senderRealName, senderGradient);
+
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.70,
-        ),
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 2.5, horizontal: 16),
-          padding: isOnlyMedia ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: isOnlyMedia ? Colors.transparent : (isMe ? _myBubbleColor : _otherBubbleColor),
-            borderRadius: isMe ? _myCorners : _otherCorners,
-            border: isOnlyMedia ? null : Border.all(color: _borderColor),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (attachmentWidget != null) attachmentWidget,
-              if (displayContent.isNotEmpty)
-                FormattedText(
-                  content: displayContent,
-                  baseStyle: _bodyStyle,
-                ),
-              if (!isOnlyMedia) const SizedBox(height: 3),
-              if (!isOnlyMedia)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _formatTime(message.timestamp),
-                      style: _timeStyle,
-                    ),
-                    if (isMe) ...[
-                      const SizedBox(width: 4),
-                      FaIcon(
-                        message.isRead ? FontAwesomeIcons.checkDouble : FontAwesomeIcons.check,
-                        size: 10,
-                        color: message.isRead ? _checkReadColor : _checkColor,
-                      ),
-                    ]
-                  ],
-                ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2.5, horizontal: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            if (showGroupSenderInfo) ...[
+              AvatarWidget(
+                username: senderRealName,
+                avatar: senderAvatar,
+                avatarGradient: senderGradient,
+                size: 32,
+              ),
+              const SizedBox(width: 6),
             ],
-          ),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.sizeOf(context).width * 0.70,
+              ),
+              child: GestureDetector(
+                onTap: () => onReply?.call(message),
+                child: Container(
+                  padding: isOnlyMedia ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: isOnlyMedia ? Colors.transparent : (isMe ? _myBubbleColor : _otherBubbleColor),
+                    borderRadius: isMe ? _myCorners : _otherCorners,
+                    border: isOnlyMedia ? null : Border.all(color: _borderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (showGroupSenderInfo) ...[
+                        Text(
+                          senderRealName,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: senderNameColor,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                      ],
+                      if (_parseReplyField(message.replyToId) != null || _parseReplyField(message.replyText) != null || _parseReplyField(message.replyAuthorName) != null)
+                        _buildReplyQuote(context),
+                    if (attachmentWidget != null) attachmentWidget,
+                    if (displayContent.isNotEmpty)
+                      FormattedText(
+                        content: displayContent,
+                        baseStyle: _bodyStyle,
+                      ),
+                    if (!isOnlyMedia) const SizedBox(height: 3),
+                    if (!isOnlyMedia)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _formatTime(message.timestamp),
+                            style: _timeStyle,
+                          ),
+                          if (isMe) ...[
+                            const SizedBox(width: 4),
+                            _buildMessageStatusIcon(message),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  /// Получить цвет имени отправителя в групповом чате (первый цвет градиента или вычисленный акцентный цвет)
+  Color _getSenderNameColor(String senderName, String? senderGradient) {
+    if (senderGradient != null && senderGradient.isNotEmpty) {
+      try {
+        String clean = senderGradient;
+        if (clean.contains('linear-gradient')) {
+          final match = RegExp(r'#(?:[0-9a-fA-F]{3,8})').firstMatch(clean);
+          if (match != null) {
+            clean = match.group(0)!.substring(1);
+          }
+        }
+        final firstPart = clean.split(RegExp(r'[,|]')).first.trim();
+        var colorStr = firstPart.startsWith('#') ? firstPart.substring(1) : firstPart;
+        if (colorStr.length == 3) {
+          colorStr = colorStr.split('').map((c) => '$c$c').join();
+        }
+        if (colorStr.length == 6) {
+          colorStr = 'FF$colorStr';
+        }
+        if (colorStr.length == 8) {
+          final val = int.tryParse(colorStr, radix: 16);
+          if (val != null) return Color(val);
+        }
+      } catch (_) {}
+    }
+
+    final code = senderName.codeUnits.fold<int>(0, (prev, elem) => prev + elem);
+    final colors = [
+      const Color(0xFF38BDF8), // Sky Blue
+      const Color(0xFFF472B6), // Pink
+      const Color(0xFF34D399), // Emerald
+      const Color(0xFFFBBF24), // Amber
+      const Color(0xFFA78BFA), // Purple
+      const Color(0xFFF87171), // Rose
+      const Color(0xFF60A5FA), // Light Blue
+      const Color(0xFFFB923C), // Orange
+    ];
+    return colors[code % colors.length];
   }
 
   Widget _buildCallWidget(BuildContext context, Map<String, dynamic> fileData, bool isMe) {

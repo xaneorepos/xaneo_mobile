@@ -55,6 +55,11 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
   String _query = '';
   Timer? _debounceTimer;
 
+  // Видимость крестика очистки вынесена в ValueNotifier: раньше каждый
+  // введённый символ дёргал setState и пересобирал всю модалку вместе со
+  // списком результатов. Теперь на ввод перерисовывается только сам крестик.
+  final ValueNotifier<bool> _hasText = ValueNotifier<bool>(false);
+
   // Результаты поиска
   List<dynamic> _favorites = [];
   List<dynamic> _bots = [];
@@ -71,9 +76,11 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
   @override
   void initState() {
     super.initState();
-    // Фокусируемся на вводе при открытии модалки
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
+    // Фокусируемся на вводе только после завершения анимации открытия модалки
+    Future.delayed(const Duration(milliseconds: 260), () {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
     });
   }
 
@@ -82,13 +89,14 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
     _controller.dispose();
     _focusNode.dispose();
     _debounceTimer?.cancel();
+    _hasText.dispose();
     super.dispose();
   }
 
   void _onSearchChanged(String text) {
-    setState(() {
-      _query = text.trim();
-    });
+    final wasEmpty = _query.isEmpty;
+    _query = text.trim();
+    _hasText.value = _query.isNotEmpty;
 
     _debounceTimer?.cancel();
     if (_query.isEmpty) {
@@ -101,6 +109,12 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
         _isLoading = false;
       });
       return;
+    }
+
+    // Полный ребилд нужен только на переходе «пусто → есть текст»,
+    // чтобы сменить пустое состояние на список результатов.
+    if (wasEmpty) {
+      setState(() {});
     }
 
     _debounceTimer = Timer(const Duration(milliseconds: 450), () {
@@ -236,22 +250,30 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
     } else if (type == 'group') {
       final groupId = item['id'] as int;
       serverChatId = 'group_$groupId';
+      final isMember = item['is_member'] == true || item['is_joined'] == true;
       chatModel = ChatModel(
         id: serverChatId,
         name: item['name']?.toString() ?? 'Group',
         avatar: item['avatar_url']?.toString(),
         avatarGradient: item['avatar_gradient']?.toString(),
         isGroup: true,
+        otherUser: {
+          'is_member': isMember,
+        },
       );
     } else if (type == 'channel') {
       final channelId = item['id'] as int;
       serverChatId = 'channel_$channelId';
+      final isMember = item['is_member'] == true || item['is_subscribed'] == true;
       chatModel = ChatModel(
         id: serverChatId,
         name: item['name']?.toString() ?? 'Channel',
         avatar: item['avatar_url']?.toString(),
         avatarGradient: item['avatar_gradient']?.toString(),
         isChannel: true,
+        otherUser: {
+          'is_member': isMember,
+        },
       );
     }
 
@@ -262,20 +284,9 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
       Navigator.of(context).pop();
     }
 
-    // Проверяем, существует ли чат локально (если мы его не нашли выше)
-    ChatModel? finalChat;
-    if (chatModel.isPersonal && !chatModel.isFavorites) {
-      if (isNewChat) {
-        await widget.localChatRepo.saveChat(chatModel);
-      }
-      finalChat = chatModel;
-    } else {
-      finalChat = await widget.localChatRepo.getChatByServerId(serverChatId);
-      if (finalChat == null) {
-        await widget.localChatRepo.saveChat(chatModel);
-        finalChat = chatModel;
-      }
-    }
+    // Проверяем, существует ли чат локально
+    final existingChat = await widget.localChatRepo.getChatByServerId(serverChatId);
+    final ChatModel finalChat = existingChat ?? chatModel;
 
     // Переходим в чат
     if (context.mounted) {
@@ -326,24 +337,30 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
                 minWidth: 36,
                 minHeight: 44,
               ),
-              suffixIcon: _query.isNotEmpty
-                  ? IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 36,
-                        minHeight: 44,
-                      ),
-                      onPressed: () {
-                        _controller.clear();
-                        _onSearchChanged('');
-                      },
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        color: Colors.white54,
-                        size: 20,
-                      ),
-                    )
-                  : const SizedBox(width: 36, height: 44),
+              suffixIcon: ValueListenableBuilder<bool>(
+                valueListenable: _hasText,
+                builder: (context, hasText, _) {
+                  if (!hasText) {
+                    return const SizedBox(width: 36, height: 44);
+                  }
+                  return IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 44,
+                    ),
+                    onPressed: () {
+                      _controller.clear();
+                      _onSearchChanged('');
+                    },
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white54,
+                      size: 20,
+                    ),
+                  );
+                },
+              ),
               contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
               hintText: 'Поиск людей, ботов, групп...',
               hintStyle: AppStyles.bodyMuted.copyWith(
@@ -507,11 +524,13 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
       }
     } else if (type == 'group') {
       displayName = item['name']?.toString() ?? 'Группа';
-      final count = item['members_count'] as int? ?? 0;
+      final rawCount = item['members_count'];
+      final count = rawCount is int ? rawCount : (rawCount is num ? rawCount.toInt() : int.tryParse(rawCount?.toString() ?? '') ?? 0);
       subtitle = '$count участников';
     } else if (type == 'channel') {
       displayName = item['name']?.toString() ?? 'Канал';
-      final count = item['subscribers_count'] as int? ?? 0;
+      final rawCount = item['subscribers_count'];
+      final count = rawCount is int ? rawCount : (rawCount is num ? rawCount.toInt() : int.tryParse(rawCount?.toString() ?? '') ?? 0);
       subtitle = '$count подписчиков';
     } else {
       displayName = '';

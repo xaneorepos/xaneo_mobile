@@ -13,8 +13,10 @@ import '../../services/chat/chat_service.dart';
 import '../../services/chat/chat_local_repository.dart';
 import '../../services/chat/presence_service.dart';
 import '../../services/crypto/crypto_service.dart';
+import '../../services/chat/group_channel_service.dart';
 import '../../styles/app_styles.dart';
 import '../../widgets/common/avatar_widget.dart';
+import '../../widgets/common/create_options_modal.dart';
 import 'chat_screen.dart';
 import 'archived_chats_screen.dart';
 import '../../widgets/common/premium_page_route.dart';
@@ -30,6 +32,7 @@ class ChatListScreen extends StatefulWidget {
 class _ChatListScreenState extends State<ChatListScreen>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
   late final ChatService _chatService;
+  late final GroupChannelService _groupChannelService;
   late final LocalChatRepository _localChatRepo;
   bool _isLoadingSync = true;
   bool _isSyncInProgress = false;
@@ -49,7 +52,7 @@ class _ChatListScreenState extends State<ChatListScreen>
 
   late final ScrollController _scrollController;
   bool _isArchiveRowVisible = false;
-  double _pullDistance = 0.0;
+  final ValueNotifier<double> _pullDistanceNotifier = ValueNotifier<double>(0.0);
   final Set<String> _animatedChatIds = {};
 
   @override
@@ -65,7 +68,9 @@ class _ChatListScreenState extends State<ChatListScreen>
 
     // Инициализируем сервисы синхронно для работы StreamBuilder в первом кадре
     _localChatRepo = context.read<LocalChatRepository>();
-    _chatService = ChatService(apiClient: context.read<ApiClient>());
+    final apiClient = context.read<ApiClient>();
+    _chatService = ChatService(apiClient: apiClient);
+    _groupChannelService = GroupChannelService(apiClient: apiClient);
     _presenceService = context.read<PresenceService>();
     _wasConnected = _presenceService.isConnected.value;
     _presenceService.isConnected.addListener(_onWsConnectionChanged);
@@ -84,9 +89,9 @@ class _ChatListScreenState extends State<ChatListScreen>
     
     // Мгновенно фиксируем появление архива, если оттянули полностью (до упора в -78px)
     if (offset <= -77.5 && !_isArchiveRowVisible) {
+      _pullDistanceNotifier.value = 0.0;
       setState(() {
         _isArchiveRowVisible = true;
-        _pullDistance = 0.0;
       });
       _scrollController.jumpTo(0.0);
       try {
@@ -95,16 +100,12 @@ class _ChatListScreenState extends State<ChatListScreen>
       return;
     }
 
-    // Обновляем расстояние оттягивания для анимации
+    // Обновляем расстояние оттягивания БЕЗ вызова setState (0 перерендеров списка!)
     if (offset < 0) {
-      setState(() {
-        _pullDistance = -offset;
-      });
+      _pullDistanceNotifier.value = -offset;
     } else {
-      if (_pullDistance != 0.0) {
-        setState(() {
-          _pullDistance = 0.0;
-        });
+      if (_pullDistanceNotifier.value != 0.0) {
+        _pullDistanceNotifier.value = 0.0;
       }
     }
   }
@@ -125,6 +126,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _pullDistanceNotifier.dispose();
     _presenceService.isConnected.removeListener(_onWsConnectionChanged);
     _searchController.dispose();
     _searchFocusNode.dispose();
@@ -259,26 +261,69 @@ class _ChatListScreenState extends State<ChatListScreen>
     }
   }
 
-  Future<void> _handleWsEvent(Map<String, dynamic> event) async {
+  Future<void> _wsQueue = Future.value();
+
+  void _handleWsEvent(Map<String, dynamic> event) {
+    _wsQueue = _wsQueue.then((_) => _processWsEvent(event)).catchError((e) {
+      debugPrint('💥 [ChatListWS] Error processing queued WS event: $e');
+    });
+  }
+
+  Future<void> _processWsEvent(Map<String, dynamic> event) async {
     final type = event['type']?.toString();
     if (type == null || type.isEmpty) return;
 
     switch (type) {
+      case 'chat_created':
+      case 'new_chat':
+      case 'chat_added':
       case 'chat_list_update':
-        final chatPayload = event['chat'];
+      case 'invited_to_chat':
+      case 'user_joined_group':
+      case 'user_subscribed_channel':
+      case 'group_join_success':
+        if (event['encrypted_text'] != null && event['encrypted_text'].toString().isNotEmpty) {
+          await _applyEncryptedMessageEvent(event);
+        }
+        final chatPayload = event['chat'] ?? event['chat_data'] ?? (event['id'] != null || event['chat_id'] != null ? event : null);
         if (chatPayload is Map) {
           await _applyChatPreviewUpdate(chatPayload.cast<String, dynamic>());
+        } else {
+          _syncChats(silent: true);
         }
         break;
+
+      case 'new_message':
       case 'encrypted_message':
+      case 'file_message':
+      case 'voice_message':
+      case 'video_message':
         await _applyEncryptedMessageEvent(event);
         break;
+
+      case 'messages_read':
+      case 'read_receipt':
+      case 'chat_unread_sync':
+      case 'message_read':
+        await _applyMessagesReadEvent(event);
+        break;
+
       case 'chat_deleted':
-        final chatId = event['chat_id']?.toString();
+      case 'delete_chat':
+      case 'chat_removed':
+      case 'user_left_group':
+      case 'user_left_channel':
+      case 'user_unsubscribed_channel':
+      case 'force_disconnect_from_group':
+      case 'force_disconnect_from_channel':
+        final chatId = event['chat_id']?.toString() ?? event['id']?.toString();
         if (chatId != null && chatId.isNotEmpty) {
           await _localChatRepo.deleteChatByServerId(chatId);
+        } else {
+          _syncChats(silent: true);
         }
         break;
+
       case 'chats_reorder_required':
       case 'history_cleared':
       case 'message_deleted':
@@ -290,16 +335,53 @@ class _ChatListScreenState extends State<ChatListScreen>
     }
   }
 
+  Future<void> _applyMessagesReadEvent(Map<String, dynamic> event) async {
+    final chatId = event['chat_id']?.toString() ?? event['id']?.toString();
+    final newUnreadCount = (event['unread_count'] as num?)?.toInt() ?? 0;
+
+    if (chatId != null && chatId.isNotEmpty) {
+      final existing = await _localChatRepo.getChatByServerId(chatId);
+      if (existing != null) {
+        final updated = ChatModel(
+          id: existing.id,
+          name: existing.name,
+          avatar: existing.avatar,
+          avatarGradient: existing.avatarGradient,
+          lastMessage: existing.lastMessage,
+          lastMessageTime: existing.lastMessageTime,
+          unreadCount: newUnreadCount,
+          isGroup: existing.isGroup,
+          isChannel: existing.isChannel,
+          isPersonal: existing.isPersonal,
+          isFavorites: existing.isFavorites,
+          otherUser: existing.otherUser,
+          isEncrypted: existing.isEncrypted,
+          isArchived: existing.isArchived,
+          archivedAt: existing.archivedAt,
+          lastMessageType: existing.lastMessageType,
+        );
+        await _localChatRepo.saveChat(updated);
+        return;
+      }
+    }
+
+    _syncChats(silent: true);
+  }
+
   Future<void> _applyChatPreviewUpdate(Map<String, dynamic> payload) async {
     final chatJson = <String, dynamic>{
       'id': payload['id'] ?? payload['chat_id'],
       'chat_id': payload['chat_id'] ?? payload['id'],
-      'title': payload['title'] ?? payload['name'],
-      'avatar_url': payload['avatar_url'],
+      'title': payload['title'] ?? payload['name'] ?? payload['chat_display_name'] ?? payload['group_name'] ?? payload['channel_name'],
+      'chat_display_name': payload['chat_display_name'] ?? payload['title'] ?? payload['name'] ?? payload['group_name'] ?? payload['channel_name'],
+      'avatar_url': payload['avatar_url'] ?? payload['avatar'],
       'last_message': payload['last_message'],
       'last_message_type': payload['last_message_type'] ?? payload['message_type'],
       'last_message_time': payload['last_message_time'],
-      'unread_count': payload['unread_count'],
+      'unread_count': payload['unread_count'] ?? 0,
+      'is_group': payload['is_group'] ?? payload['is_group_chat'] ?? false,
+      'is_channel': payload['is_channel'] ?? false,
+      'is_personal': payload['is_personal'] ?? payload['is_direct'] ?? false,
     };
 
     var incoming = ChatModel.fromJson(chatJson);
@@ -307,6 +389,35 @@ class _ChatListScreenState extends State<ChatListScreen>
 
     final existing = await _localChatRepo.getChatByServerId(incoming.id);
     if (existing != null) {
+      final cryptoService = context.read<CryptoService>();
+      String? bestLastMessage = incoming.lastMessage;
+      final existingMsg = existing.lastMessage;
+
+      final existingIsHumanReadable = existingMsg != null &&
+          existingMsg.isNotEmpty &&
+          existingMsg != 'Новое сообщение' &&
+          existingMsg != 'Новое зашифрованное сообщение' &&
+          !_looksLikeJsonPayload(existingMsg) &&
+          !cryptoService.isEncryptedMessage(existingMsg);
+
+      if (existingIsHumanReadable &&
+          (bestLastMessage == null ||
+           bestLastMessage.isEmpty ||
+           bestLastMessage == 'Новое сообщение' ||
+           bestLastMessage == 'Новое зашифрованное сообщение' ||
+           cryptoService.isEncryptedMessage(bestLastMessage) ||
+           _looksLikeJsonPayload(bestLastMessage))) {
+        bestLastMessage = existingMsg;
+      }
+
+      int unread = existing.unreadCount;
+      if (payload.containsKey('unread_count') && payload['unread_count'] != null) {
+        final parsed = (payload['unread_count'] as num).toInt();
+        if (parsed > 0) {
+          unread = parsed;
+        }
+      }
+
       incoming = ChatModel(
         id: incoming.id,
         name: incoming.name.isNotEmpty && incoming.name != 'Unknown'
@@ -314,15 +425,15 @@ class _ChatListScreenState extends State<ChatListScreen>
             : existing.name,
         avatar: incoming.avatar ?? existing.avatar,
         avatarGradient: incoming.avatarGradient ?? existing.avatarGradient,
-        lastMessage: incoming.lastMessage,
-        lastMessageTime: incoming.lastMessageTime,
-        unreadCount: incoming.unreadCount,
+        lastMessage: bestLastMessage,
+        lastMessageTime: incoming.lastMessageTime ?? existing.lastMessageTime,
+        unreadCount: unread,
         isGroup: incoming.isGroup || existing.isGroup,
         isChannel: incoming.isChannel || existing.isChannel,
         isPersonal: incoming.isPersonal || existing.isPersonal,
         isFavorites: incoming.isFavorites || existing.isFavorites,
         otherUser: incoming.otherUser ?? existing.otherUser,
-        isEncrypted: incoming.isEncrypted,
+        isEncrypted: bestLastMessage != null && cryptoService.isEncryptedMessage(bestLastMessage),
         isArchived: existing.isArchived,
         archivedAt: existing.archivedAt,
       );
@@ -331,22 +442,27 @@ class _ChatListScreenState extends State<ChatListScreen>
     await _localChatRepo.saveChat(incoming);
   }
 
+  final Map<String, String> _lastProcessedMsgIdForChat = {};
+  final Map<String, String> _lastProcessedEncryptedTextForChat = {};
+
   Future<void> _applyEncryptedMessageEvent(Map<String, dynamic> event) async {
-    final chatId = event['chat_id']?.toString();
-    final encryptedText = event['encrypted_text']?.toString();
+    final chatId = event['chat_id']?.toString() ?? event['id']?.toString();
+    final encryptedText = event['encrypted_text']?.toString() ?? event['last_message']?.toString();
 
     if (chatId == null || chatId.isEmpty || encryptedText == null || encryptedText.isEmpty) {
       return;
     }
 
-    final existing = await _localChatRepo.getChatByServerId(chatId);
-    if (existing == null) {
-      _syncChats(silent: true);
-      return;
+    final cryptoService = context.read<CryptoService>();
+    var decrypted = await cryptoService.decryptChatMessage(encryptedText, chatId);
+
+    // If decryption returned null, attempt a forced key reload and retry decryption
+    if (decrypted == null) {
+      await cryptoService.ensureKeyForChat(chatId);
+      decrypted = await cryptoService.decryptChatMessage(encryptedText, chatId);
     }
 
-    final cryptoService = context.read<CryptoService>();
-    final decrypted = await cryptoService.decryptChatMessage(encryptedText, chatId);
+    final existing = await _localChatRepo.getChatByServerId(chatId);
 
     final createdAt = _parseApiDateTime(event['created_at']);
     String? inferredType = event['message_type']?.toString() ?? event['last_message_type']?.toString();
@@ -359,20 +475,95 @@ class _ChatListScreenState extends State<ChatListScreen>
       } catch (_) {}
     }
 
+    final myUserId = context.read<AuthProvider>().user?.id.toString();
+    final senderId = event['sender_id']?.toString() ?? event['author_id']?.toString();
+    final isFromMe = senderId != null && myUserId != null && senderId == myUserId;
+
+    final rawId = event['message_id']?.toString() ?? event['id']?.toString();
+    final msgId = (rawId != null && rawId != chatId) ? rawId : null;
+
+    final isDuplicateMessage = (msgId != null && _lastProcessedMsgIdForChat[chatId] == msgId) ||
+        (_lastProcessedEncryptedTextForChat[chatId] == encryptedText);
+
+    if (msgId != null) {
+      _lastProcessedMsgIdForChat[chatId] = msgId;
+    }
+    _lastProcessedEncryptedTextForChat[chatId] = encryptedText;
+
+    int newUnreadCount = 0;
+    if (isFromMe) {
+      newUnreadCount = 0;
+    } else if (isDuplicateMessage) {
+      // ИДЕОПОТЕНТНОСТЬ: Не увеличиваем счетчик дважды для одного и того же ID сообщения!
+      if (event['unread_count'] != null) {
+        final parsedUnread = (event['unread_count'] as num).toInt();
+        newUnreadCount = parsedUnread > 0 ? parsedUnread : (existing?.unreadCount ?? 1);
+      } else {
+        newUnreadCount = existing?.unreadCount ?? 1;
+      }
+    } else if (event['unread_count'] != null) {
+      final parsedUnread = (event['unread_count'] as num).toInt();
+      newUnreadCount = parsedUnread > 0 ? parsedUnread : ((existing?.unreadCount ?? 0) + 1);
+    } else {
+      newUnreadCount = (existing?.unreadCount ?? 0) + 1;
+    }
+
+    String? finalLastMessage = decrypted;
+    bool finalIsEncrypted = decrypted == null && cryptoService.isEncryptedMessage(encryptedText);
+
+    // Protect existing human-readable text if decryption still failed
+    if (decrypted == null && existing != null && existing.lastMessage != null && existing.lastMessage!.isNotEmpty) {
+      final existingMsg = existing.lastMessage!;
+      if (existingMsg != 'Новое сообщение' &&
+          existingMsg != 'Новое зашифрованное сообщение' &&
+          !_looksLikeJsonPayload(existingMsg) &&
+          !cryptoService.isEncryptedMessage(existingMsg)) {
+        finalLastMessage = existingMsg;
+        finalIsEncrypted = false;
+      }
+    }
+
+    if (existing == null) {
+      final isPersonal = chatId.startsWith('personal_');
+      final isGroup = chatId.startsWith('group_');
+      final isChannel = chatId.startsWith('channel_');
+      final isFav = chatId.startsWith('favorites_user_');
+      final name = event['sender_name']?.toString() ?? event['chat_name']?.toString() ?? 'Чат';
+
+      final newChat = ChatModel(
+        id: chatId,
+        name: name,
+        avatar: event['sender_avatar']?.toString() ?? event['avatar_url']?.toString(),
+        lastMessage: finalLastMessage ?? encryptedText,
+        lastMessageTime: createdAt ?? DateTime.now(),
+        unreadCount: newUnreadCount,
+        isGroup: isGroup,
+        isChannel: isChannel,
+        isPersonal: isPersonal,
+        isFavorites: isFav,
+        isEncrypted: finalIsEncrypted,
+        lastMessageType: inferredType,
+      );
+
+      await _localChatRepo.saveChat(newChat);
+      _syncChats(silent: true);
+      return;
+    }
+
     final updated = ChatModel(
       id: existing.id,
       name: existing.name,
       avatar: existing.avatar,
       avatarGradient: existing.avatarGradient,
-      lastMessage: decrypted ?? encryptedText,
+      lastMessage: finalLastMessage ?? encryptedText,
       lastMessageTime: createdAt ?? existing.lastMessageTime,
-      unreadCount: (event['unread_count'] as num?)?.toInt() ?? existing.unreadCount,
+      unreadCount: newUnreadCount,
       isGroup: existing.isGroup,
       isChannel: existing.isChannel,
       isPersonal: existing.isPersonal,
       isFavorites: existing.isFavorites,
       otherUser: existing.otherUser,
-      isEncrypted: decrypted == null,
+      isEncrypted: finalIsEncrypted,
       isArchived: existing.isArchived,
       archivedAt: existing.archivedAt,
       lastMessageType: inferredType,
@@ -481,33 +672,40 @@ class _ChatListScreenState extends State<ChatListScreen>
                 child: _buildContent(archivedChats, showArchiveRow, topOffset),
               ),
 
-              // 2. Floating Archive Row when pulling
-              if (showArchiveRow && !_isArchiveRowVisible && _pullDistance > 0.0)
-                Positioned(
-                  top: topOffset + _pullDistance - 78.0,
-                  left: 0,
-                  right: 0,
-                  height: 78.0,
-                  child: Container(
-                    color: AppStyles.backgroundColor,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          height: 77.0,
-                          child: _buildArchiveRow(archivedChats),
-                        ),
-                        Divider(
-                          color: Colors.white.withOpacity(0.04),
-                          height: 1,
-                          indent: 84,
-                        ),
-                      ],
+              // 2. Floating Archive Row when pulling (изолированный перерендер только для анимации оттягивания)
+              ValueListenableBuilder<double>(
+                valueListenable: _pullDistanceNotifier,
+                builder: (context, pullDistance, _) {
+                  if (!showArchiveRow || _isArchiveRowVisible || pullDistance <= 0.0) {
+                    return const SizedBox.shrink();
+                  }
+                  return Positioned(
+                    top: topOffset + pullDistance - 78.0,
+                    left: 0,
+                    right: 0,
+                    height: 78.0,
+                    child: Container(
+                      color: AppStyles.backgroundColor,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            height: 77.0,
+                            child: _buildArchiveRow(archivedChats),
+                          ),
+                          Divider(
+                            color: Colors.white.withOpacity(0.04),
+                            height: 1,
+                            indent: 84,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
+              ),
 
-              // 3. Pinned Frosted Glass Header
+              // 3. Pinned Glass Header
               Positioned(
                 top: 0,
                 left: 0,
@@ -523,43 +721,40 @@ class _ChatListScreenState extends State<ChatListScreen>
 
   Widget _buildPinnedGlassHeader() {
     final statusBarHeight = MediaQuery.of(context).padding.top;
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.75),
-            border: Border(
-              bottom: BorderSide(
-                color: Colors.white.withOpacity(0.06),
-                width: 1,
-              ),
-            ),
-          ),
-          padding: EdgeInsets.only(
-            top: statusBarHeight + 14,
-            bottom: 12,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Строка заголовка и поиска
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: SizedBox(
-                  height: 44,
-                  child: _buildHeaderContent(),
-                ),
-              ),
-              const SizedBox(height: 14),
-              // Фильтры категорий
-              _buildCategoryFilters(),
-            ],
+    return RepaintBoundary(
+      child: Container(
+      decoration: BoxDecoration(
+        color: const Color(0xF2121218),
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.white.withOpacity(0.06),
+            width: 1,
           ),
         ),
       ),
-    );
-  }
+      padding: EdgeInsets.only(
+        top: statusBarHeight + 14,
+        bottom: 12,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Строка заголовка и поиска
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: SizedBox(
+              height: 44,
+              child: _buildHeaderContent(),
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Фильтры категорий
+          _buildCategoryFilters(),
+        ],
+      ),
+    ),
+  );
+}
 
   Widget _buildHeaderContent() {
     return Stack(
@@ -599,7 +794,12 @@ class _ChatListScreenState extends State<ChatListScreen>
                     size: 15,
                   ),
                   onTap: () {
-                    // TODO: Новый чат
+                    CreateOptionsModal.show(
+                      context: context,
+                      chatService: _chatService,
+                      groupChannelService: _groupChannelService,
+                      localChatRepo: _localChatRepo,
+                    );
                   },
                 ),
               ],
@@ -969,13 +1169,14 @@ class _ChatListScreenState extends State<ChatListScreen>
   }
 
   Widget _buildContent(List<ChatModel> archivedChats, bool showArchiveRow, double topOffset) {
-    return StreamBuilder<List<ChatModel>>(
-      stream: _localChatRepo.watchAllChats(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData && _isLoadingSync) {
-          return Padding(
-            padding: EdgeInsets.only(top: topOffset),
-            child: const Center(
+    return RepaintBoundary(
+      child: StreamBuilder<List<ChatModel>>(
+        stream: _localChatRepo.watchAllChats(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData && _isLoadingSync) {
+            return Padding(
+              padding: EdgeInsets.only(top: topOffset),
+              child: const Center(
               child: CircularProgressIndicator(
                 color: AppStyles.textPrimaryColor,
               ),
@@ -1015,27 +1216,30 @@ class _ChatListScreenState extends State<ChatListScreen>
           );
         }
 
-        var filteredChats = chats;
+        final List<ChatModel> filteredChats = [];
+        final String query = _searchQuery.trim().toLowerCase();
+        final bool hasQuery = query.isNotEmpty;
 
-        // 1. Фильтрация по категории
-        if (_selectedCategory == 'personal') {
-          filteredChats = filteredChats.where((c) => c.isPersonal && !c.isFavorites).toList();
-        } else if (_selectedCategory == 'groups') {
-          filteredChats = filteredChats.where((c) => c.isGroup).toList();
-        } else if (_selectedCategory == 'channels') {
-          filteredChats = filteredChats.where((c) => c.isChannel).toList();
-        } else if (_selectedCategory == 'favorites') {
-          filteredChats = filteredChats.where((c) => c.isFavorites || c.id == 'favorites' || c.name == 'Избранное').toList();
-        }
+        for (final c in chats) {
+          // 1. Фильтрация по категории
+          if (_selectedCategory == 'personal') {
+            if (!c.isPersonal || c.isFavorites) continue;
+          } else if (_selectedCategory == 'groups') {
+            if (!c.isGroup) continue;
+          } else if (_selectedCategory == 'channels') {
+            if (!c.isChannel) continue;
+          } else if (_selectedCategory == 'favorites') {
+            if (!c.isFavorites && c.id != 'favorites' && c.name != 'Избранное') continue;
+          }
 
-        // 2. Фильтрация по поисковому запросу
-        if (_searchQuery.isNotEmpty) {
-          final query = _searchQuery.toLowerCase();
-          filteredChats = filteredChats.where((c) {
+          // 2. Фильтрация по поиску
+          if (hasQuery) {
             final nameMatch = c.name.toLowerCase().contains(query);
             final msgMatch = c.lastMessage?.toLowerCase().contains(query) ?? false;
-            return nameMatch || msgMatch;
-          }).toList();
+            if (!nameMatch && !msgMatch) continue;
+          }
+
+          filteredChats.add(c);
         }
 
         if (filteredChats.isEmpty && !showArchiveRow) {
@@ -1072,19 +1276,17 @@ class _ChatListScreenState extends State<ChatListScreen>
           );
         }
 
-        // Сортируем чаты: Избранное всегда первым
-        final sortedChats = List<ChatModel>.from(filteredChats);
-        sortedChats.sort((a, b) {
-          final aName = a.name;
-          final bName = b.name;
-          if (a.isFavorites || a.id == 'favorites' || aName == 'Избранное') return -1;
-          if (b.isFavorites || b.id == 'favorites' || bName == 'Избранное') return 1;
-          
-          if (a.lastMessageTime == null && b.lastMessageTime == null) return 0;
-          if (a.lastMessageTime == null) return 1;
-          if (b.lastMessageTime == null) return -1;
-          return b.lastMessageTime!.compareTo(a.lastMessageTime!);
-        });
+        // Избранное подтягиваем наверх, сохраняя порядок SQL (сортировка по времени последнего сообщения)
+        final List<ChatModel> sortedChats = [];
+        final List<ChatModel> regularChats = [];
+        for (final c in filteredChats) {
+          if (c.isFavorites || c.id == 'favorites' || c.name == 'Избранное') {
+            sortedChats.add(c);
+          } else {
+            regularChats.add(c);
+          }
+        }
+        sortedChats.addAll(regularChats);
 
         final listLength = sortedChats.length + (showArchiveRow && _isArchiveRowVisible ? 1 : 0);
 
@@ -1160,8 +1362,9 @@ class _ChatListScreenState extends State<ChatListScreen>
           ),
         );
       },
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildChatItem(ChatModel chat) {
     final alreadyAnimated = _animatedChatIds.contains(chat.id);
@@ -1235,14 +1438,17 @@ class _ChatListScreenState extends State<ChatListScreen>
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
+        onTap: () async {
+          await Navigator.of(context).push(
             PremiumPageRoute(
               page: ChatScreen(chat: chat),
               transitionType: PremiumTransitionType.chatReveal,
               settings: RouteSettings(name: 'chat_${chat.id}'),
             ),
           );
+          if (mounted) {
+            _syncChats(silent: true);
+          }
         },
         splashColor: Colors.white.withOpacity(0.03),
         highlightColor: Colors.white.withOpacity(0.01),
@@ -1395,10 +1601,9 @@ class _ChatListScreenState extends State<ChatListScreen>
   }
 
   Widget _buildAvatar(ChatModel chat) {
-    // Определяем - есть ли реальный аватар (http/https URL)
+    // Определяем - есть ли реальный аватар
     final hasRealAvatar = chat.avatar != null &&
-        chat.avatar!.isNotEmpty &&
-        (chat.avatar!.startsWith('http') || chat.avatar!.startsWith('https'));
+        chat.avatar!.isNotEmpty;
 
     // Для Избранного показываем иконку закладки (bookmark)
     final icon = chat.isFavorites ? FontAwesomeIcons.solidBookmark : null;

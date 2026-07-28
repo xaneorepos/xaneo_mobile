@@ -3,6 +3,7 @@ class UserModel {
   final int id;
   final String username;
   final String email;
+  final String? firstName;
   final String? avatar;
   final String? avatarGradient;
   final String? bio;
@@ -17,6 +18,7 @@ class UserModel {
     required this.id,
     required this.username,
     required this.email,
+    this.firstName,
     this.avatar,
     this.avatarGradient,
     this.bio,
@@ -29,10 +31,15 @@ class UserModel {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    final fName = json['first_name']?.toString() ??
+        json['firstName']?.toString() ??
+        json['name']?.toString() ??
+        json['real_name']?.toString();
     return UserModel(
       id: json['id'] as int,
       username: json['username'] as String,
       email: json['email'] as String,
+      firstName: (fName != null && fName.isNotEmpty) ? fName : null,
       avatar: json['avatar'] as String?,
       avatarGradient: json['avatar_gradient'] as String?,
       bio: json['bio'] as String?,
@@ -59,10 +66,15 @@ class UserModel {
   /// - tfa_enabled
   /// - last_login, date_joined (вместо created_at)
   factory UserModel.fromUserInfoJson(Map<String, dynamic> json) {
+    final fName = json['first_name']?.toString() ??
+        json['firstName']?.toString() ??
+        json['name']?.toString() ??
+        json['real_name']?.toString();
     return UserModel(
       id: json['id'] as int,
       username: json['username'] as String,
       email: json['email'] as String,
+      firstName: (fName != null && fName.isNotEmpty) ? fName : null,
       emailVerified: json['is_verified'] as bool? ?? false,
       tfaEnabled: json['tfa_enabled'] as bool? ?? false,
       createdAt: json['date_joined'] != null
@@ -79,6 +91,7 @@ class UserModel {
       'id': id,
       'username': username,
       'email': email,
+      'first_name': firstName,
       'avatar': avatar,
       'avatar_gradient': avatarGradient,
       'bio': bio,
@@ -96,6 +109,7 @@ class UserModel {
     int? id,
     String? username,
     String? email,
+    String? firstName,
     String? avatar,
     String? avatarGradient,
     String? bio,
@@ -110,6 +124,7 @@ class UserModel {
       id: id ?? this.id,
       username: username ?? this.username,
       email: email ?? this.email,
+      firstName: firstName ?? this.firstName,
       avatar: avatar ?? this.avatar,
       avatarGradient: avatarGradient ?? this.avatarGradient,
       bio: bio ?? this.bio,

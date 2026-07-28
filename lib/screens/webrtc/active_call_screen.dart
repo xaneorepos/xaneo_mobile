@@ -12,39 +12,30 @@ import '../../models/chat/chat_model.dart';
 import '../chat/chat_screen.dart';
 import '../../widgets/common/premium_page_route.dart';
 
-class ActiveCallScreen extends StatefulWidget {
+import 'base_call_screen.dart';
+import 'group_active_call_screen.dart';
+
+class ActiveCallScreen extends BaseCallScreen {
   const ActiveCallScreen({super.key});
 
   @override
   State<ActiveCallScreen> createState() => _ActiveCallScreenState();
 }
 
-class _ActiveCallScreenState extends State<ActiveCallScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _callingAnimationController;
-
+class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
   String? _lastTargetUserId;
   String? _lastTargetName;
   String? _lastTargetAvatar;
   String? _lastTargetGradient;
-
-  @override
-  void initState() {
-    super.initState();
-    _callingAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _callingAnimationController.dispose();
-    super.dispose();
-  }
+  bool _isGroupCall = false;
 
   @override
   Widget build(BuildContext context) {
     final callManager = Provider.of<CallManager>(context);
+
+    if (callManager.isGroupCall) {
+      return const GroupActiveCallScreen();
+    }
 
     // Сохраняем информацию о собеседнике, пока она доступна в CallManager
     if (callManager.targetUserId != null) {
@@ -52,6 +43,7 @@ class _ActiveCallScreenState extends State<ActiveCallScreen> with SingleTickerPr
       _lastTargetName = callManager.targetName;
       _lastTargetAvatar = callManager.targetAvatar;
       _lastTargetGradient = callManager.targetGradient;
+      _isGroupCall = callManager.isGroupCall;
     }
 
     // Если звонок завершен, выходим с экрана и открываем чат с собеседником
@@ -63,6 +55,10 @@ class _ActiveCallScreenState extends State<ActiveCallScreen> with SingleTickerPr
         final route = ModalRoute.of(context);
         if (route != null && route.isCurrent) {
           navigator.pop();
+        }
+
+        if (_isGroupCall) {
+          return;
         }
 
         if (_lastTargetUserId != null) {
@@ -273,17 +269,17 @@ class _ActiveCallScreenState extends State<ActiveCallScreen> with SingleTickerPr
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         AnimatedBuilder(
-          animation: _callingAnimationController,
+          animation: callingAnimationController,
           builder: (context, child) {
             return Stack(
               alignment: Alignment.center,
               children: [
                 Container(
-                  width: 140 + (_callingAnimationController.value * 60),
-                  height: 140 + (_callingAnimationController.value * 60),
+                  width: 140 + (callingAnimationController.value * 60),
+                  height: 140 + (callingAnimationController.value * 60),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF3B82F6).withValues(alpha: 0.1 * (1 - _callingAnimationController.value)),
+                    color: const Color(0xFF3B82F6).withValues(alpha: 0.1 * (1 - callingAnimationController.value)),
                   ),
                 ),
                 child!,

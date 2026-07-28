@@ -9,8 +9,11 @@ import '../../styles/app_styles.dart';
 import '../../widgets/common/liquid_glass_nav_bar.dart';
 import '../auth/login_screen.dart';
 import '../chat/chat_list_screen.dart';
+import '../contacts/contacts_screen.dart';
 import '../../services/webrtc/call_manager.dart';
 import '../../widgets/common/incoming_call_modal.dart';
+import '../../widgets/common/mobile_settings_modals.dart';
+import '../../widgets/common/avatar_widget.dart';
 import '../../services/notifications/notification_service.dart';
 
 /// Главный экран приложения (после авторизации)
@@ -75,8 +78,8 @@ class _MainScreenState extends State<MainScreen> {
             physics: const NeverScrollableScrollPhysics(), // Блокируем свайп руками для точной синхронизации с панелью
             children: [
               const ChatListScreen(key: ValueKey('chats')),
-              _buildContactsScreen(key: const ValueKey('contacts')),
-              _buildSettingsScreen(user, key: const ValueKey('settings')),
+              const ContactsScreen(key: ValueKey('contacts')),
+              _SettingsScreen(user: user, key: const ValueKey('settings')),
             ],
           ),
           Positioned(
@@ -139,212 +142,242 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildContactsScreen({Key? key}) {
-    return SafeArea(
-      key: key,
-      child: Column(
-        children: [
-          // Заголовок
-          Padding(
-            padding: AppStyles.screenPadding.copyWith(top: 16),
-            child: Row(
-              children: [
-                Text('Контакты', style: AppStyles.titleLarge),
-                const Spacer(),
-                IconButton(
-                  icon: const FaIcon(FontAwesomeIcons.userPlus, color: AppStyles.textPrimaryColor, size: 16),
-                  onPressed: () {
-                    // TODO: Добавить контакт
-                  },
-                ),
-              ],
-            ),
-          ),
 
-          // Список контактов (заглушка)
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  FaIcon(
-                    FontAwesomeIcons.users,
-                    size: 50,
-                    color: AppStyles.textMutedColor,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Нет контактов',
-                    style: AppStyles.titleLarge.copyWith(
-                      color: AppStyles.textMutedColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+
+}
+
+/// Экран настроек вынесен в отдельный StatelessWidget, чтобы:
+/// 1. Изолировать ребилды от _MainScreenState (AuthProvider, etc.).
+/// 2. Позволить PageView кешировать виджет между переключениями вкладок.
+class _SettingsScreen extends StatelessWidget {
+  final UserModel? user;
+  const _SettingsScreen({this.user, super.key});
+
+  // ─── Кешированные декорации (создаются один раз) ───────────────────────────
+
+  static final _cardDecoration = BoxDecoration(
+    color: const Color(0xFF141416),
+    borderRadius: BorderRadius.circular(24),
+    border: Border.all(color: const Color(0x14FFFFFF), width: 1.5),
+    boxShadow: const [
+      BoxShadow(
+        color: Color(0x4D000000),
+        blurRadius: 16,
+        offset: Offset(0, 4),
       ),
-    );
-  }
+    ],
+  );
 
-  Widget _buildSettingsScreen(UserModel? user, {Key? key}) {
+
+  static final _editButtonDecoration = BoxDecoration(
+    color: const Color(0x12FFFFFF),
+    borderRadius: BorderRadius.circular(12),
+    border: Border.all(color: const Color(0x1AFFFFFF)),
+  );
+
+  static final _bioDecoration = BoxDecoration(
+    color: const Color(0x0AFFFFFF),
+    borderRadius: BorderRadius.circular(10),
+  );
+
+  static final _sectionDecoration = BoxDecoration(
+    color: const Color(0xFF141416),
+    borderRadius: BorderRadius.circular(20),
+    border: Border.all(color: const Color(0x14FFFFFF), width: 1.5),
+  );
+
+  static final _iconBoxDecoration = BoxDecoration(
+    color: const Color(0x14FFFFFF),
+    borderRadius: BorderRadius.circular(10),
+    border: Border.all(color: const Color(0x14FFFFFF)),
+  );
+
+
+  // ─── Build ─────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
     return SafeArea(
-      key: key,
       child: ListView(
-        physics: const ClampingScrollPhysics(), // Запрещает прокрутку за границы
-        padding: const EdgeInsets.only(top: 60, bottom: 100),
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.only(top: 24, bottom: 100),
         children: [
-          // Профиль
           if (user != null) ...[
-            _buildProfileCard(user),
-            const SizedBox(height: 40),
+            _buildProfileCard(context, user!),
+            const SizedBox(height: 24),
           ],
-
-          // Секция аккаунта
-          _buildSection('Аккаунт', [
+          _buildSection('АККАУНТ', [
+            _buildItem(
+              icon: FontAwesomeIcons.userPen,
+              title: 'Личные данные',
+              subtitle: 'Имя, никнейм, о себе',
+              onTap: () => MobilePersonalModal.show(context),
+            ),
+            _buildItem(
+              icon: FontAwesomeIcons.shieldHalved,
+              title: 'Приватность',
+              subtitle: 'Звонки, сообщения, видимость профиля',
+              onTap: () => MobilePrivacyModal.show(context),
+            ),
             _buildItem(
               icon: FontAwesomeIcons.lock,
               title: 'Безопасность',
-              subtitle: 'Пароль, 2FA',
-              onTap: () {},
+              subtitle: 'Пароль, сессии, 2FA',
+              isLast: true,
+              onTap: () => MobileSecurityModal.show(context),
+            ),
+          ]),
+          const SizedBox(height: 20),
+          _buildSection('ПРИЛОЖЕНИЕ', [
+            _buildItem(
+              icon: FontAwesomeIcons.palette,
+              title: 'Внешний вид',
+              subtitle: 'Тема, размер текста, анимации',
+              onTap: () => MobileAppearanceModal.show(context),
             ),
             _buildItem(
               icon: FontAwesomeIcons.bell,
               title: 'Уведомления',
-              subtitle: 'Push, звуки',
-              onTap: () {},
-            ),
-            _buildItem(
-              icon: FontAwesomeIcons.shield,
-              title: 'Приватность',
-              subtitle: 'Данные, контакты',
-              isLast: true,
-              onTap: () {},
-            ),
-          ]),
-
-          const SizedBox(height: 24),
-
-          // Секция приложения
-          _buildSection('Приложение', [
-            _buildItem(
-              icon: FontAwesomeIcons.moon,
-              title: 'Тема',
-              subtitle: 'Тёмная',
-              onTap: () {},
+              subtitle: 'Push-уведомления, звуки',
+              onTap: () => MobileAppearanceModal.show(context),
             ),
             _buildItem(
               icon: FontAwesomeIcons.language,
-              title: 'Язык',
+              title: 'Язык интерфейса',
               subtitle: 'Русский',
-              onTap: () {},
-            ),
-            _buildItem(
-              icon: FontAwesomeIcons.database,
-              title: 'Хранилище',
-              subtitle: 'Кэш, данные',
               isLast: true,
-              onTap: () {},
+              onTap: () => MobileAppearanceModal.show(context),
             ),
           ]),
-
-          const SizedBox(height: 24),
-
-          // Секция поддержки
-          _buildSection('Поддержка', [
-            _buildItem(
-              icon: FontAwesomeIcons.circleQuestion,
-              title: 'Справка',
-              onTap: () {},
-            ),
+          const SizedBox(height: 20),
+          _buildSection('О ПРИЛОЖЕНИИ', [
             _buildItem(
               icon: FontAwesomeIcons.circleInfo,
-              title: 'О приложении',
-              subtitle: 'Версия 2.0.0',
+              title: 'Xaneo Mobile',
+              subtitle: 'Версия 2.0.0 (Build 200)',
               isLast: true,
               onTap: () {},
             ),
           ]),
-
-          const SizedBox(height: 40),
-
-          // Кнопка выхода
-          _buildLogoutButton(),
+          const SizedBox(height: 28),
+          _buildLogoutButton(context),
         ],
       ),
     );
   }
 
-  /// Карточка профиля
-  Widget _buildProfileCard(UserModel user) {
+  Widget _buildProfileCard(BuildContext context, UserModel user) {
+    final displayName = user.firstName ?? user.username;
+    final hasBio = user.bio != null && user.bio!.trim().isNotEmpty;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        padding: const EdgeInsets.all(18),
+        decoration: _cardDecoration,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Аватар
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(40),
-              ),
-              child: Center(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Аватарка (корректный парсинг фото, SVG и сгенерированных градиентов)
+                AvatarWidget(
+                  avatar: user.avatar,
+                  avatarGradient: user.avatarGradient,
+                  hasAvatar: user.avatar != null && user.avatar!.isNotEmpty,
+                  username: displayName,
+                  size: 64,
+                ),
+                const SizedBox(width: 16),
+                // Имя, @username и email
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayName,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          fontFamily: 'Inter',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '@${user.username}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white70,
+                          fontFamily: 'Inter',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        user.email,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white38,
+                          fontFamily: 'Inter',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (hasBio) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: _bioDecoration,
                 child: Text(
-                  user.username[0].toUpperCase(),
+                  user.bio!.trim(),
                   style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w300,
-                    color: Colors.black,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.white70,
                     fontFamily: 'Inter',
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-
-            // Имя
-            Text(
-              user.username,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-                fontFamily: 'Inter',
-              ),
-            ),
-            const SizedBox(height: 4),
-
-            // Email
-            Text(
-              user.email,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF888888),
-                fontFamily: 'Inter',
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Кнопка редактирования
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text(
-                'Редактировать профиль',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
-                  fontFamily: 'Inter',
+            ],
+            const SizedBox(height: 14),
+            // Кнопка Редактировать профиль
+            GestureDetector(
+              onTap: () => MobilePersonalModal.show(context),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: _editButtonDecoration,
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FaIcon(
+                      FontAwesomeIcons.penToSquare,
+                      size: 13,
+                      color: Colors.white70,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Редактировать профиль',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -354,33 +387,29 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  /// Секция настроек
   Widget _buildSection(String title, List<Widget> children) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Заголовок секции
         Padding(
-          padding: const EdgeInsets.only(left: 24, bottom: 10),
+          padding: const EdgeInsets.only(left: 22, bottom: 8),
           child: Text(
-            title.toUpperCase(),
+            title,
             style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF666666),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Colors.white38,
               fontFamily: 'Inter',
-              letterSpacing: 1.5,
+              letterSpacing: 1.3,
             ),
           ),
         ),
-
-        // Карточка с элементами (без фона)
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          // Убран ClipRRect — он создаёт saveLayer каждый кадр.
+          // Скругление обеспечивает borderRadius в декорации контейнера.
           child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-            ),
+            decoration: _sectionDecoration,
             child: Column(children: children),
           ),
         ),
@@ -388,9 +417,8 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  /// Элемент настройки
   Widget _buildItem({
-    required FaIconData icon,
+    required dynamic icon,
     required String title,
     String? subtitle,
     bool isLast = false,
@@ -400,32 +428,22 @@ class _MainScreenState extends State<MainScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.vertical(
-          bottom: isLast ? const Radius.circular(16) : Radius.zero,
-        ),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            border: isLast
-                ? null
-                : const Border(
-                    bottom: BorderSide(
-                      color: Color(0xFF2A2A2A),
-                      width: 1,
-                    ),
-                  ),
-          ),
+        borderRadius: isLast
+            ? const BorderRadius.vertical(bottom: Radius.circular(20))
+            : BorderRadius.zero,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              // Иконка
-              FaIcon(
-                icon,
-                color: const Color(0xFFAAAAAA),
-                size: 20,
+              Container(
+                width: 36,
+                height: 36,
+                decoration: _iconBoxDecoration,
+                child: Center(
+                  child: FaIcon(icon, color: Colors.white, size: 15),
+                ),
               ),
               const SizedBox(width: 14),
-
-              // Название и подзаголовок
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,8 +451,8 @@ class _MainScreenState extends State<MainScreen> {
                     Text(
                       title,
                       style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                         color: Colors.white,
                         fontFamily: 'Inter',
                       ),
@@ -444,8 +462,8 @@ class _MainScreenState extends State<MainScreen> {
                       Text(
                         subtitle,
                         style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF666666),
+                          fontSize: 11,
+                          color: Colors.white38,
                           fontFamily: 'Inter',
                         ),
                       ),
@@ -453,11 +471,9 @@ class _MainScreenState extends State<MainScreen> {
                   ],
                 ),
               ),
-
-              // Chevron
               const FaIcon(
                 FontAwesomeIcons.chevronRight,
-                color: Color(0xFF444444),
+                color: Colors.white24,
                 size: 12,
               ),
             ],
@@ -467,8 +483,7 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  /// Кнопка выхода
-  Widget _buildLogoutButton() {
+  Widget _buildLogoutButton(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GestureDetector(
@@ -480,13 +495,10 @@ class _MainScreenState extends State<MainScreen> {
             );
           }
         },
-        child: Container(
+        child: const SizedBox(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: const Center(
+          height: 48,
+          child: Center(
             child: Text(
               'Выйти из аккаунта',
               style: TextStyle(

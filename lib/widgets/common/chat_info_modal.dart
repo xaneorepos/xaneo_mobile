@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ import '../../services/crypto/crypto_service.dart';
 import '../../services/api/api_client.dart';
 import '../../services/chat/chat_service.dart';
 import '../../providers/playback_provider.dart';
+import '../../providers/auth_provider.dart';
 import 'avatar_widget.dart';
 import 'base_custom_modal.dart';
 
@@ -54,10 +56,34 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
   bool _loadingChatId = true;
   String? _accessToken;
 
+  // Разложенные по категориям вложения. Считаются ОДИН раз на каждое обновление
+  // данных в подписке ниже, а не в build(): buildContent() вызывается из
+  // DraggableScrollableSheet.builder на каждом кадре перетаскивания, и разбор
+  // всех сообщений чата там приводил к микрофризам.
+  StreamSubscription<List<Message>>? _messagesSub;
+  bool _sharedItemsReady = false;
+  List<SharedFileItem> _mediaList = const [];
+  List<SharedFileItem> _filesList = const [];
+  List<SharedFileItem> _voiceList = const [];
+  List<SharedFileItem> _musicList = const [];
+  List<SharedLinkItem> _linksList = const [];
+
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // Запускаем загрузку данных и расшифровку ТОЛЬКО после завершения 300мс анимации вылета модалки,
+    // чтобы не блокировать UI-поток во время анимации скольжения.
+    Future.delayed(const Duration(milliseconds: 320), () {
+      if (mounted) {
+        _loadData();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _messagesSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -74,6 +100,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
       }
 
       if (id != null) {
+        _subscribeToMessages(repo, id);
         _syncHistoryFromServer(id);
       }
     } catch (e) {
@@ -84,6 +111,78 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
         });
       }
     }
+  }
+
+  /// Подписка на сообщения чата создаётся ровно один раз.
+  /// Раньше watchMessagesForChat() вызывался прямо в build(), из-за чего на
+  /// каждый кадр пересоздавался drift-стрим (новый запрос к БД + мигание
+  /// ConnectionState.waiting).
+  void _subscribeToMessages(LocalChatRepository repo, int localId) {
+    _messagesSub?.cancel();
+    _messagesSub = repo.watchMessagesForChat(localId).listen((messages) {
+      final buckets = _computeSharedItems(messages);
+      if (!mounted) return;
+      setState(() {
+        _mediaList = buckets.media;
+        _filesList = buckets.files;
+        _voiceList = buckets.voice;
+        _musicList = buckets.music;
+        _linksList = buckets.links;
+        _sharedItemsReady = true;
+      });
+    }, onError: (Object e) {
+      debugPrint('Error watching messages for chat info: $e');
+      if (mounted) {
+        setState(() => _sharedItemsReady = true);
+      }
+    });
+  }
+
+  /// Разбирает сообщения на категории вложений. Чистая функция — вызывается
+  /// только при изменении данных, не при перерисовке.
+  _SharedItemsBuckets _computeSharedItems(List<Message> messages) {
+    final List<SharedFileItem> mediaList = [];
+    final List<SharedFileItem> filesList = [];
+    final List<SharedFileItem> voiceList = [];
+    final List<SharedFileItem> musicList = [];
+    final List<SharedLinkItem> linksList = [];
+
+    for (final message in messages) {
+      // Извлекаем файлы
+      final files = _extractFileItems(message);
+      for (final file in files) {
+        final isVoiceMsg = file.messageType == 'voice' ||
+            file.messageType == 'video_message' ||
+            file.fileName.startsWith('voice_') ||
+            file.fileName.endsWith('.wav') ||
+            file.fileName.endsWith('.ogg') ||
+            file.fileName.endsWith('.amr') ||
+            file.mimeType == 'audio/wav' ||
+            file.mimeType == 'audio/ogg';
+
+        if (isVoiceMsg) {
+          voiceList.add(file);
+        } else if (file.mimeType.startsWith('image/') || file.mimeType.startsWith('video/')) {
+          mediaList.add(file);
+        } else if (file.mimeType.startsWith('audio/') || _isMusicExtension(file.fileName)) {
+          musicList.add(file);
+        } else {
+          filesList.add(file);
+        }
+      }
+
+      // Извлекаем ссылки
+      final links = _extractLinks(message);
+      linksList.addAll(links);
+    }
+
+    return _SharedItemsBuckets(
+      media: mediaList,
+      files: filesList,
+      voice: voiceList,
+      music: musicList,
+      links: linksList,
+    );
   }
 
   Future<void> _syncHistoryFromServer(int localId) async {
@@ -167,93 +266,173 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     }
   }
 
-  void _openMediaViewer(BuildContext context, String url, bool isVideo) {
-    if (isVideo) {
-      Navigator.of(context).push(
-        PageRouteBuilder(
-          opaque: false,
-          barrierColor: Colors.black,
-          transitionDuration: const Duration(milliseconds: 300),
-          reverseTransitionDuration: const Duration(milliseconds: 300),
-          pageBuilder: (context, animation, secondaryAnimation) => Scaffold(
-            backgroundColor: Colors.transparent,
-            body: Stack(
-              children: [
-                Center(
-                  child: FullScreenVideoPlayer(videoUrl: url, jwtToken: _accessToken),
-                ),
-                Positioned(
-                  top: MediaQuery.paddingOf(context).top + 16,
-                  left: 16,
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+  Widget _buildDroplet({
+    required Widget child,
+    VoidCallback? onTap,
+    bool isCircle = true,
+  }) {
+    final borderRadius = isCircle ? null : BorderRadius.circular(20);
+    return Container(
+      width: isCircle ? 40 : null,
+      height: isCircle ? 40 : null,
+      decoration: BoxDecoration(
+        shape: isCircle ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: borderRadius,
+        color: Colors.white.withOpacity(0.08),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.12),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          customBorder: isCircle ? const CircleBorder() : null,
+          borderRadius: borderRadius,
+          onTap: onTap,
+          child: Padding(
+            padding: isCircle ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: isCircle ? Center(child: child) : child,
           ),
         ),
-      );
-    } else {
-      Navigator.of(context).push(
-        PageRouteBuilder(
-          opaque: false,
-          barrierColor: Colors.black,
-          transitionDuration: const Duration(milliseconds: 300),
-          reverseTransitionDuration: const Duration(milliseconds: 300),
-          pageBuilder: (context, animation, secondaryAnimation) => Scaffold(
-            backgroundColor: Colors.transparent,
-            body: Stack(
-              children: [
-                Center(
-                  child: InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 4.0,
-                    child: Hero(
-                      tag: url,
-                      child: Image.network(
-                        url,
-                        headers: _accessToken != null ? {'Authorization': 'Bearer $_accessToken'} : null,
-                        fit: BoxFit.contain,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return const Center(
-                            child: CircularProgressIndicator(color: Colors.white),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: MediaQuery.paddingOf(context).top + 16,
-                  left: 16,
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+      ),
+    );
+  }
+
+  void _openMediaViewer(BuildContext context, String url, bool isVideo, {SharedFileItem? item}) {
+    String senderName = widget.chat.name;
+    String dateStr = '';
+    if (item != null) {
+      final timeStr = '${item.timestamp.hour.toString().padLeft(2, '0')}:${item.timestamp.minute.toString().padLeft(2, '0')}';
+      final months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+      dateStr = '${item.timestamp.day} ${months[item.timestamp.month - 1]} в $timeStr';
+      
+      final currentUser = context.read<AuthProvider>().user;
+      final isMe = currentUser != null && (item.senderId == currentUser.username || item.senderId == currentUser.id.toString() || item.senderId == 'me');
+      final myName = (currentUser?.firstName != null && currentUser!.firstName!.isNotEmpty)
+          ? currentUser.firstName!
+          : 'Вы';
+      final otherFirstName = widget.chat.otherUser?['first_name']?.toString() ??
+          widget.chat.otherUser?['firstName']?.toString() ??
+          widget.chat.otherUser?['name']?.toString();
+      final otherName = (otherFirstName != null && otherFirstName.isNotEmpty)
+          ? otherFirstName
+          : widget.chat.name;
+
+      if (isMe || widget.chat.isFavorites) {
+        senderName = myName;
+      } else if (widget.chat.isPersonal) {
+        senderName = otherName;
+      } else {
+        senderName = item.senderId.isNotEmpty ? item.senderId : widget.chat.name;
+      }
     }
+
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black,
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) => Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Stack(
+            children: [
+              Center(
+                child: isVideo
+                    ? FullScreenVideoPlayer(videoUrl: url, jwtToken: _accessToken)
+                    : InteractiveViewer(
+                        minScale: 0.5,
+                        maxScale: 4.0,
+                        child: Hero(
+                          tag: url,
+                          child: Image.network(
+                            url,
+                            headers: _accessToken != null ? {'Authorization': 'Bearer $_accessToken'} : null,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(color: Colors.white),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              debugPrint('FULLSCREEN IMAGE LOAD ERROR: $error');
+                              debugPrint('FULLSCREEN IMAGE URL: $url');
+                              return const Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.broken_image, color: Colors.white54, size: 64),
+                                    SizedBox(height: 16),
+                                    Text('Не удалось загрузить изображение', style: TextStyle(color: Colors.white54)),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+              ),
+              FadeTransition(
+                opacity: animation,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: MediaQuery.paddingOf(context).top + 16,
+                      left: 16,
+                      child: _buildDroplet(
+                        isCircle: true,
+                        onTap: () => Navigator.pop(context),
+                        child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+                      ),
+                    ),
+                    Positioned(
+                      top: MediaQuery.paddingOf(context).top + 16,
+                      right: 16,
+                      child: _buildDroplet(
+                        isCircle: true,
+                        onTap: () {
+                          if (item != null) {
+                            _downloadFile(context, url, item.fileName);
+                          }
+                        },
+                        child: const Icon(Icons.more_vert, color: Colors.white, size: 22),
+                      ),
+                    ),
+                    if (item != null && dateStr.isNotEmpty)
+                      Positioned(
+                        bottom: MediaQuery.paddingOf(context).bottom + 24,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: _buildDroplet(
+                            isCircle: false,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  senderName,
+                                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  dateStr,
+                                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _downloadFile(BuildContext context, String url, String fileName) async {
@@ -384,13 +563,13 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     final otherUser = chat.otherUser;
 
     // Свойства пользователя/чата
-    final String? username = otherUser?['username']?.toString();
-    final String? phone = otherUser?['phone']?.toString();
+    final String? username = chat.isFavorites ? null : otherUser?['username']?.toString();
+    final String? phone = chat.isFavorites ? null : otherUser?['phone']?.toString();
     
     // Получение описания
     String? bio;
     if (chat.isFavorites) {
-      bio = 'Ваше личное хранилище для заметок, медиафайлов и важных сообщений. Все данные зашифрованы сквозным шифрованием (E2EE).';
+      bio = null;
     } else {
       bio = otherUser?['bio']?.toString() ?? 
             otherUser?['description']?.toString() ?? 
@@ -411,82 +590,40 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
       return _buildStaticLayout(context, scrollController, username, phone, bio, primaryGlowColor);
     }
 
-    final repo = context.read<LocalChatRepository>();
-    return StreamBuilder<List<Message>>(
-      stream: repo.watchMessagesForChat(_localChatId!),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator(color: Colors.white));
-        }
+    // Ждём первую порцию данных из подписки (см. _subscribeToMessages).
+    if (!_sharedItemsReady) {
+      return const Center(child: CircularProgressIndicator(color: Colors.white));
+    }
 
-        final messages = snapshot.data ?? [];
-        
-        final List<SharedFileItem> mediaList = [];
-        final List<SharedFileItem> filesList = [];
-        final List<SharedFileItem> voiceList = [];
-        final List<SharedFileItem> musicList = [];
-        final List<SharedLinkItem> linksList = [];
-        
-        for (final message in messages) {
-          // Извлекаем файлы
-          final files = _extractFileItems(message);
-          for (final file in files) {
-            final isVoiceMsg = file.messageType == 'voice' ||
-                file.messageType == 'video_message' ||
-                file.fileName.startsWith('voice_') ||
-                file.fileName.endsWith('.wav') ||
-                file.fileName.endsWith('.ogg') ||
-                file.fileName.endsWith('.amr') ||
-                file.mimeType == 'audio/wav' ||
-                file.mimeType == 'audio/ogg';
+    final tabs = [
+      {'title': 'Медиа', 'count': _mediaList.length.toString(), 'icon': Icons.image_rounded},
+      {'title': 'Файлы', 'count': _filesList.length.toString(), 'icon': Icons.description_rounded},
+      {'title': 'Голос', 'count': _voiceList.length.toString(), 'icon': Icons.mic_rounded},
+      {'title': 'Музыка', 'count': _musicList.length.toString(), 'icon': Icons.music_note_rounded},
+      {'title': 'Ссылки', 'count': _linksList.length.toString(), 'icon': Icons.link_rounded},
+    ];
 
-            if (isVoiceMsg) {
-              voiceList.add(file);
-            } else if (file.mimeType.startsWith('image/') || file.mimeType.startsWith('video/')) {
-              mediaList.add(file);
-            } else if (file.mimeType.startsWith('audio/') || _isMusicExtension(file.fileName)) {
-              musicList.add(file);
-            } else {
-              filesList.add(file);
-            }
-          }
-          
-          // Извлекаем ссылки
-          final links = _extractLinks(message);
-          linksList.addAll(links);
-        }
-
-        final tabs = [
-          {'title': 'Медиа', 'count': mediaList.length.toString(), 'icon': Icons.image_rounded},
-          {'title': 'Файлы', 'count': filesList.length.toString(), 'icon': Icons.description_rounded},
-          {'title': 'Голос', 'count': voiceList.length.toString(), 'icon': Icons.mic_rounded},
-          {'title': 'Музыка', 'count': musicList.length.toString(), 'icon': Icons.music_note_rounded},
-          {'title': 'Ссылки', 'count': linksList.length.toString(), 'icon': Icons.link_rounded},
-        ];
-
-        return ListView(
-          controller: scrollController,
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 24),
-          children: [
-            const SizedBox(height: 10),
-            _buildProfileHeader(context, primaryGlowColor),
-            const SizedBox(height: 24),
-            _buildDetailsSection(username, phone, bio),
-            const SizedBox(height: 24),
-            _buildSharedMediaTabsHeader(tabs),
-            const SizedBox(height: 16),
-            _buildTabContentWithData(
-              _selectedTabIndex,
-              mediaList,
-              filesList,
-              voiceList,
-              musicList,
-              linksList,
-            ),
-          ],
-        );
-      },
+    return ListView(
+      controller: scrollController,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 24),
+      children: [
+        const SizedBox(height: 10),
+        _buildProfileHeader(context, primaryGlowColor),
+        const SizedBox(height: 24),
+        _buildDetailsSection(username, phone, bio),
+        const SizedBox(height: 24),
+        _buildSharedMediaTabsHeader(tabs),
+        const SizedBox(height: 16),
+        _buildTabContentWithData(
+          _selectedTabIndex,
+          _mediaList,
+          _filesList,
+          _voiceList,
+          _musicList,
+          _linksList,
+        ),
+      ],
     );
   }
 
@@ -715,7 +852,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
         final fileUrl = _getAbsoluteUrl(item.fileUrl);
 
         return GestureDetector(
-          onTap: () => _openMediaViewer(context, fileUrl, isVideo),
+          onTap: () => _openMediaViewer(context, fileUrl, isVideo, item: item),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Container(
@@ -1323,9 +1460,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     IconData? icon;
 
     if (chat.isFavorites) {
-      text = 'персональное облако';
-      textColor = const Color(0xFFA78BFA); // Soft purple
-      icon = Icons.cloud_done_rounded;
+      // Статус для "Избранного" не отображается
     } else if (_isDeleted()) {
       text = 'удалённый аккаунт';
       textColor = Colors.white38;
@@ -1341,8 +1476,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
         }
       }
     } else if (chat.isGroup) {
-      final membersCount = chat.otherUser?['members_count'] as int? ?? 0;
-      final onlineCount = chat.otherUser?['online_count'] as int? ?? 0;
+      final rawMem = chat.otherUser?['members_count'];
+      final membersCount = rawMem is int ? rawMem : (rawMem is num ? rawMem.toInt() : int.tryParse(rawMem?.toString() ?? '') ?? 0);
+      final rawOnline = chat.otherUser?['online_count'];
+      final onlineCount = rawOnline is int ? rawOnline : (rawOnline is num ? rawOnline.toInt() : int.tryParse(rawOnline?.toString() ?? '') ?? 0);
       text = _pluralizeParticipants(membersCount);
       if (onlineCount > 0) {
         text += ', $onlineCount в сети';
@@ -1350,7 +1487,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
       textColor = Colors.white54;
       icon = Icons.people_alt_rounded;
     } else if (chat.isChannel) {
-      final subscribersCount = chat.otherUser?['subscribers_count'] as int? ?? 0;
+      final rawSub = chat.otherUser?['subscribers_count'];
+      final subscribersCount = rawSub is int ? rawSub : (rawSub is num ? rawSub.toInt() : int.tryParse(rawSub?.toString() ?? '') ?? 0);
       text = _formatSubscribers(subscribersCount);
       textColor = Colors.white54;
       icon = Icons.campaign_rounded;
@@ -1649,6 +1787,23 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
       return '$countStr подписчиков';
     }
   }
+}
+
+/// Результат разбора сообщений чата по категориям вложений.
+class _SharedItemsBuckets {
+  final List<SharedFileItem> media;
+  final List<SharedFileItem> files;
+  final List<SharedFileItem> voice;
+  final List<SharedFileItem> music;
+  final List<SharedLinkItem> links;
+
+  const _SharedItemsBuckets({
+    required this.media,
+    required this.files,
+    required this.voice,
+    required this.music,
+    required this.links,
+  });
 }
 
 class SharedFileItem {

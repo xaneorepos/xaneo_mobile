@@ -18,6 +18,8 @@ class ChatModel {
   final bool isArchived;
   final DateTime? archivedAt;
   final String? lastMessageType;
+  final bool groupCallsEnabled;
+  final Map<String, dynamic> raw;
 
   ChatModel({
     required this.id,
@@ -36,6 +38,8 @@ class ChatModel {
     this.isArchived = false,
     this.archivedAt,
     this.lastMessageType,
+    this.groupCallsEnabled = true,
+    this.raw = const {},
   });
 
   factory ChatModel.fromJson(Map<String, dynamic> json) {
@@ -95,8 +99,12 @@ class ChatModel {
     }
 
     // Получаем зашифрованный текст сообщения
-    final encryptedText = json['last_message']?['encrypted_text'] as String? ??
-        json['lastMessage']?['encrypted_text'] as String?;
+    String? encryptedText;
+    if (json['last_message'] is Map) {
+      encryptedText = json['last_message']['encrypted_text']?.toString();
+    } else if (json['lastMessage'] is Map) {
+      encryptedText = json['lastMessage']['encrypted_text']?.toString();
+    }
 
     // Получаем тип сообщения
     String? messageType;
@@ -204,38 +212,35 @@ class ChatModel {
         ? Map<String, dynamic>.from(json['other_user'] as Map)
         : <String, dynamic>{};
 
-    if (isGroup) {
-      if (json['members_count'] != null) {
-        otherUserMap['members_count'] = json['members_count'];
-      } else if (json['membersCount'] != null) {
-        otherUserMap['members_count'] = json['membersCount'];
-      } else if (json['member_count'] != null) {
-        otherUserMap['members_count'] = json['member_count'];
-      }
-      
-      if (json['online_count'] != null) {
-        otherUserMap['online_count'] = json['online_count'];
-      } else if (json['onlineCount'] != null) {
-        otherUserMap['online_count'] = json['onlineCount'];
-      } else if (json['online_members_count'] != null) {
-        otherUserMap['online_count'] = json['online_members_count'];
-      }
-    } else if (isChannel) {
-      if (json['subscribers_count'] != null) {
-        otherUserMap['subscribers_count'] = json['subscribers_count'];
-      } else if (json['subscribersCount'] != null) {
-        otherUserMap['subscribers_count'] = json['subscribersCount'];
-      } else if (json['subscriber_count'] != null) {
-        otherUserMap['subscribers_count'] = json['subscriber_count'];
-      } else if (json['members_count'] != null) {
-        otherUserMap['subscribers_count'] = json['members_count'];
-      } else if (json['membersCount'] != null) {
-        otherUserMap['subscribers_count'] = json['membersCount'];
-      }
+    int? _parseInt(dynamic val) {
+      if (val is int) return val;
+      if (val is num) return val.toInt();
+      if (val is String) return int.tryParse(val);
+      return null;
+    }
+
+    final rawMem = _parseInt(json['members_count']) ?? _parseInt(json['membersCount']) ?? _parseInt(json['member_count']) ?? _parseInt(otherUserMap['members_count']);
+    if (rawMem != null) {
+      otherUserMap['members_count'] = rawMem;
+    }
+
+    final rawOnline = _parseInt(json['online_count']) ?? _parseInt(json['onlineCount']) ?? _parseInt(json['online_members_count']) ?? _parseInt(otherUserMap['online_count']);
+    if (rawOnline != null) {
+      otherUserMap['online_count'] = rawOnline;
+    }
+
+    final rawSub = _parseInt(json['subscribers_count']) ?? _parseInt(json['subscribersCount']) ?? _parseInt(json['subscriber_count']) ?? _parseInt(json['members_count']) ?? _parseInt(otherUserMap['subscribers_count']);
+    if (rawSub != null) {
+      otherUserMap['subscribers_count'] = rawSub;
     }
 
     final isArchived = json['is_archived'] == true;
     final archivedAt = _parseApiDateTime(json['archived_at']);
+    final rawCallsEnabled = json['group_calls_enabled'] ??
+        (json['other_user'] is Map ? json['other_user']['group_calls_enabled'] : null);
+    final groupCallsEnabled = rawCallsEnabled != null
+        ? (rawCallsEnabled == true || rawCallsEnabled == 1 || rawCallsEnabled == 'true')
+        : true;
 
     return ChatModel(
       id: chatId,
@@ -254,6 +259,50 @@ class ChatModel {
       archivedAt: archivedAt,
       lastMessageType: messageType,
       otherUser: otherUserMap.isNotEmpty ? otherUserMap : null,
+      groupCallsEnabled: groupCallsEnabled,
+      raw: json,
+    );
+  }
+
+  ChatModel copyWith({
+    String? id,
+    String? name,
+    String? avatar,
+    String? avatarGradient,
+    String? lastMessage,
+    DateTime? lastMessageTime,
+    int? unreadCount,
+    bool? isGroup,
+    bool? isChannel,
+    bool? isPersonal,
+    bool? isFavorites,
+    bool? isEncrypted,
+    bool? isArchived,
+    DateTime? archivedAt,
+    String? lastMessageType,
+    Map<String, dynamic>? otherUser,
+    bool? groupCallsEnabled,
+    Map<String, dynamic>? raw,
+  }) {
+    return ChatModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      avatar: avatar ?? this.avatar,
+      avatarGradient: avatarGradient ?? this.avatarGradient,
+      lastMessage: lastMessage ?? this.lastMessage,
+      lastMessageTime: lastMessageTime ?? this.lastMessageTime,
+      unreadCount: unreadCount ?? this.unreadCount,
+      isGroup: isGroup ?? this.isGroup,
+      isChannel: isChannel ?? this.isChannel,
+      isPersonal: isPersonal ?? this.isPersonal,
+      isFavorites: isFavorites ?? this.isFavorites,
+      isEncrypted: isEncrypted ?? this.isEncrypted,
+      isArchived: isArchived ?? this.isArchived,
+      archivedAt: archivedAt ?? this.archivedAt,
+      lastMessageType: lastMessageType ?? this.lastMessageType,
+      otherUser: otherUser ?? this.otherUser,
+      groupCallsEnabled: groupCallsEnabled ?? this.groupCallsEnabled,
+      raw: raw ?? this.raw,
     );
   }
 

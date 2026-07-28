@@ -4,6 +4,7 @@ import 'package:livekit_client/livekit_client.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../api/api_client.dart';
+import '../../config/app_config.dart';
 import '../auth/token_storage.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'webrtc_signaling_service.dart';
@@ -56,6 +57,12 @@ class CallManager extends ChangeNotifier {
   bool _isCameraOff = false;
   bool get isCameraOff => _isCameraOff;
 
+  bool _isGroupCall = false;
+  bool get isGroupCall => _isGroupCall;
+
+  String? _groupCallId;
+  String? get groupCallId => _groupCallId;
+
   EventsListener<RoomEvent>? _roomListener;
 
   CallManager({
@@ -70,6 +77,127 @@ class CallManager extends ChangeNotifier {
     _signalingService.onCallEnded = _handleCallEnded;
     _signalingService.onCallOfferSent = _handleCallOfferSent;
     _signalingService.onCallAnsweredElsewhere = _handleCallAnsweredElsewhere;
+    _signalingService.onIncomingGroupCall = _handleIncomingGroupCall;
+    _signalingService.onGroupCallOfferSent = _handleGroupCallOfferSent;
+    _signalingService.onGroupCallEnded = _handleGroupCallEnded;
+    _signalingService.onGroupParticipantJoined = _handleGroupParticipantJoined;
+    _signalingService.onGroupParticipantLeft = _handleGroupParticipantLeft;
+  }
+
+  final Map<String, Map<String, dynamic>> _groupParticipants = {};
+  Map<String, Map<String, dynamic>> get groupParticipants => _groupParticipants;
+
+  /// Инициировать исходящий групповой звонок
+  Future<void> startOutgoingGroupCall({
+    required String groupId,
+    required String groupName,
+    String? groupAvatar,
+    String? groupGradient,
+    required String callType,
+  }) async {
+    if (_state != CallState.idle) return;
+
+    _state = CallState.outgoing;
+    _isGroupCall = true;
+    _targetUserId = groupId;
+    _targetName = groupName;
+    _targetAvatar = groupAvatar;
+    _targetGradient = groupGradient;
+    _callType = callType;
+    _isMicrophoneMuted = false;
+    _isCameraOff = false;
+    _groupParticipants.clear();
+    notifyListeners();
+
+    _signalingService.startGroupCall(
+      groupId: groupId,
+      callType: callType,
+    );
+  }
+
+  void _handleIncomingGroupCall(Map<String, dynamic> data) {
+    if (_state != CallState.idle) return;
+
+    _state = CallState.incoming;
+    _isGroupCall = true;
+    _groupCallId = data['group_call_id']?.toString();
+    _activeCallId = _groupCallId;
+    _targetUserId = data['group_id']?.toString();
+    _targetName = data['group_name']?.toString() ?? 'Групповой звонок';
+    _targetAvatar = data['group_avatar']?.toString();
+    _targetGradient = data['group_gradient']?.toString();
+    _callType = data['call_type']?.toString() ?? 'video';
+    _isMicrophoneMuted = false;
+    _isCameraOff = false;
+    _groupParticipants.clear();
+
+    final initId = data['initiator_id']?.toString();
+    if (initId != null) {
+      _groupParticipants[initId] = {
+        'user_id': initId,
+        'name': data['initiator_name']?.toString() ?? 'Организатор',
+        'avatar': data['initiator_avatar'],
+        'gradient': data['initiator_gradient'],
+        'status': 'connected',
+      };
+    }
+
+    _startRingtone();
+    notifyListeners();
+  }
+
+  void _handleGroupCallOfferSent(Map<String, dynamic> data) {
+    final gCallId = data['group_call_id']?.toString();
+    if (gCallId != null) {
+      _groupCallId = gCallId;
+      _activeCallId = gCallId;
+      _state = CallState.connected;
+      notifyListeners();
+      _connectToLiveKit(gCallId);
+    }
+  }
+
+  void _handleGroupCallEnded(Map<String, dynamic> data) {
+    _groupParticipants.clear();
+    _cleanup();
+  }
+
+  void _handleGroupParticipantJoined(Map<String, dynamic> data) {
+    final uid = data['user_id']?.toString();
+    if (uid != null) {
+      final name = data['first_name']?.toString() ?? data['username']?.toString() ?? 'Участник $uid';
+      _groupParticipants[uid] = {
+        'user_id': uid,
+        'name': name.isNotEmpty ? name : 'Участник $uid',
+        'avatar': data['avatar'],
+        'gradient': data['gradient'],
+        'status': 'connected',
+      };
+    }
+    if (data['connected_participants'] is Map) {
+      final cp = data['connected_participants'] as Map;
+      cp.forEach((key, val) {
+        final kStr = key.toString();
+        if (val is Map) {
+          _groupParticipants[kStr] = {
+            'user_id': kStr,
+            'name': val['first_name'] ?? val['username'] ?? 'Участник $kStr',
+            'avatar': val['avatar'],
+            'gradient': val['gradient'],
+            'status': val['status'] ?? 'connected',
+          };
+        }
+      });
+    }
+    notifyListeners();
+  }
+
+  void _handleGroupParticipantLeft(Map<String, dynamic> data) {
+    final uid = data['user_id']?.toString();
+    if (uid != null) {
+      _groupParticipants.remove(uid);
+    }
+    notifyListeners();
   }
 
   /// Инициировать исходящий звонок
@@ -84,6 +212,9 @@ class CallManager extends ChangeNotifier {
     if (_state != CallState.idle) return;
 
     _state = CallState.outgoing;
+    _isGroupCall = false;
+    _groupCallId = null;
+    _groupParticipants.clear();
     _targetUserId = targetUserId;
     _targetName = targetName;
     _targetAvatar = targetAvatar;
@@ -111,7 +242,11 @@ class CallManager extends ChangeNotifier {
     notifyListeners();
 
     // 1. Отвечаем по WebSocket
-    _signalingService.acceptCall(callId);
+    if (_isGroupCall) {
+      _signalingService.acceptGroupCall(callId);
+    } else {
+      _signalingService.acceptCall(callId);
+    }
 
     // 2. Подключаемся к LiveKit
     try {
@@ -127,7 +262,11 @@ class CallManager extends ChangeNotifier {
     final callId = _activeCallId;
     if (_state != CallState.incoming || callId == null) return;
 
-    _signalingService.rejectCall(callId);
+    if (_isGroupCall) {
+      _signalingService.rejectGroupCall(callId);
+    } else {
+      _signalingService.rejectCall(callId);
+    }
     _cleanup();
   }
 
@@ -181,14 +320,25 @@ class CallManager extends ChangeNotifier {
   void hangUp({String reason = 'Звонок завершен'}) {
     final callId = _activeCallId;
     if (callId != null) {
-      if (_state == CallState.incoming) {
-        _signalingService.rejectCall(callId, reason: reason);
+      if (_isGroupCall) {
+        if (_state == CallState.incoming) {
+          _signalingService.rejectGroupCall(callId, reason: reason);
+        } else {
+          _signalingService.leaveGroupCall(callId, reason: reason);
+        }
       } else {
-        _signalingService.endCall(callId, reason: reason);
+        if (_state == CallState.incoming) {
+          _signalingService.rejectCall(callId, reason: reason);
+        } else {
+          _signalingService.endCall(callId, reason: reason);
+        }
       }
     }
     _cleanup();
   }
+
+  bool _isSpeakerOn = false;
+  bool get isSpeakerOn => _isSpeakerOn;
 
   /// Включить/выключить микрофон
   void toggleMicrophone() {
@@ -197,12 +347,33 @@ class CallManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  void toggleAudio() => toggleMicrophone();
+
   /// Включить/выключить камеру
   void toggleCamera() {
     if (_callType != 'video') return;
     _isCameraOff = !_isCameraOff;
     _room?.localParticipant?.setCameraEnabled(!_isCameraOff);
     notifyListeners();
+  }
+
+  void toggleVideo() => toggleCamera();
+
+  /// Включить/выключить динамик
+  void toggleSpeaker() {
+    _isSpeakerOn = !_isSpeakerOn;
+    notifyListeners();
+  }
+
+  /// Переключить камеру
+  void switchCamera() {
+    // В будущем здесь будет переключение передней/задней камеры LiveKit
+    notifyListeners();
+  }
+
+  /// Завершить звонок
+  void endCall() {
+    hangUp();
   }
 
   // ==================== СИГНАЛЬНЫЕ ОБРАБОТЧИКИ ====================
@@ -270,7 +441,25 @@ class CallManager extends ChangeNotifier {
       );
 
       final token = response.data['token']?.toString() ?? '';
-      final lkUrl = response.data['url']?.toString() ?? '';
+      var lkUrl = response.data['url']?.toString() ?? '';
+
+      // Форматируем URL для LiveKit в зависимости от адреса бэкенда в локальной сети
+      final apiUri = Uri.parse(AppConfig.apiBaseUrl);
+      final apiHost = apiUri.host;
+      if (lkUrl.isNotEmpty) {
+        final parsedLk = Uri.parse(lkUrl);
+        if (apiHost != 'xaneo.ru') {
+          final scheme = parsedLk.scheme == 'wss' ? 'ws' : parsedLk.scheme;
+          final port = parsedLk.hasPort ? parsedLk.port : 7880;
+          lkUrl = Uri(
+            scheme: scheme,
+            host: apiHost,
+            port: port,
+            path: parsedLk.path.isNotEmpty ? parsedLk.path : null,
+          ).toString();
+        }
+      }
+      debugPrint('CallManager: Mobile connecting to LiveKit URL: $lkUrl');
 
       // 2. Создаем комнату
       _room = Room();
@@ -285,7 +474,13 @@ class CallManager extends ChangeNotifier {
       });
 
       // 3. Подключаемся
-      await _room!.connect(lkUrl, token);
+      await _room!.connect(
+        lkUrl,
+        token,
+        connectOptions: const ConnectOptions(
+          autoSubscribe: true,
+        ),
+      );
 
       // 4. Публикуем микрофон
       await _room!.localParticipant?.setMicrophoneEnabled(true);
@@ -334,6 +529,9 @@ class CallManager extends ChangeNotifier {
 
     _localVideoTrack = null;
     _remoteVideoTrack = null;
+    _isGroupCall = false;
+    _groupCallId = null;
+    _groupParticipants.clear();
     _activeCallId = null;
     _targetUserId = null;
     _targetName = null;

@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import '../../providers/auth_provider.dart';
 import 'chat_websocket_service.dart';
 import '../api/api_client.dart';
+import '../grpc_service.dart';
 
 /// Глобальный сервис присутствия
 /// 
@@ -32,17 +32,19 @@ class PresenceService with WidgetsBindingObserver {
   /// Инициализация сервиса
   void init() {
     if (_initialized) return;
-    _initialized = true;
     WidgetsBinding.instance.addObserver(this);
     _authProvider.addListener(_onAuthChanged);
+    _initialized = true;
     _updateConnection();
   }
 
   /// Уничтожение сервиса
   void dispose() {
+    if (!_initialized) return;
     WidgetsBinding.instance.removeObserver(this);
     _authProvider.removeListener(_onAuthChanged);
     _chatWebSocketService.dispose();
+    _initialized = false;
   }
 
   @override
@@ -82,9 +84,16 @@ class PresenceService with WidgetsBindingObserver {
     final favoritesChatId = 'favorites_user_${user.id}';
     debugPrint('PresenceService: connecting to presence websocket with ID $favoritesChatId...');
     _chatWebSocketService.connect(favoritesChatId);
+    
+    // Send gRPC Presence Ping
+    XaneoGrpcService().sendPresence(user.id.toString(), 'online');
   }
 
   void _disconnect() {
+    final user = _authProvider.user;
+    if (user != null) {
+      XaneoGrpcService().sendPresence(user.id.toString(), 'offline');
+    }
     debugPrint('PresenceService: disconnecting from presence websocket...');
     _chatWebSocketService.disconnect();
   }

@@ -1,4 +1,4 @@
-name: xaneo_mobile
+name: xaneo
 description: Xaneo Mobile v2 - Secure messaging app
 publish_to: 'none'
 version: 2.0.0+1
@@ -15,10 +15,16 @@ dependencies:
   # State Management
   provider: ^6.1.1
 
-  # HTTP & API
+  # HTTP & gRPC API
   dio: ^5.4.0
   dio_cookie_manager: ^3.1.1
   cookie_jar: ^4.0.8
+  grpc: ^4.1.0
+  protobuf: ^3.1.0
+  fixnum: ^1.1.0
+
+
+
 
   # Secure Storage
   flutter_secure_storage: ^9.2.1

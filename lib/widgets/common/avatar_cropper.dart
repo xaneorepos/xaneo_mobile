@@ -38,8 +38,60 @@ class _AvatarCropperState extends State<AvatarCropper> {
   final GlobalKey _repaintBoundaryKey = GlobalKey();
   bool _isSaving = false;
 
+  double? _imageAspectRatio;
+  int _lastPointerCount = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImageDimensions();
+  }
+
+  void _loadImageDimensions() {
+    final ImageProvider provider = widget.imageFile != null
+        ? FileImage(widget.imageFile!)
+        : const AssetImage('assets/images/medved.png') as ImageProvider;
+    
+    provider.resolve(const ImageConfiguration()).addListener(
+      ImageStreamListener(
+        (ImageInfo info, bool _) {
+          if (mounted) {
+            setState(() {
+              _imageAspectRatio = info.image.width / info.image.height;
+            });
+          }
+        },
+        onError: (dynamic exception, StackTrace? stackTrace) {
+          if (mounted) {
+            setState(() {
+              _imageAspectRatio = 1.0;
+            });
+          }
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_imageAspectRatio == null) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          elevation: 0,
+          leading: IconButton(
+            icon: const FaIcon(FontAwesomeIcons.xmark, color: Colors.white, size: 18),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: const Text('Редактирование', style: AppStyles.titleLarge),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -69,6 +121,29 @@ class _AvatarCropperState extends State<AvatarCropper> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final double cropSize = math.min(constraints.maxWidth, constraints.maxHeight) * 0.9;
+                final double baseWidth;
+                final double baseHeight;
+
+                if (_imageAspectRatio! > 1.0) {
+                  baseWidth = cropSize * _imageAspectRatio!;
+                  baseHeight = cropSize;
+                } else {
+                  baseWidth = cropSize;
+                  baseHeight = cropSize / _imageAspectRatio!;
+                }
+
+                final bool isRotatedOdd = ((_rotation / (math.pi / 2)).round() % 2) != 0;
+                final double currentW = (isRotatedOdd ? baseHeight : baseWidth) * _scale;
+                final double currentH = (isRotatedOdd ? baseWidth : baseHeight) * _scale;
+
+                final double maxOffsetX = math.max(0.0, (currentW - cropSize) / 2);
+                final double maxOffsetY = math.max(0.0, (currentH - cropSize) / 2);
+
+                final clampedOffset = Offset(
+                  _offset.dx.clamp(-maxOffsetX, maxOffsetX),
+                  _offset.dy.clamp(-maxOffsetY, maxOffsetY),
+                );
+
                 return Stack(
                   alignment: Alignment.center,
                   children: [
@@ -86,20 +161,32 @@ class _AvatarCropperState extends State<AvatarCropper> {
                           color: Colors.black,
                         ),
                         child: Stack(
-                          fit: StackFit.expand,
+                          alignment: Alignment.center,
                           children: [
-                            Transform.translate(
-                              offset: _offset,
-                              child: Transform.scale(
-                                scale: _scale,
-                                child: Transform(
-                                  alignment: Alignment.center,
-                                  transform: Matrix4.rotationZ(_rotation)
-                                    ..rotateY(_flipHorizontal ? math.pi : 0.0)
-                                    ..rotateX(_flipVertical ? math.pi : 0.0),
-                                  child: widget.imageFile != null
-                                      ? Image.file(widget.imageFile!, fit: BoxFit.contain)
-                                      : Image.asset('assets/images/medved.png', fit: BoxFit.contain),
+                            OverflowBox(
+                              minWidth: 0.0,
+                              maxWidth: double.infinity,
+                              minHeight: 0.0,
+                              maxHeight: double.infinity,
+                              child: Transform.translate(
+                                offset: clampedOffset,
+                                child: Transform.scale(
+                                  scale: _scale,
+                                  child: SizedBox(
+                                    width: baseWidth,
+                                    height: baseHeight,
+                                    child: Transform(
+                                      alignment: Alignment.center,
+                                      transform: Matrix4.diagonal3Values(
+                                        _flipHorizontal ? -1.0 : 1.0,
+                                        _flipVertical ? -1.0 : 1.0,
+                                        1.0,
+                                      )..rotateZ(_rotation),
+                                      child: widget.imageFile != null
+                                          ? Image.file(widget.imageFile!, fit: BoxFit.fill)
+                                          : Image.asset('assets/images/medved.png', fit: BoxFit.fill),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -122,19 +209,21 @@ class _AvatarCropperState extends State<AvatarCropper> {
                         behavior: HitTestBehavior.opaque,
                         onScaleStart: (details) {
                           _previousScale = _scale;
+                          _offset = clampedOffset;
                           _previousOffset = details.focalPoint;
+                          _lastPointerCount = details.pointerCount;
                         },
                         onScaleUpdate: (details) {
+                          if (details.pointerCount != _lastPointerCount) {
+                            _lastPointerCount = details.pointerCount;
+                            _previousOffset = details.focalPoint;
+                            return;
+                          }
                           setState(() {
-                            _scale = math.max(0.2, _previousScale * details.scale);
+                            _scale = math.max(1.0, _previousScale * details.scale);
                             
-                            // Prevent dragging out of bounds too far
                             Offset newOffset = _offset + (details.focalPoint - _previousOffset);
-                            double limit = cropSize * _scale; 
-                            _offset = Offset(
-                              newOffset.dx.clamp(-limit, limit),
-                              newOffset.dy.clamp(-limit, limit),
-                            );
+                            _offset = newOffset;
                             _previousOffset = details.focalPoint;
                           });
                         },
@@ -146,30 +235,65 @@ class _AvatarCropperState extends State<AvatarCropper> {
             ),
           ),
 
-          // Toolbar
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            color: const Color(0xFF161616),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildToolButton(
-                  icon: FontAwesomeIcons.rotateLeft,
-                  onTap: () => setState(() => _rotation -= math.pi / 2),
+          // Liquid Glass Toolbar
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 20, right: 20, bottom: 16, top: 8),
+              child: Container(
+                height: 64,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.18),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.4),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ],
                 ),
-                _buildToolButton(
-                  icon: FontAwesomeIcons.rotateRight,
-                  onTap: () => setState(() => _rotation += math.pi / 2),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(32),
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                    child: Container(
+                      color: Colors.white.withOpacity(0.08),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildGlassToolButton(
+                            icon: FontAwesomeIcons.rotateLeft,
+                            label: 'Влево',
+                            onTap: () => setState(() => _rotation -= math.pi / 2),
+                          ),
+                          _buildGlassToolButton(
+                            icon: FontAwesomeIcons.rotateRight,
+                            label: 'Вправо',
+                            onTap: () => setState(() => _rotation += math.pi / 2),
+                          ),
+                          _buildGlassToolButton(
+                            icon: FontAwesomeIcons.rightLeft,
+                            label: 'По гор.',
+                            isActive: _flipHorizontal,
+                            onTap: () => setState(() => _flipHorizontal = !_flipHorizontal),
+                          ),
+                          _buildGlassToolButton(
+                            icon: FontAwesomeIcons.upDown,
+                            label: 'По верт.',
+                            isActive: _flipVertical,
+                            onTap: () => setState(() => _flipVertical = !_flipVertical),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-                _buildToolButton(
-                  icon: FontAwesomeIcons.rightLeft,
-                  onTap: () => setState(() => _flipHorizontal = !_flipHorizontal),
-                ),
-                _buildToolButton(
-                  icon: FontAwesomeIcons.upDown,
-                  onTap: () => setState(() => _flipVertical = !_flipVertical),
-                ),
-              ],
+              ),
             ),
           ),
         ],
@@ -220,12 +344,53 @@ class _AvatarCropperState extends State<AvatarCropper> {
     }
   }
 
-  Widget _buildToolButton({required FaIconData icon, required VoidCallback onTap}) {
-    return IconButton(
-      onPressed: onTap,
-      icon: FaIcon(icon, color: Colors.white, size: 22),
-      padding: const EdgeInsets.all(12),
-      constraints: const BoxConstraints(),
+  Widget _buildGlassToolButton({
+    required FaIconData icon,
+    required String label,
+    bool isActive = false,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          splashColor: Colors.white.withOpacity(0.15),
+          highlightColor: Colors.white.withOpacity(0.08),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            decoration: BoxDecoration(
+              color: isActive ? Colors.white.withOpacity(0.2) : Colors.transparent,
+              borderRadius: BorderRadius.circular(24),
+              border: isActive
+                  ? Border.all(color: Colors.white.withOpacity(0.3), width: 1)
+                  : null,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FaIcon(
+                  icon,
+                  color: isActive ? Colors.white : Colors.white.withOpacity(0.85),
+                  size: 16,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                    color: isActive ? Colors.white : Colors.white.withOpacity(0.7),
+                    fontFamily: AppStyles.fontFamily,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

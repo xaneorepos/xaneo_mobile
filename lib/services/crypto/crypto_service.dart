@@ -19,16 +19,19 @@ class CryptoService {
   static const String _keysStorageKey = 'xsec2_user_keys';
   static const String _chatKeysCacheKey = 'xsec2_chat_keys_cache';
   static const String _rootKeyContext = 'XSEC-2 root key';
-  static const bool _logKeyCandidates = false;
+  static const bool _logKeyCandidates = true;
 
   final FlutterSecureStorage _storage;
   final ApiClient _apiClient;
 
   /// Кэш ключей чатов в памяти (chatId → Uint8List AES key)
   final Map<String, Uint8List> _chatKeyCache = {};
+  final Map<String, Uint8List> _legacyChatKeyCache = {};
 
   /// Кэш epoch-ключей групп/каналов (chatId → Uint8List key)
   final Map<String, Uint8List> _groupEpochKeyCache = {};
+  final Map<String, int> _groupCurrentEpochNumber = {};
+  final Map<String, Map<int, Uint8List>> _historicalEpochKeyCache = {};
 
   /// Временный negative-cache для epoch endpoint (chatId → не опрашивать до времени)
   final Map<String, DateTime> _groupEpochRetryAfter = {};
@@ -53,6 +56,9 @@ class CryptoService {
 
   /// Последний успешный decrypt-ключ по чату (chatId → key)
   final Map<String, Uint8List> _lastSuccessfulDecryptKey = {};
+
+  /// Кэш расшифрованных сообщений (cacheKey → decryptedText)
+  final Map<String, String> _decryptedMessageCache = {};
 
   /// Кэш сгенерированных candidate keys для stable-чатов (favorites/personal)
   final Map<String, List<Uint8List>> _candidateDecryptKeyCache = {};
@@ -141,7 +147,10 @@ class CryptoService {
     await _storage.delete(key: _chatKeysCacheKey);
     _userKeys = null;
     _chatKeyCache.clear();
+    _legacyChatKeyCache.clear();
     _groupEpochKeyCache.clear();
+    _groupCurrentEpochNumber.clear();
+    _historicalEpochKeyCache.clear();
     _groupEpochRetryAfter.clear();
     _groupEpochEndpointOk.clear();
     _legacyChatKeyInFlight.clear();
@@ -717,7 +726,19 @@ class CryptoService {
       return cached;
     }
 
-    final myPrivateKeyHex = _userKeys!['x25519_private_key'] as String;
+    final myKeys = _userKeys;
+    if (myKeys == null) {
+      throw StateError('User keys not initialized');
+    }
+    final myPrivateKeyHex = myKeys['x25519_private_key'] as String?;
+    if (myPrivateKeyHex == null) {
+      throw StateError('User private key missing');
+    }
+    final myPublicKeyHex = myKeys['x25519_public_key'] as String?;
+    if (myPublicKeyHex == null) {
+      throw StateError('User public key missing');
+    }
+
     debugPrint(
         'XSEC-2: _computeSharedSecret: myPrivKey=${myPrivateKeyHex.substring(0, 8)}...');
 
@@ -729,7 +750,7 @@ class CryptoService {
       final keyPair = crypto.SimpleKeyPairData(
         myPrivateKey,
         publicKey: crypto.SimplePublicKey(
-          _hexToBytes(_userKeys!['x25519_public_key'] as String),
+          _hexToBytes(myPublicKeyHex),
           type: crypto.KeyPairType.x25519,
         ),
         type: crypto.KeyPairType.x25519,
@@ -831,6 +852,15 @@ class CryptoService {
     if (_chatKeyCache.containsKey(chatId)) {
       return _chatKeyCache[chatId];
     }
+    if (chatId.startsWith('personal_')) {
+      final p = chatId.replaceFirst('personal_', '').split('_');
+      if (p.length == 2) {
+        final reversed = 'personal_${p[1]}_${p[0]}';
+        if (_chatKeyCache.containsKey(reversed)) {
+          return _chatKeyCache[reversed];
+        }
+      }
+    }
 
     // Проверяем тип чата
     final parts = chatId.split('_');
@@ -923,7 +953,7 @@ class CryptoService {
 
   /// Получает серверный ключ чата (legacy ChatKey)
   Future<Uint8List?> _fetchLegacyChatKey(String chatId) async {
-    final cached = _chatKeyCache[chatId];
+    final cached = _legacyChatKeyCache[chatId];
     if (cached != null) return cached;
 
     final inFlight = _legacyChatKeyInFlight[chatId];
@@ -940,7 +970,7 @@ class CryptoService {
           if (data['success'] == true && data['key'] != null) {
             final keyHex = data['key'] as String;
             final key = _hexToBytes(keyHex.trim());
-            _chatKeyCache[chatId] = key;
+            _legacyChatKeyCache[chatId] = key;
             return key;
           }
         }
@@ -1110,6 +1140,16 @@ class CryptoService {
             continue;
           }
 
+          if (response.data is Map) {
+            final dataMap = response.data as Map;
+            final epNum = int.tryParse(dataMap['epoch_number']?.toString() ?? '') ??
+                          int.tryParse(dataMap['epoch_id']?.toString() ?? '') ??
+                          int.tryParse(dataMap['epoch']?.toString() ?? '');
+            if (epNum != null) {
+              _groupCurrentEpochNumber[chatId] = epNum;
+            }
+          }
+
           await collectFromDynamic(response.data);
           if (variants.isNotEmpty) {
             break;
@@ -1136,6 +1176,57 @@ class CryptoService {
     } finally {
       _groupEpochInFlight.remove(chatId);
     }
+  }
+
+  Future<List<Uint8List>> _fetchHistoricalEpochKeys(String chatId, int currentEpochNumber) async {
+    final results = <Uint8List>[];
+    if (currentEpochNumber <= 1) return results;
+
+    final chatCache = _historicalEpochKeyCache.putIfAbsent(chatId, () => {});
+
+    final startEpoch = currentEpochNumber - 1;
+    final endEpoch = (currentEpochNumber - 20).clamp(1, startEpoch);
+
+    for (var ep = startEpoch; ep >= endEpoch; ep--) {
+      final cachedKey = chatCache[ep];
+      if (cachedKey != null) {
+        results.add(cachedKey);
+        continue;
+      }
+
+      try {
+        final response = await _apiClient.get('/xsec2/group/$chatId/epoch/$ep/');
+        if (response.statusCode == 200 && response.data != null) {
+          final data = response.data;
+          if (data is Map) {
+            final map = Map<String, dynamic>.from(data);
+            Uint8List? key;
+            final keyStr = map['server_epoch_key']?.toString() ??
+                           map['epoch_key']?.toString() ??
+                           map['key']?.toString();
+            if (keyStr != null && keyStr.isNotEmpty) {
+              final decoded = _decodeServerKey(keyStr);
+              if (decoded != null && decoded.length == 32) {
+                key = decoded;
+              }
+            }
+
+            if (key == null) {
+              key = await _tryExtractGroupEpochKeyFromDistribution(chatId, map);
+            }
+
+            if (key != null && key.length == 32) {
+              chatCache[ep] = key;
+              results.add(key);
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('XSEC-2: Error fetching historical epoch $ep for $chatId: $e');
+      }
+    }
+
+    return _dedupeKeys(results);
   }
 
   Uint8List? _decodeServerKey(String rawValue) {
@@ -1339,7 +1430,8 @@ class CryptoService {
   // ================================================================
 
   /// Шифрует сообщение для отправки
-  /// Формат: base64(12 байт nonce + ciphertext)
+  /// Группы/Каналы: XChaCha20-Poly1305 (24-байт nonce) — единый стандарт с веб-клиентом
+  /// Личные/Избранное: AES-256-GCM (12-байт nonce)
   Future<String?> encryptMessage(String plaintext, String chatId) async {
     try {
       final key = await ensureKeyForChat(chatId);
@@ -1353,7 +1445,13 @@ class CryptoService {
         return plaintext;
       }
 
-      // Используем AES-256-GCM из crypto package
+      final parts = chatId.split('_');
+      final isGroupOrChannel = parts[0] == 'group' || parts[0] == 'channel';
+      if (isGroupOrChannel) {
+        return await _encryptXChaCha20(plaintext, key);
+      }
+
+      // Используем AES-256-GCM из crypto package для личных чатов
       final aesGcm = crypto.AesGcm.with256bits();
 
       final secretKey = crypto.SecretKey(key);
@@ -1384,10 +1482,56 @@ class CryptoService {
     }
   }
 
+  /// Шифрование XChaCha20-Poly1305 для групповых/канальных сообщений (стандарт веб-клиента XSEC-2)
+  /// Формат: base64( 24 байта nonce + ciphertext + 16 байт tag )
+  Future<String?> _encryptXChaCha20(String plaintext, Uint8List key) async {
+    try {
+      final xchacha20 = crypto.Xchacha20.poly1305Aead();
+      final secretKey = crypto.SecretKey(key);
+      final plaintextBytes = utf8.encode(plaintext);
+
+      final box = await xchacha20.encrypt(
+        plaintextBytes,
+        secretKey: secretKey,
+      );
+
+      final nonce = box.nonce; // 24 байта
+      final ciphertext = box.cipherText;
+      final mac = box.mac.bytes; // 16 байт
+
+      final combined = Uint8List(nonce.length + ciphertext.length + mac.length);
+      combined.setRange(0, nonce.length, nonce);
+      combined.setRange(
+          nonce.length, nonce.length + ciphertext.length, ciphertext);
+      combined.setRange(nonce.length + ciphertext.length, combined.length, mac);
+
+      return base64Encode(combined);
+    } catch (e) {
+      debugPrint('XSEC-2: XChaCha20 encryption error: $e');
+      return null;
+    }
+  }
+
   /// Расшифровывает сообщение
-  /// Для personal/favorites web в приоритете AES-GCM (nonce=12, формат nonce|cipher|tag)
-  /// XChaCha20/ChaCha20 оставлены как fallback для legacy payload.
   Future<String?> decryptMessage(String encryptedBase64, String chatId) async {
+    if (encryptedBase64.isEmpty) return null;
+
+    final cacheKey = '$chatId:${encryptedBase64.trim()}';
+    if (_decryptedMessageCache.containsKey(cacheKey)) {
+      return _decryptedMessageCache[cacheKey];
+    }
+
+    final decrypted = await _performDecryptMessage(encryptedBase64, chatId);
+    if (decrypted != null) {
+      _decryptedMessageCache[cacheKey] = decrypted;
+      if (_decryptedMessageCache.length > 1000) {
+        _decryptedMessageCache.remove(_decryptedMessageCache.keys.first);
+      }
+    }
+    return decrypted;
+  }
+
+  Future<String?> _performDecryptMessage(String encryptedBase64, String chatId) async {
     try {
       debugPrint('XSEC-2: decryptMessage start for chat $chatId');
 
@@ -1423,11 +1567,27 @@ class CryptoService {
 
       debugPrint('XSEC-2: encryptedData.length=${encryptedData.length}');
 
-      // Определяем формат по длине
-      // XChaCha20-Poly1305: 24 байт nonce + (ciphertext + 16 байт tag)
-      // AES-GCM: 12 байт nonce + ciphertext + 16 байт tag
+      final parts = chatId.split('_');
+      final isGroupOrChannel = parts[0] == 'group' || parts[0] == 'channel';
 
-      // Даем шанс расшифровать коротким payload (12 nonce + 16 tag + 2..X bytes cipher)
+      // В группах и каналах в приоритете XChaCha20-Poly1305 (24-байтный nonce)
+      if (isGroupOrChannel && encryptedData.length >= 40) {
+        for (var index = 0; index < candidateKeys.length; index++) {
+          final result = await _decryptXChaCha20(
+            encryptedData,
+            candidateKeys[index],
+            chatId: chatId,
+          );
+          if (result != null) {
+            _lastSuccessfulDecryptKey[chatId] = candidateKeys[index];
+            debugPrint(
+                'XSEC-2: XChaCha20 decrypted with key variant #$index');
+            return result;
+          }
+        }
+      }
+
+      // Личные чаты или fallback: AES-GCM (12 байт nonce)
       if (encryptedData.length >= 28) {
         for (var index = 0; index < candidateKeys.length; index++) {
           final result = await _decryptAesGcm(
@@ -1456,8 +1616,8 @@ class CryptoService {
         }
       }
 
-      // Fallback для legacy/нестандартных payload
-      if (encryptedData.length >= 40) {
+      // Fallback на XChaCha20 для личных чатов если payload > 40 байт
+      if (!isGroupOrChannel && encryptedData.length >= 40) {
         for (var index = 0; index < candidateKeys.length; index++) {
           final result = await _decryptXChaCha20(
             encryptedData,
@@ -1739,12 +1899,92 @@ class CryptoService {
     }
   }
 
+  /// Шифрует приватные ключи Argon2id + XChaCha20-Poly1305 (совместимо с веб-версией)
+  Future<Map<String, dynamic>> encryptPrivateKeys(
+    Map<String, dynamic> keys,
+    String password,
+  ) async {
+    final saltBytes = _generateRandomBytes(16);
+    final saltHex = _bytesToHex(saltBytes);
+
+    final params = Argon2Parameters(
+      Argon2Parameters.ARGON2_id,
+      saltBytes,
+      iterations: 3,
+      memory: 64, // 64 KiB (64 * 1024 bytes in libsodium ARGON2_MEMORY)
+      lanes: 1,
+      version: Argon2Parameters.ARGON2_VERSION_13,
+    );
+    final generator = Argon2BytesGenerator()..init(params);
+    final keyBytes = Uint8List(32);
+    generator.generateBytesFromString(password, keyBytes);
+
+    final x25519Private = keys['x25519_private_key']?.toString();
+    final ed25519Private = keys['ed25519_private_key']?.toString();
+
+    final keysData = jsonEncode({
+      'x25519_private': x25519Private,
+      'ed25519_private': ed25519Private,
+    });
+
+    final nonceBytes = _generateRandomBytes(24);
+    final xchacha20 = crypto.Xchacha20.poly1305Aead();
+
+    final secretBox = await xchacha20.encrypt(
+      utf8.encode(keysData),
+      secretKey: crypto.SecretKey(keyBytes),
+      nonce: nonceBytes,
+    );
+
+    final encryptedBytes = Uint8List.fromList([
+      ...secretBox.cipherText,
+      ...secretBox.mac.bytes,
+    ]);
+
+    final blob = <String, dynamic>{
+      'version': 1,
+      'algorithm': 'XSEC-2',
+      'encrypted_data': _bytesToHex(encryptedBytes),
+      'nonce': _bytesToHex(nonceBytes),
+      'salt': saltHex,
+      'created_at': DateTime.now().toIso8601String(),
+    };
+
+    if (keys['ed25519_private_key'] != null && keys['ed25519_public_key'] != null) {
+      try {
+        var ed25519PrivHex = keys['ed25519_private_key'].toString();
+        if (ed25519PrivHex.length == 128) {
+          ed25519PrivHex = ed25519PrivHex.substring(0, 64);
+        }
+        final ed25519PubHex = keys['ed25519_public_key'].toString();
+        final ed25519 = crypto.Ed25519();
+        final keyPair = crypto.SimpleKeyPairData(
+          _hexToBytes(ed25519PrivHex),
+          publicKey: crypto.SimplePublicKey(
+            _hexToBytes(ed25519PubHex),
+            type: crypto.KeyPairType.ed25519,
+          ),
+          type: crypto.KeyPairType.ed25519,
+        );
+        final signature = await ed25519.sign(
+          utf8.encode(jsonEncode(blob)),
+          keyPair: keyPair,
+        );
+        blob['signature'] = _bytesToHex(Uint8List.fromList(signature.bytes));
+      } catch (e) {
+        debugPrint('XSEC-2: Error signing encrypted_blob: $e');
+      }
+    }
+
+    return blob;
+  }
+
   // ================================================================
   // Загрузка и отправка ключей на сервер
   // ================================================================
 
   /// Создаёт и загружает ключи на сервер
-  Future<bool> uploadKeysToServer() async {
+  Future<bool> uploadKeysToServer({String? password}) async {
     try {
       if (!hasKeys) {
         // Генерируем ключи если ещё нет
@@ -1752,13 +1992,31 @@ class CryptoService {
         await saveUserKeys(keys);
       }
 
-      await _ensureUploadFields();
+      await _ensureUploadFields(password: password);
 
-      final ed25519PublicKey = _userKeys?['ed25519_public_key']?.toString();
-      final encryptedBlob = _userKeys?['encrypted_blob']?.toString();
+      final currentKeys = _userKeys;
+      if (currentKeys == null || currentKeys['x25519_public_key'] == null) {
+        debugPrint('XSEC-2: Cannot upload keys, _userKeys is null');
+        return false;
+      }
+
+      final ed25519PublicKey = currentKeys['ed25519_public_key']?.toString();
+      var encryptedBlob = currentKeys['encrypted_blob'];
+
+      if (encryptedBlob is String && encryptedBlob.isNotEmpty) {
+        try {
+          encryptedBlob = jsonDecode(encryptedBlob);
+        } catch (_) {
+          encryptedBlob = {
+            'version': 1,
+            'payload': encryptedBlob,
+            'created_at': DateTime.now().toIso8601String(),
+          };
+        }
+      }
 
       final keys = {
-        'x25519_public_key': _userKeys!['x25519_public_key'],
+        'x25519_public_key': currentKeys['x25519_public_key'],
         'ed25519_public_key': ed25519PublicKey,
         'encrypted_blob': encryptedBlob,
         'recovery_blob': null,
@@ -1776,42 +2034,57 @@ class CryptoService {
     }
   }
 
-  Future<void> _ensureUploadFields() async {
-    if (_userKeys == null) return;
+  Future<void> _ensureUploadFields({String? password}) async {
+    final currentKeys = _userKeys;
+    if (currentKeys == null) return;
 
     var changed = false;
 
     final hasEd25519 =
-        (_userKeys!['ed25519_public_key']?.toString().isNotEmpty ?? false);
+        (currentKeys['ed25519_public_key']?.toString().isNotEmpty ?? false);
     if (!hasEd25519) {
       final ed25519 = crypto.Ed25519();
       final keyPair = await ed25519.newKeyPair();
       final publicKey = await keyPair.extractPublicKey();
       final privateKeyBytes = await keyPair.extractPrivateKeyBytes();
 
-      _userKeys!['ed25519_public_key'] =
-          _bytesToHex(Uint8List.fromList(publicKey.bytes));
-      _userKeys!['ed25519_private_key'] =
-          _bytesToHex(Uint8List.fromList(privateKeyBytes));
+      final pubHex = _bytesToHex(Uint8List.fromList(publicKey.bytes));
+      final privHex = _bytesToHex(Uint8List.fromList(privateKeyBytes));
+
+      currentKeys['ed25519_public_key'] = pubHex;
+      // libsodium Ed25519 secretKey format is 64 bytes (32 bytes private seed + 32 bytes public key)
+      currentKeys['ed25519_private_key'] = privHex + pubHex;
       changed = true;
     }
 
-    final hasBlob =
-        (_userKeys!['encrypted_blob']?.toString().isNotEmpty ?? false);
-    if (!hasBlob) {
+    final blobObj = currentKeys['encrypted_blob'];
+    final isEncryptedStructuredBlob = blobObj is Map<String, dynamic> &&
+        blobObj['encrypted_data'] != null &&
+        blobObj['nonce'] != null &&
+        blobObj['salt'] != null;
+
+    if (!isEncryptedStructuredBlob && password != null && password.isNotEmpty) {
+      try {
+        final encryptedBlobMap = await encryptPrivateKeys(currentKeys, password);
+        currentKeys['encrypted_blob'] = encryptedBlobMap;
+        changed = true;
+      } catch (e) {
+        debugPrint('XSEC-2: Failed to encrypt blob with Argon2id: $e');
+      }
+    } else if (!isEncryptedStructuredBlob && (blobObj == null || blobObj.toString().isEmpty)) {
       final blobPayload = {
         'version': 1,
-        'x25519_private_key': _userKeys!['x25519_private_key'],
-        'ed25519_private_key': _userKeys!['ed25519_private_key'],
-        'created_at': _userKeys!['created_at'],
+        'x25519_private_key': currentKeys['x25519_private_key'],
+        'ed25519_private_key': currentKeys['ed25519_private_key'],
+        'created_at': currentKeys['created_at'],
       };
-      _userKeys!['encrypted_blob'] =
+      currentKeys['encrypted_blob'] =
           base64Encode(utf8.encode(jsonEncode(blobPayload)));
       changed = true;
     }
 
     if (changed) {
-      await saveUserKeys(_userKeys!);
+      await saveUserKeys(currentKeys);
     }
   }
 
@@ -1858,24 +2131,32 @@ class CryptoService {
     }
 
     if (parts[0] == 'group' || parts[0] == 'channel') {
-      var hasEpochKey = false;
       try {
         final epochKeys = await _fetchGroupEpochKeyCandidates(chatId);
         for (final key in epochKeys) {
           add(key, label: 'group.epoch.current');
         }
-        hasEpochKey = epochKeys.isNotEmpty;
       } catch (_) {}
 
-      final epochOk = _groupEpochEndpointOk[chatId] == true;
-      if (epochOk && !hasEpochKey) {
-        debugPrint(
-            'XSEC-2: group/channel: epoch 200 without usable key, add legacy/base key candidates');
-      }
+      // ВСЕГДА добавляем legacy baseKey и проверяем legacy chat key
+      add(baseKey, label: 'group.legacy.baseKey');
 
-      // Fallback: если epoch ключа нет, обязательно пробуем baseKey (обычно legacy chat key).
-      if (!hasEpochKey) {
-        add(baseKey, label: 'group.legacy.chatKey');
+      try {
+        final legacyKey = await _fetchLegacyChatKey(chatId);
+        if (legacyKey != null) {
+          add(legacyKey, label: 'group.legacy.chatKey');
+        }
+      } catch (_) {}
+
+      // Также запрашиваем и добавляем исторические epoch-ключи
+      final currentEp = _groupCurrentEpochNumber[chatId] ?? 1;
+      if (currentEp > 1) {
+        try {
+          final historicalKeys = await _fetchHistoricalEpochKeys(chatId, currentEp);
+          for (final key in historicalKeys) {
+            add(key, label: 'group.epoch.historical');
+          }
+        } catch (_) {}
       }
 
       return _dedupeKeys(variants);

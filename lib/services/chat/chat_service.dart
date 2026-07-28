@@ -93,8 +93,7 @@ class ChatService {
   Future<bool> markMessagesAsRead(String chatId) async {
     try {
       final response = await _apiClient.post(
-        '/messages/mark-read/',
-        data: {'chat_id': chatId},
+        '/mark-messages-as-read/$chatId/',
       );
       
       return response.statusCode == 200;

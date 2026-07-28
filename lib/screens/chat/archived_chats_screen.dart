@@ -620,8 +620,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
 
   Widget _buildAvatar(ChatModel chat) {
     final hasRealAvatar = chat.avatar != null &&
-        chat.avatar!.isNotEmpty &&
-        (chat.avatar!.startsWith('http') || chat.avatar!.startsWith('https'));
+        chat.avatar!.isNotEmpty;
 
     final icon = chat.isFavorites ? FontAwesomeIcons.solidBookmark : null;
 

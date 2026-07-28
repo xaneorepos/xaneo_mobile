@@ -46,6 +46,12 @@ class _IncomingCallModalState extends BaseCustomModalState<IncomingCallModal> wi
   @override
   double get maxExtent => 0.45;
 
+  // buildContent() подписан на CallManager через свой context, поэтому
+  // кэшировать содержимое нельзя — модалка перестала бы реагировать на смену
+  // состояния звонка (в т.ч. не закрывалась бы при переходе в idle).
+  @override
+  bool get cacheContent => false;
+
   @override
   void initState() {
     super.initState();

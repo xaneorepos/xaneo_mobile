@@ -1,11 +1,11 @@
 {
-    "name": "xaneo_mobile",
-    "short_name": "xaneo_mobile",
+    "name": "Xaneo",
+    "short_name": "Xaneo",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Xaneo - Secure messaging app",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -36,6 +36,11 @@ class WebRTCSignalingService {
   Function(Map<String, dynamic>)? onCallEnded;
   Function(Map<String, dynamic>)? onCallOfferSent;
   Function(Map<String, dynamic>)? onCallAnsweredElsewhere;
+  void Function(Map<String, dynamic>)? onIncomingGroupCall;
+  void Function(Map<String, dynamic>)? onGroupCallOfferSent;
+  void Function(Map<String, dynamic>)? onGroupCallEnded;
+  void Function(Map<String, dynamic>)? onGroupParticipantJoined;
+  void Function(Map<String, dynamic>)? onGroupParticipantLeft;
 
   WebRTCSignalingService({TokenStorage? tokenStorage, ApiClient? apiClient})
       : _tokenStorage = tokenStorage ?? TokenStorage(),
@@ -163,6 +168,40 @@ class WebRTCSignalingService {
     });
   }
 
+  void startGroupCall({
+    required String groupId,
+    required String callType,
+  }) {
+    send({
+      'type': 'group_call_offer',
+      'group_id': int.tryParse(groupId) ?? groupId,
+      'call_type': callType,
+    });
+  }
+
+  void acceptGroupCall(String groupCallId) {
+    send({
+      'type': 'group_call_accept',
+      'group_call_id': groupCallId,
+    });
+  }
+
+  void rejectGroupCall(String groupCallId, {String reason = 'Отклонено'}) {
+    send({
+      'type': 'group_call_reject',
+      'group_call_id': groupCallId,
+      'reason': reason,
+    });
+  }
+
+  void leaveGroupCall(String groupCallId, {String reason = 'Покинул звонок'}) {
+    send({
+      'type': 'group_call_leave',
+      'group_call_id': groupCallId,
+      'reason': reason,
+    });
+  }
+
   void acceptCall(String callId) {
     send({
       'type': 'call_answer',
@@ -271,6 +310,21 @@ class WebRTCSignalingService {
           break;
         case 'call_answered_elsewhere':
           onCallAnsweredElsewhere?.call(event);
+          break;
+        case 'incoming_group_call':
+          onIncomingGroupCall?.call(event);
+          break;
+        case 'group_call_offer_sent':
+          onGroupCallOfferSent?.call(event);
+          break;
+        case 'group_call_ended':
+          onGroupCallEnded?.call(event);
+          break;
+        case 'group_participant_joined':
+          onGroupParticipantJoined?.call(event);
+          break;
+        case 'group_participant_left':
+          onGroupParticipantLeft?.call(event);
           break;
       }
     } catch (e) {

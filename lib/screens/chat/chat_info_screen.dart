@@ -33,13 +33,13 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
     final otherUser = chat.otherUser;
 
     // Свойства пользователя/чата
-    final String? username = otherUser?['username']?.toString();
-    final String? phone = otherUser?['phone']?.toString();
+    final String? username = chat.isFavorites ? null : otherUser?['username']?.toString();
+    final String? phone = chat.isFavorites ? null : otherUser?['phone']?.toString();
     
     // Получение описания
     String? bio;
     if (chat.isFavorites) {
-      bio = 'Ваше личное хранилище для заметок, медиафайлов и важных сообщений. Все данные зашифрованы сквозным шифрованием (E2EE).';
+      bio = null;
     } else {
       bio = otherUser?['bio']?.toString() ?? 
             otherUser?['description']?.toString() ?? 
@@ -201,9 +201,7 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
     IconData? icon;
 
     if (chat.isFavorites) {
-      text = 'персональное облако';
-      textColor = Colors.white;
-      icon = Icons.cloud_done_rounded;
+      // Статус для "Избранного" не отображается
     } else if (_isDeleted()) {
       text = 'удалённый аккаунт';
       textColor = Colors.white38;
@@ -219,8 +217,10 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
         }
       }
     } else if (chat.isGroup) {
-      final membersCount = chat.otherUser?['members_count'] as int? ?? 0;
-      final onlineCount = chat.otherUser?['online_count'] as int? ?? 0;
+      final rawMem = chat.otherUser?['members_count'];
+      final membersCount = rawMem is int ? rawMem : (rawMem is num ? rawMem.toInt() : int.tryParse(rawMem?.toString() ?? '') ?? 0);
+      final rawOnline = chat.otherUser?['online_count'];
+      final onlineCount = rawOnline is int ? rawOnline : (rawOnline is num ? rawOnline.toInt() : int.tryParse(rawOnline?.toString() ?? '') ?? 0);
       text = _pluralizeParticipants(membersCount);
       if (onlineCount > 0) {
         text += ', $onlineCount в сети';
@@ -228,7 +228,8 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
       textColor = Colors.white54;
       icon = Icons.people_alt_rounded;
     } else if (chat.isChannel) {
-      final subscribersCount = chat.otherUser?['subscribers_count'] as int? ?? 0;
+      final rawSub = chat.otherUser?['subscribers_count'];
+      final subscribersCount = rawSub is int ? rawSub : (rawSub is num ? rawSub.toInt() : int.tryParse(rawSub?.toString() ?? '') ?? 0);
       text = _formatSubscribers(subscribersCount);
       textColor = Colors.white54;
       icon = Icons.campaign_rounded;

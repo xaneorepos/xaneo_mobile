@@ -371,6 +371,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       passwordConfirm: _passwordConfirmController.text,
       birthDate: birthDateStr,
       realname: _nameController.text.trim(),
+      avatarFile: _selectedAvatarImage,
     );
 
     if (!mounted) return;

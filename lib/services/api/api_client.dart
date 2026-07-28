@@ -19,6 +19,7 @@ import 'dart:io';
 /// - Поддержка cookies для Django-сессий (верификация email)
 class ApiClient {
   late final Dio _dio;
+  Dio get dio => _dio;
   final TokenStorage _tokenStorage;
   late final CookieJar _cookieJar;
   final String deviceId;

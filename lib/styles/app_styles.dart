@@ -30,7 +30,7 @@ class AppStyles {
     color: textPrimaryColor,
     fontFamily: fontFamily,
     height: 1.2,
-    letterSpacing: -1.0,
+    letterSpacing: -1.2,
   );
 
   static const TextStyle titleLarge = TextStyle(
@@ -39,7 +39,7 @@ class AppStyles {
     color: textPrimaryColor,
     fontFamily: fontFamily,
     height: 1.2,
-    letterSpacing: -0.5,
+    letterSpacing: -0.8,
   );
 
   static const TextStyle bodyMedium = TextStyle(
@@ -47,7 +47,8 @@ class AppStyles {
     fontWeight: FontWeight.w400,
     color: textSecondaryColor,
     fontFamily: fontFamily,
-    height: 1.4,
+    height: 1.35,
+    letterSpacing: -0.3,
   );
 
   static const TextStyle bodyMuted = TextStyle(
@@ -55,6 +56,7 @@ class AppStyles {
     fontWeight: FontWeight.w400,
     color: textMutedColor,
     fontFamily: fontFamily,
+    letterSpacing: -0.3,
   );
 
   static const TextStyle buttonText = TextStyle(
@@ -62,6 +64,7 @@ class AppStyles {
     fontWeight: FontWeight.w600,
     color: buttonTextColor,
     fontFamily: fontFamily,
+    letterSpacing: -0.3,
   );
 
   static const TextStyle inputText = TextStyle(
@@ -69,7 +72,7 @@ class AppStyles {
     fontWeight: FontWeight.w500,
     color: textPrimaryColor,
     fontFamily: fontFamily,
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
   );
 
   static const TextStyle inputHint = TextStyle(
@@ -77,7 +80,7 @@ class AppStyles {
     fontWeight: FontWeight.w400,
     color: textMutedColor,
     fontFamily: fontFamily,
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
   );
 
   static const Duration animationFast = Duration(milliseconds: 200);

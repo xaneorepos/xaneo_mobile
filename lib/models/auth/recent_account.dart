@@ -3,6 +3,7 @@ class RecentAccount {
   final int id;
   final String username;
   final String email;
+  final String? firstName;
   final String? avatar;
   final DateTime lastLogin;
   final DateTime firstLogin;
@@ -15,6 +16,7 @@ class RecentAccount {
     required this.id,
     required this.username,
     required this.email,
+    this.firstName,
     this.avatar,
     required this.lastLogin,
     required this.firstLogin,
@@ -23,10 +25,14 @@ class RecentAccount {
   });
 
   factory RecentAccount.fromJson(Map<String, dynamic> json) {
+    final fName = json['first_name']?.toString() ??
+        json['firstName']?.toString() ??
+        json['name']?.toString();
     return RecentAccount(
       id: json['id'] as int,
       username: json['username'] as String,
       email: json['email'] as String,
+      firstName: (fName != null && fName.isNotEmpty) ? fName : null,
       avatar: json['avatar'] as String?,
       lastLogin: DateTime.parse(json['last_login'] as String),
       firstLogin: DateTime.parse(json['first_login'] as String),
@@ -40,6 +46,7 @@ class RecentAccount {
       'id': id,
       'username': username,
       'email': email,
+      'first_name': firstName,
       'avatar': avatar,
       'last_login': lastLogin.toIso8601String(),
       'first_login': firstLogin.toIso8601String(),

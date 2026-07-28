@@ -8,14 +8,32 @@ class AppConfig {
 // ========== API Configuration ==========
 
   /// Базовый URL API сервера
-  /// TODO: Изменить на продакшн перед релизом
   static const String apiBaseUrl = 'https://192.168.1.113/api/v1';
+
+  /// Серверный Origin без `/api/v1` (например: `https://xaneo.ru`)
+  static String get serverOrigin {
+    final uri = Uri.parse(apiBaseUrl);
+    return '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+  }
+
+  /// Преобразует относительный URL аватара/медиа (`/media/...`) в абсолютный URL (`https://xaneo.ru/media/...`)
+  static String? formatImageUrl(String? url) {
+    if (url == null || url.isEmpty) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('/')) return '$serverOrigin$url';
+    return '$serverOrigin/$url';
+  }
   
   /// Таймаут для API запросов
   static const Duration apiTimeout = Duration(seconds: 30);
   
   /// Таймаут для долгих операций (загрузка файлов)
   static const Duration apiLongTimeout = Duration(minutes: 5);
+
+  // ========== gRPC Configuration ==========
+  static String get grpcHost => Uri.parse(apiBaseUrl).host;
+  static const int grpcChatPort = 50051;
+  static const int grpcPresencePort = 50053;
 
   // ========== Auth Endpoints ==========
 

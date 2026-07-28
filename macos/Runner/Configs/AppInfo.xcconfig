@@ -5,10 +5,10 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = xaneo_mobile
+PRODUCT_NAME = Xaneo
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = net.xaneo.xaneoMobile
+PRODUCT_BUNDLE_IDENTIFIER = net.xaneo
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 net.xaneo. All rights reserved.
