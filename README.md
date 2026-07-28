@@ -4,16 +4,16 @@
 
 ![Xaneo Logo](assets/images/logo.png)
 
-### **Современныйзащищённый мобильный и кроссплатформенный мессенджер на Flutter**
+### **Современный защищённый мобильный и кроссплатформенный мессенджер на Flutter**
 
 [![Flutter](https://img.shields.io/badge/Flutter-%2302569B.svg?style=for-the-badge&logo=Flutter&logoColor=white)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-%230175C2.svg?style=for-the-badge&logo=Dart&logoColor=white)](https://dart.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/xaneorepos/xaneo_mobile_v2?style=for-the-badge&logo=github&color=gold)](https://github.com/xaneorepos/xaneo_mobile_v2/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/xaneorepos/xaneo_mobile_v2?style=for-the-badge&logo=github)](https://github.com/xaneorepos/xaneo_mobile_v2/network/members)
-[![GitHub Issues](https://img.shields.io/github/issues/xaneorepos/xaneo_mobile_v2?style=for-the-badge&logo=github)](https://github.com/xaneorepos/xaneo_mobile_v2/issues)
+[![GitHub Stars](https://img.shields.io/github/stars/xaneorepos/xaneo_mobile?style=for-the-badge&logo=github&color=gold)](https://github.com/xaneorepos/xaneo_mobile/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/xaneorepos/xaneo_mobile?style=for-the-badge&logo=github)](https://github.com/xaneorepos/xaneo_mobile/network/members)
+[![GitHub Issues](https://img.shields.io/github/issues/xaneorepos/xaneo_mobile?style=for-the-badge&logo=github)](https://github.com/xaneorepos/xaneo_mobile/issues)
 
-[![Platforms](https://img.shields.io/badge/Platforms-Android%20%7C%20iOS%20%7C%20Web%20%7C%20Desktop-blue?style=for-the-badge&logo=android)](https://github.com/xaneorepos/xaneo_mobile_v2)
+[![Platforms](https://img.shields.io/badge/Platforms-Android%20%7C%20iOS%20%7C%20Web%20%7C%20Desktop-blue?style=for-the-badge&logo=android)](https://github.com/xaneorepos/xaneo_mobile)
 
 </div>
 

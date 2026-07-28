@@ -4,9 +4,13 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api/api_client.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../services/update/update_service.dart';
+import '../../models/update/app_version_info.dart';
 import 'base_custom_modal.dart';
 
 // ─── 1. Личные данные (Personal Modal) ───────────────────────────────────────
+
 
 class MobilePersonalModal extends BaseCustomModal {
   const MobilePersonalModal({super.key});
@@ -723,3 +727,163 @@ class _MobileSecurityModalState extends BaseCustomModalState<MobileSecurityModal
     );
   }
 }
+
+// ─── 5. О приложении и обновления (About Modal) ───────────────────────────────────
+
+class MobileAboutModal extends BaseCustomModal {
+  const MobileAboutModal({super.key});
+
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const MobileAboutModal(),
+    );
+  }
+
+  @override
+  State<MobileAboutModal> createState() => _MobileAboutModalState();
+}
+
+class _MobileAboutModalState extends BaseCustomModalState<MobileAboutModal> {
+  @override
+  double get initialExtent => 0.55;
+  @override
+  double get maxExtent => 0.85;
+
+  bool _isChecking = false;
+  String? _status;
+  AppVersionInfo? _foundUpdate;
+
+  Future<void> _checkUpdate() async {
+    setState(() {
+      _isChecking = true;
+      _status = 'Проверка обновлений...';
+      _foundUpdate = null;
+    });
+
+    final update = await UpdateService().checkForUpdates(force: true);
+    final currentVersion = await UpdateService().getCurrentVersion();
+
+    if (!mounted) return;
+
+    setState(() {
+      _isChecking = false;
+      if (update != null) {
+        _foundUpdate = update;
+        _status = 'Доступна новая версия v${update.version}!';
+      } else {
+        _status = 'У вас установлена актуальная версия v$currentVersion';
+      }
+    });
+  }
+
+  @override
+  Widget buildModalContent(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2563EB).withAlpha(30),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.info_outline_rounded, color: Color(0xFF2563EB), size: 28),
+              ),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Xaneo Mobile v2',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                  Text(
+                    'Защищённый мессенджер',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? Colors.white60 : Colors.black54,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          if (_status != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E212B) : const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                _status!,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: _foundUpdate != null ? Colors.greenAccent : (isDark ? Colors.white70 : Colors.black70),
+                  fontFamily: 'Inter',
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: _isChecking ? null : _checkUpdate,
+              icon: _isChecking
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.refresh_rounded),
+              label: Text(_isChecking ? 'Проверка...' : 'Проверить обновления'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+          if (_foundUpdate != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final uri = Uri.parse(_foundUpdate!.downloadUrl ?? _foundUpdate!.htmlUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                icon: const Icon(Icons.download_rounded),
+                label: Text('Загрузить v${_foundUpdate!.version}'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.greenAccent,
+                  side: const BorderSide(color: Colors.greenAccent),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+

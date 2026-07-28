@@ -15,6 +15,8 @@ import '../../widgets/common/incoming_call_modal.dart';
 import '../../widgets/common/mobile_settings_modals.dart';
 import '../../widgets/common/avatar_widget.dart';
 import '../../services/notifications/notification_service.dart';
+import '../../services/update/update_service.dart';
+import '../../widgets/common/custom_update_toast.dart';
 
 /// Главный экран приложения (после авторизации)
 class MainScreen extends StatefulWidget {
@@ -41,9 +43,19 @@ class _MainScreenState extends State<MainScreen> {
         // Помечаем, что приложение готово, и проверяем наличие отложенных звонков
         NotificationService.isAppReady = true;
         NotificationService.checkPendingCallPayload();
+
+        _checkAppUpdate();
       }
     });
   }
+
+  Future<void> _checkAppUpdate() async {
+    final update = await UpdateService().checkForUpdates();
+    if (mounted && update != null) {
+      CustomUpdateToast.show(context, update);
+    }
+  }
+
 
   @override
   void dispose() {

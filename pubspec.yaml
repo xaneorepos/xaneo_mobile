@@ -31,6 +31,9 @@ dependencies:
 
   # Local Storage (for non-sensitive data)
   shared_preferences: ^2.2.2
+  package_info_plus: ^8.0.0
+  http: ^1.1.0
+
 
   # UI Components
   google_fonts: ^6.1.0
