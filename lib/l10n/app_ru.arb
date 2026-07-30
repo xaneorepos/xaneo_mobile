@@ -1,0 +1,367 @@
+{
+  "@@locale": "ru",
+  "appTitle": "Xaneo PC",
+  "@appTitle": {
+    "description": "Название приложения"
+  },
+  "welcomeTitle": "Добро пожаловать в Xaneo",
+  "@welcomeTitle": {
+    "description": "Заголовок приветствия"
+  },
+  "welcomeDescription": "Xaneo - теперь и на вашем компьютере! Максимальная производительность и удобство.",
+  "@welcomeDescription": {
+    "description": "Описание приветствия"
+  },
+  "getStartedButton": "Начать",
+  "@getStartedButton": {
+    "description": "Кнопка начала работы"
+  },
+  "privacyTitle": "Все ваши данные в безопасности",
+  "@privacyTitle": {
+    "description": "Заголовок экрана приватности"
+  },
+  "privacyDescription": "Все сообщения в Xaneo защищены сквозным шифрованием. Ни в один момент Xaneo не знает об их содержимом.",
+  "@privacyDescription": {
+    "description": "Описание приватности"
+  },
+  "continueButton": "Продолжить",
+  "@continueButton": {
+    "description": "Кнопка продолжения"
+  },
+  "dataStorageTitle": "Все дата-центры Xaneo находятся в России",
+  "@dataStorageTitle": {
+    "description": "Заголовок экрана хранения данных"
+  },
+  "dataStorageDescription": "Ваши данные не покидают территорию страны и хранятся в безопасных дата-центрах.",
+  "@dataStorageDescription": {
+    "description": "Описание хранения данных"
+  },
+  "finishButton": "Завершить",
+  "@finishButton": {
+    "description": "Кнопка завершения настройки"
+  },
+  "setupCompleted": "Настройка завершена!",
+  "@setupCompleted": {
+    "description": "Сообщение о завершении настройки"
+  },
+  "loginFormTitle": "Вход в систему",
+  "@loginFormTitle": {
+    "description": "Заголовок формы входа"
+  },
+  "loginFieldHint": "Логин",
+  "@loginFieldHint": {
+    "description": "Подсказка для поля логина"
+  },
+  "passwordFieldHint": "Пароль",
+  "@passwordFieldHint": {
+    "description": "Подсказка для поля пароля"
+  },
+  "loginButton": "Войти",
+  "@loginButton": {
+    "description": "Кнопка входа"
+  },
+  "noAccount": "Нет аккаунта?",
+  "@noAccount": {
+    "description": "Ссылка для создания аккаунта"
+  },
+  "registerButton": "Зарегистрироваться",
+  "@registerButton": {
+    "description": "Кнопка регистрации"
+  },
+  "fillAllFields": "Заполните все поля",
+  "@fillAllFields": {
+    "description": "Сообщение об обязательности заполнения всех полей"
+  },
+  "loggingIn": "Выполняется вход...",
+  "@loggingIn": {
+    "description": "Сообщение о процессе входа"
+  },
+  "welcomeUser": "Добро пожаловать, {username}!",
+  "@welcomeUser": {
+    "description": "Приветствие пользователя после входа",
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "invalidCredentials": "Неверные учётные данные. Проверьте имя пользователя и пароль.",
+  "@invalidCredentials": {
+    "description": "Сообщение о неверных учетных данных"
+  },
+  "serverError": "Ошибка сервера. Попробуйте позже.",
+  "@serverError": {
+    "description": "Сообщение об ошибке сервера"
+  },
+  "connectionError": "Ошибка подключения. Проверьте интернет-соединение.",
+  "@connectionError": {
+    "description": "Сообщение об ошибке подключения"
+  },
+  "settings": "Настройки",
+  "@settings": {
+    "description": "Заголовок настроек"
+  },
+  "notifications": "Уведомления",
+  "@notifications": {
+    "description": "Название настройки уведомлений"
+  },
+  "notificationsDescription": "Включить или отключить уведомления",
+  "@notificationsDescription": {
+    "description": "Описание настройки уведомлений"
+  },
+  "darkTheme": "Тёмная тема",
+  "@darkTheme": {
+    "description": "Название настройки тёмной темы"
+  },
+  "darkThemeDescription": "Включить или отключить тёмную тему",
+  "@darkThemeDescription": {
+    "description": "Описание настройки тёмной темы"
+  },
+  "fontSize": "Размер шрифта: {size}",
+  "@fontSize": {
+    "description": "Настройка размера шрифта",
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "language": "Язык",
+  "@language": {
+    "description": "Название настройки языка"
+  },
+  "languageDescription": "Выберите язык интерфейса",
+  "@languageDescription": {
+    "description": "Описание настройки языка"
+  },
+  "selectLanguage": "Выберите язык",
+  "@selectLanguage": {
+    "description": "Заголовок выбора языка"
+  },
+  "appVersion": "Версия приложения",
+  "@appVersion": {
+    "description": "Название настройки версии приложения"
+  },
+  "registerTitle": "Регистрация",
+  "@registerTitle": {
+    "description": "Заголовок экрана регистрации"
+  },
+  "registerStep0Title": "Как вас зовут?",
+  "@registerStep0Title": {
+    "description": "Заголовок шага 0 регистрации"
+  },
+  "registerStep0Subtitle": "Введите ваше настоящее имя",
+  "@registerStep0Subtitle": {
+    "description": "Подзаголовок шага 0 регистрации"
+  },
+  "registerStep1Title": "Когда вы родились?",
+  "@registerStep1Title": {
+    "description": "Заголовок шага 1 регистрации"
+  },
+  "registerStep1Subtitle": "Вам должно быть не менее 14 лет",
+  "@registerStep1Subtitle": {
+    "description": "Подзаголовок шага 1 регистрации"
+  },
+  "registerStep2Title": "Придумайте никнейм",
+  "@registerStep2Title": {
+    "description": "Заголовок шага 2 регистрации"
+  },
+  "registerStep2Subtitle": "Никнейм должен быть уникальным",
+  "@registerStep2Subtitle": {
+    "description": "Подзаголовок шага 2 регистрации"
+  },
+  "registerStep3Title": "Ваш email",
+  "@registerStep3Title": {
+    "description": "Заголовок шага 3 регистрации"
+  },
+  "registerStep3Subtitle": "Мы отправим код подтверждения",
+  "@registerStep3Subtitle": {
+    "description": "Подзаголовок шага 3 регистрации"
+  },
+  "registerStep4Title": "Создайте пароль",
+  "@registerStep4Title": {
+    "description": "Заголовок шага 4 регистрации"
+  },
+  "registerStep4Subtitle": "Придумайте надёжный пароль",
+  "@registerStep4Subtitle": {
+    "description": "Подзаголовок шага 4 регистрации"
+  },
+  "registerStep5Title": "Добавьте фото",
+  "@registerStep5Title": {
+    "description": "Заголовок шага 5 регистрации"
+  },
+  "registerStep5Subtitle": "Это необязательно, но приятно",
+  "@registerStep5Subtitle": {
+    "description": "Подзаголовок шага 5 регистрации"
+  },
+  "registerStep6Title": "Последний шаг",
+  "@registerStep6Title": {
+    "description": "Заголовок шага 6 регистрации"
+  },
+  "registerStep6Subtitle": "Примите условия использования",
+  "@registerStep6Subtitle": {
+    "description": "Подзаголовок шага 6 регистрации"
+  },
+  "yourName": "Ваше имя",
+  "@yourName": {
+    "description": "Подпись поля имени"
+  },
+  "birthDate": "Дата рождения",
+  "@birthDate": {
+    "description": "Подпись поля даты рождения"
+  },
+  "nickname": "Никнейм",
+  "@nickname": {
+    "description": "Подпись поля никнейма"
+  },
+  "checkingNickname": "Проверка доступности...",
+  "@checkingNickname": {
+    "description": "Сообщение о проверке никнейма"
+  },
+  "nicknameAvailable": "Никнейм доступен",
+  "@nicknameAvailable": {
+    "description": "Сообщение о доступности никнейма"
+  },
+  "nicknameTaken": "Никнейм занят",
+  "@nicknameTaken": {
+    "description": "Сообщение о занятости никнейма"
+  },
+  "email": "Email",
+  "@email": {
+    "description": "Подпись поля email"
+  },
+  "password": "Пароль",
+  "@password": {
+    "description": "Подпись поля пароля"
+  },
+  "confirmPassword": "Подтвердите пароль",
+  "@confirmPassword": {
+    "description": "Подпись поля подтверждения пароля"
+  },
+  "addPhoto": "Нажмите, чтобы добавить фото",
+  "@addPhoto": {
+    "description": "Подсказка для добавления фото"
+  },
+  "removePhoto": "Удалить фото",
+  "@removePhoto": {
+    "description": "Кнопка удаления фото"
+  },
+  "acceptTerms": "Я принимаю условия использования",
+  "@acceptTerms": {
+    "description": "Чекбокс принятия условий"
+  },
+  "acceptDataProcessing": "Я согласен на обработку персональных данных",
+  "@acceptDataProcessing": {
+    "description": "Чекбокс согласия на обработку данных"
+  },
+  "back": "Назад",
+  "@back": {
+    "description": "Кнопка назад"
+  },
+  "next": "Далее",
+  "@next": {
+    "description": "Кнопка далее"
+  },
+  "finish": "Завершить",
+  "@finish": {
+    "description": "Кнопка завершения"
+  },
+  "backToLogin": "Назад ко входу",
+  "@backToLogin": {
+    "description": "Кнопка возврата к входу"
+  },
+  "registrationSuccess": "Регистрация успешна!",
+  "@registrationSuccess": {
+    "description": "Сообщение об успешной регистрации"
+  },
+  "registrationError": "Ошибка регистрации",
+  "@registrationError": {
+    "description": "Сообщение об ошибке регистрации"
+  },
+  "enterVerificationCode": "Введите код подтверждения",
+  "@enterVerificationCode": {
+    "description": "Сообщение о необходимости ввода кода"
+  },
+  "invalidVerificationCode": "Неверный код подтверждения",
+  "@invalidVerificationCode": {
+    "description": "Сообщение о неверном коде"
+  },
+  "codeSent": "Код подтверждения отправлен на email",
+  "@codeSent": {
+    "description": "Сообщение об отправке кода"
+  },
+  "sendCodeError": "Ошибка отправки кода",
+  "@sendCodeError": {
+    "description": "Сообщение об ошибке отправки кода"
+  },
+  "confirmEmail": "Подтвердите e-mail",
+  "@confirmEmail": {
+    "description": "Заголовок модалки подтверждения email"
+  },
+  "codeSentToEmail": "Мы отправили код подтверждения на\n{email}",
+  "@codeSentToEmail": {
+    "description": "Сообщение об отправке кода на email",
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "verify": "Проверить",
+  "@verify": {
+    "description": "Кнопка проверки кода"
+  },
+  "resendCode": "Отправить код повторно",
+  "@resendCode": {
+    "description": "Кнопка повторной отправки кода"
+  },
+  "resendIn": "Отправить повторно через {count} сек",
+  "@resendIn": {
+    "description": "Таймер повторной отправки",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "acceptTermsRequired": "Необходимо принять условия и согласие на обработку данных",
+  "@acceptTermsRequired": {
+    "description": "Сообщение о необходимости принять условия"
+  },
+  "about": "О приложении",
+  "@about": {
+    "description": "Пункт меню о приложении"
+  },
+  "version": "Версия",
+  "@version": {
+    "description": "Метка версии приложения"
+  },
+  "aboutDescription": "Современное приложение для управления и контроля систем.",
+  "@aboutDescription": {
+    "description": "Описание приложения"
+  },
+  "close": "Закрыть",
+  "@close": {
+    "description": "Кнопка закрытия"
+  },
+  "technicalInfo": "Техническая информация",
+  "@technicalInfo": {
+    "description": "Заголовок раздела технической информации"
+  },
+  "platform": "Платформа",
+  "@platform": {
+    "description": "Метка платформы"
+  },
+  "architecture": "Архитектура процессора",
+  "@architecture": {
+    "description": "Метка архитектуры процессора"
+  },
+  "flutter": "Flutter",
+  "@flutter": {
+    "description": "Метка фреймворка Flutter"
+  },
+  "viewOnGitHub": "Посмотреть на GitHub",
+  "@viewOnGitHub": {
+    "description": "Текст ссылки на GitHub"
+  }
+}

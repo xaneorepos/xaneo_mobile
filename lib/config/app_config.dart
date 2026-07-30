@@ -7,8 +7,11 @@
 class AppConfig {
 // ========== API Configuration ==========
 
-  /// Базовый URL API сервера
-  static const String apiBaseUrl = 'https://192.168.1.113/api/v1';
+  /// Базовый URL API сервера (настраивается через --dart-define=API_BASE_URL=...)
+  static const String apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://xaneo.ru/api/v1',
+  );
 
   /// Серверный Origin без `/api/v1` (например: `https://xaneo.ru`)
   static String get serverOrigin {

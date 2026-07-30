@@ -1,0 +1,367 @@
+{
+  "@@locale": "en",
+  "appTitle": "Xaneo PC",
+  "@appTitle": {
+    "description": "App title"
+  },
+  "welcomeTitle": "Welcome to Xaneo",
+  "@welcomeTitle": {
+    "description": "Welcome title"
+  },
+  "welcomeDescription": "Xaneo is now on your computer! Maximum performance and convenience.",
+  "@welcomeDescription": {
+    "description": "Welcome description"
+  },
+  "getStartedButton": "Get Started",
+  "@getStartedButton": {
+    "description": "Get started button"
+  },
+  "privacyTitle": "All your data is secure",
+  "@privacyTitle": {
+    "description": "Privacy screen title"
+  },
+  "privacyDescription": "All messages in Xaneo are protected by end-to-end encryption. Xaneo never knows their content.",
+  "@privacyDescription": {
+    "description": "Privacy description"
+  },
+  "continueButton": "Continue",
+  "@continueButton": {
+    "description": "Continue button"
+  },
+  "dataStorageTitle": "All Xaneo data centers are located in Russia",
+  "@dataStorageTitle": {
+    "description": "Data storage screen title"
+  },
+  "dataStorageDescription": "Your data never leaves the country and is stored in secure data centers.",
+  "@dataStorageDescription": {
+    "description": "Data storage description"
+  },
+  "finishButton": "Finish",
+  "@finishButton": {
+    "description": "Finish button"
+  },
+  "setupCompleted": "Setup completed!",
+  "@setupCompleted": {
+    "description": "Setup completed message"
+  },
+  "loginFormTitle": "Login",
+  "@loginFormTitle": {
+    "description": "Login form title"
+  },
+  "loginFieldHint": "Login",
+  "@loginFieldHint": {
+    "description": "Login field hint"
+  },
+  "passwordFieldHint": "Password",
+  "@passwordFieldHint": {
+    "description": "Password field hint"
+  },
+  "loginButton": "Login",
+  "@loginButton": {
+    "description": "Login button"
+  },
+  "noAccount": "No account?",
+  "@noAccount": {
+    "description": "No account link"
+  },
+  "registerButton": "Register",
+  "@registerButton": {
+    "description": "Register button"
+  },
+  "fillAllFields": "Please fill all fields",
+  "@fillAllFields": {
+    "description": "Fill all fields message"
+  },
+  "loggingIn": "Logging in...",
+  "@loggingIn": {
+    "description": "Logging in message"
+  },
+  "welcomeUser": "Welcome, {username}!",
+  "@welcomeUser": {
+    "description": "Welcome user message",
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "invalidCredentials": "Invalid credentials. Please check your username and password.",
+  "@invalidCredentials": {
+    "description": "Invalid credentials message"
+  },
+  "serverError": "Server error. Please try again later.",
+  "@serverError": {
+    "description": "Server error message"
+  },
+  "connectionError": "Connection error. Please check your internet connection.",
+  "@connectionError": {
+    "description": "Connection error message"
+  },
+  "settings": "Settings",
+  "@settings": {
+    "description": "Settings title"
+  },
+  "notifications": "Notifications",
+  "@notifications": {
+    "description": "Notifications setting name"
+  },
+  "notificationsDescription": "Enable or disable notifications",
+  "@notificationsDescription": {
+    "description": "Notifications setting description"
+  },
+  "darkTheme": "Dark theme",
+  "@darkTheme": {
+    "description": "Dark theme setting name"
+  },
+  "darkThemeDescription": "Enable or disable dark theme",
+  "@darkThemeDescription": {
+    "description": "Dark theme setting description"
+  },
+  "fontSize": "Font size: {size}",
+  "@fontSize": {
+    "description": "Font size setting",
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "language": "Language",
+  "@language": {
+    "description": "Language setting name"
+  },
+  "languageDescription": "Select interface language",
+  "@languageDescription": {
+    "description": "Language setting description"
+  },
+  "selectLanguage": "Select language",
+  "@selectLanguage": {
+    "description": "Select language title"
+  },
+  "appVersion": "App version",
+  "@appVersion": {
+    "description": "App version setting name"
+  },
+  "registerTitle": "Registration",
+  "@registerTitle": {
+    "description": "Registration screen title"
+  },
+  "registerStep0Title": "What's your name?",
+  "@registerStep0Title": {
+    "description": "Registration step 0 title"
+  },
+  "registerStep0Subtitle": "Enter your real name",
+  "@registerStep0Subtitle": {
+    "description": "Registration step 0 subtitle"
+  },
+  "registerStep1Title": "When were you born?",
+  "@registerStep1Title": {
+    "description": "Registration step 1 title"
+  },
+  "registerStep1Subtitle": "You must be at least 14 years old",
+  "@registerStep1Subtitle": {
+    "description": "Registration step 1 subtitle"
+  },
+  "registerStep2Title": "Choose a nickname",
+  "@registerStep2Title": {
+    "description": "Registration step 2 title"
+  },
+  "registerStep2Subtitle": "Nickname must be unique",
+  "@registerStep2Subtitle": {
+    "description": "Registration step 2 subtitle"
+  },
+  "registerStep3Title": "Your email",
+  "@registerStep3Title": {
+    "description": "Registration step 3 title"
+  },
+  "registerStep3Subtitle": "We'll send a verification code",
+  "@registerStep3Subtitle": {
+    "description": "Registration step 3 subtitle"
+  },
+  "registerStep4Title": "Create a password",
+  "@registerStep4Title": {
+    "description": "Registration step 4 title"
+  },
+  "registerStep4Subtitle": "Create a strong password",
+  "@registerStep4Subtitle": {
+    "description": "Registration step 4 subtitle"
+  },
+  "registerStep5Title": "Add a photo",
+  "@registerStep5Title": {
+    "description": "Registration step 5 title"
+  },
+  "registerStep5Subtitle": "This is optional, but nice",
+  "@registerStep5Subtitle": {
+    "description": "Registration step 5 subtitle"
+  },
+  "registerStep6Title": "Last step",
+  "@registerStep6Title": {
+    "description": "Registration step 6 title"
+  },
+  "registerStep6Subtitle": "Accept the terms of use",
+  "@registerStep6Subtitle": {
+    "description": "Registration step 6 subtitle"
+  },
+  "yourName": "Your name",
+  "@yourName": {
+    "description": "Name field label"
+  },
+  "birthDate": "Birth date",
+  "@birthDate": {
+    "description": "Birth date field label"
+  },
+  "nickname": "Nickname",
+  "@nickname": {
+    "description": "Nickname field label"
+  },
+  "checkingNickname": "Checking availability...",
+  "@checkingNickname": {
+    "description": "Checking nickname message"
+  },
+  "nicknameAvailable": "Nickname available",
+  "@nicknameAvailable": {
+    "description": "Nickname available message"
+  },
+  "nicknameTaken": "Nickname taken",
+  "@nicknameTaken": {
+    "description": "Nickname taken message"
+  },
+  "email": "Email",
+  "@email": {
+    "description": "Email field label"
+  },
+  "password": "Password",
+  "@password": {
+    "description": "Password field label"
+  },
+  "confirmPassword": "Confirm password",
+  "@confirmPassword": {
+    "description": "Confirm password field label"
+  },
+  "addPhoto": "Tap to add a photo",
+  "@addPhoto": {
+    "description": "Add photo hint"
+  },
+  "removePhoto": "Remove photo",
+  "@removePhoto": {
+    "description": "Remove photo button"
+  },
+  "acceptTerms": "I accept the terms of use",
+  "@acceptTerms": {
+    "description": "Accept terms checkbox"
+  },
+  "acceptDataProcessing": "I agree to the processing of personal data",
+  "@acceptDataProcessing": {
+    "description": "Accept data processing checkbox"
+  },
+  "back": "Back",
+  "@back": {
+    "description": "Back button"
+  },
+  "next": "Next",
+  "@next": {
+    "description": "Next button"
+  },
+  "finish": "Finish",
+  "@finish": {
+    "description": "Finish button"
+  },
+  "backToLogin": "Back to login",
+  "@backToLogin": {
+    "description": "Back to login button"
+  },
+  "registrationSuccess": "Registration successful!",
+  "@registrationSuccess": {
+    "description": "Registration success message"
+  },
+  "registrationError": "Registration error",
+  "@registrationError": {
+    "description": "Registration error message"
+  },
+  "enterVerificationCode": "Enter verification code",
+  "@enterVerificationCode": {
+    "description": "Enter verification code message"
+  },
+  "invalidVerificationCode": "Invalid verification code",
+  "@invalidVerificationCode": {
+    "description": "Invalid verification code message"
+  },
+  "codeSent": "Verification code sent to email",
+  "@codeSent": {
+    "description": "Code sent message"
+  },
+  "sendCodeError": "Error sending code",
+  "@sendCodeError": {
+    "description": "Send code error message"
+  },
+  "confirmEmail": "Confirm e-mail",
+  "@confirmEmail": {
+    "description": "Confirm email modal title"
+  },
+  "codeSentToEmail": "We sent a verification code to\n{email}",
+  "@codeSentToEmail": {
+    "description": "Code sent to email message",
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "verify": "Verify",
+  "@verify": {
+    "description": "Verify button"
+  },
+  "resendCode": "Resend code",
+  "@resendCode": {
+    "description": "Resend code button"
+  },
+  "resendIn": "Resend in {count} sec",
+  "@resendIn": {
+    "description": "Resend countdown",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "acceptTermsRequired": "You must accept the terms and data processing consent",
+  "@acceptTermsRequired": {
+    "description": "Accept terms required message"
+  },
+  "about": "About",
+  "@about": {
+    "description": "About app menu item"
+  },
+  "version": "Version",
+  "@version": {
+    "description": "App version label"
+  },
+  "aboutDescription": "A modern application for managing and controlling systems.",
+  "@aboutDescription": {
+    "description": "About app description"
+  },
+  "close": "Close",
+  "@close": {
+    "description": "Close button"
+  },
+  "technicalInfo": "Technical Information",
+  "@technicalInfo": {
+    "description": "Technical information section header"
+  },
+  "platform": "Platform",
+  "@platform": {
+    "description": "Platform label"
+  },
+  "architecture": "Processor Architecture",
+  "@architecture": {
+    "description": "Processor architecture label"
+  },
+  "flutter": "Flutter",
+  "@flutter": {
+    "description": "Flutter framework label"
+  },
+  "viewOnGitHub": "View on GitHub",
+  "@viewOnGitHub": {
+    "description": "View on GitHub link text"
+  }
+}
