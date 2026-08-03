@@ -50,7 +50,7 @@ class ApiClient {
         'X-Platform': Platform.isAndroid
             ? 'android'
             : (Platform.isIOS ? 'ios' : 'unknown'),
-        'X-App-Version': '2.0.loc_0+1',
+        'X-App-Version': AppConfig.appVersion,
       },
     ));
 

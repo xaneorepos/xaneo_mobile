@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
+import '../../config/app_config.dart';
 import '../../models/auth/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/playback_provider.dart';
@@ -267,7 +268,8 @@ class _SettingsScreen extends StatelessWidget {
             _buildItem(
               icon: FontAwesomeIcons.circleInfo,
               title: 'Xaneo Mobile',
-              subtitle: (l10n?.versiya200Build200_0e7b ?? 'Fallback'),
+              subtitle:
+                  'v${AppConfig.appVersion} (${AppConfig.buildNumber})',
               isLast: true,
               onTap: () => MobileAboutModal.show(context),
             ),

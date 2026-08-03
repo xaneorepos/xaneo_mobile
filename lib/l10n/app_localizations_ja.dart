@@ -496,9 +496,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get vyytiIzAkkaunta_6d41 => 'アカウントからログアウトします';
   @override
   String get informatsiyaOPrilozhenii_00c4 => '申請情報';
-  @override
-  String get versiya1001LinuxWindowsMacos_ff6c =>
-      'バージョン: 1.0.loc_0+1 (Linux / Windows / macOS)';
+
   @override
   String get proverka_13bc => '確認中...';
   @override
@@ -1882,8 +1880,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get pushUvedomleniyaZvuki_9cc2 => 'プッシュ通知、サウンド';
   @override
   String get oPrilozhenii_77b2 => 'アプリケーションについて';
-  @override
-  String get versiya200Build200_0e7b => 'バージョン 2.0.loc_0 (ビルド 200)';
+
   @override
   String get redaktirovatProfil_56ad => 'プロフィールの編集';
   @override

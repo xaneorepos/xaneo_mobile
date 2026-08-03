@@ -13,16 +13,16 @@ class AppConfig {
     defaultValue: 'https://xaneo.ru/api/v1',
   );
 
-  /// Версия приложения (настраивается через --dart-define=APP_VERSION=...)
+  /// Версия приложения из Git-тега (передаётся CI через --dart-define).
   static const String appVersion = String.fromEnvironment(
     'APP_VERSION',
-    defaultValue: '2.0.0',
+    defaultValue: 'dev',
   );
 
-  /// Номер сборки (настраивается через --dart-define=BUILD_NUMBER=...)
+  /// Номер сборки из CI (передаётся через --dart-define).
   static const String buildNumber = String.fromEnvironment(
     'BUILD_NUMBER',
-    defaultValue: '1',
+    defaultValue: 'local',
   );
 
   /// Серверный Origin без `/api/v1` (например: `https://xaneo.ru`)

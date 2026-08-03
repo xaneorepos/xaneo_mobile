@@ -495,9 +495,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get vyytiIzAkkaunta_6d41 => '退出您的帐户';
   @override
   String get informatsiyaOPrilozhenii_00c4 => '申请信息';
-  @override
-  String get versiya1001LinuxWindowsMacos_ff6c =>
-      '版本：1.0.loc_0+1（Linux / Windows / macOS）';
+
   @override
   String get proverka_13bc => '正在检查...';
   @override
@@ -1852,8 +1850,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pushUvedomleniyaZvuki_9cc2 => '推送通知、声音';
   @override
   String get oPrilozhenii_77b2 => '关于申请';
-  @override
-  String get versiya200Build200_0e7b => '版本 2.0.loc_0（内部版本 200）';
+
   @override
   String get redaktirovatProfil_56ad => '编辑个人资料';
   @override

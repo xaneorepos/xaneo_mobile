@@ -28,13 +28,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Extract version and build environment
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            TAG_VER="${{ inputs.version }}"
-          elif [[ "${{ github.ref_name }}" =~ ^v ]]; then
-            TAG_VER="${github.ref_name#v}"
+          if [ -n "$INPUT_VERSION" ]; then
+            TAG_VER="$INPUT_VERSION"
+          elif [[ "$REF_NAME" == v* ]]; then
+            TAG_VER="${REF_NAME#v}"
           else
-            TAG_VER="2.0.0"
+            echo "::error::Version is unavailable. Run from a v-prefixed tag or provide the version input."
+            exit 1
           fi
           APP_VER=$(echo "$TAG_VER" | cut -d'+' -f1)
           BUILD_NUM="${{ github.run_number }}"
@@ -104,13 +108,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Extract version and build environment
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            TAG_VER="${{ inputs.version }}"
-          elif [[ "${{ github.ref_name }}" =~ ^v ]]; then
-            TAG_VER="${github.ref_name#v}"
+          if [ -n "$INPUT_VERSION" ]; then
+            TAG_VER="$INPUT_VERSION"
+          elif [[ "$REF_NAME" == v* ]]; then
+            TAG_VER="${REF_NAME#v}"
           else
-            TAG_VER="2.0.0"
+            echo "::error::Version is unavailable. Run from a v-prefixed tag or provide the version input."
+            exit 1
           fi
           APP_VER=$(echo "$TAG_VER" | cut -d'+' -f1)
           BUILD_NUM="${{ github.run_number }}"
@@ -188,13 +196,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Extract version and build environment
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            TAG_VER="${{ inputs.version }}"
-          elif [[ "${{ github.ref_name }}" =~ ^v ]]; then
-            TAG_VER="${github.ref_name#v}"
+          if [ -n "$INPUT_VERSION" ]; then
+            TAG_VER="$INPUT_VERSION"
+          elif [[ "$REF_NAME" == v* ]]; then
+            TAG_VER="${REF_NAME#v}"
           else
-            TAG_VER="2.0.0"
+            echo "::error::Version is unavailable. Run from a v-prefixed tag or provide the version input."
+            exit 1
           fi
           APP_VER=$(echo "$TAG_VER" | cut -d'+' -f1)
           BUILD_NUM="${{ github.run_number }}"

@@ -496,9 +496,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get vyytiIzAkkaunta_6d41 => '계정에서 로그아웃하세요';
   @override
   String get informatsiyaOPrilozhenii_00c4 => '신청정보';
-  @override
-  String get versiya1001LinuxWindowsMacos_ff6c =>
-      '버전: 1.0.loc_0+1 (Linux / Windows / macOS)';
+
   @override
   String get proverka_13bc => '확인 중...';
   @override
@@ -1884,8 +1882,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get pushUvedomleniyaZvuki_9cc2 => '푸시 알림, 소리';
   @override
   String get oPrilozhenii_77b2 => '응용 프로그램 정보';
-  @override
-  String get versiya200Build200_0e7b => '버전 2.0.loc_0(빌드 200)';
+
   @override
   String get redaktirovatProfil_56ad => '프로필 수정';
   @override

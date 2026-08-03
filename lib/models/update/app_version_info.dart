@@ -19,6 +19,9 @@ class AppVersionInfo {
     final versionClean = tagName.startsWith('v') || tagName.startsWith('V')
         ? tagName.substring(1)
         : tagName;
+    if (versionClean.isEmpty) {
+      throw const FormatException('GitHub release does not contain a tag name');
+    }
 
     String? download;
     final assets = json['assets'] as List<dynamic>?;
@@ -41,7 +44,7 @@ class AppVersionInfo {
     }
 
     return AppVersionInfo(
-      version: versionClean.isEmpty ? '2.0.loc_0' : versionClean,
+      version: versionClean,
       releaseNotes: json['body'] as String? ?? '',
       htmlUrl: json['html_url'] as String? ?? 'https://github.com/xaneorepos/xaneo_mobile/releases/latest',
       publishedAt: pubDate,

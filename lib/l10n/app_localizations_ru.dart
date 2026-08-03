@@ -504,8 +504,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get vyytiIzAkkaunta_6d41 => 'Выйти из аккаунта';
   @override
   String get informatsiyaOPrilozhenii_00c4 => 'Информация о приложении';
-  @override
-  String get versiya1001LinuxWindowsMacos_ff6c => 'Версия: 1.0.loc_0+1 (Linux / Windows / macOS)';
+
   @override
   String get proverka_13bc => 'Проверка...';
   @override
@@ -1854,8 +1853,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get pushUvedomleniyaZvuki_9cc2 => 'Push-уведомления, звуки';
   @override
   String get oPrilozhenii_77b2 => 'О ПРИЛОЖЕНИИ';
-  @override
-  String get versiya200Build200_0e7b => 'Версия 2.0.loc_0 (Build 200)';
+
   @override
   String get redaktirovatProfil_56ad => 'Редактировать профиль';
   @override

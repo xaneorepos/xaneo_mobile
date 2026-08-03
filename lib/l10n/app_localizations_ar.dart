@@ -506,9 +506,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get vyytiIzAkkaunta_6d41 => 'تسجيل الخروج من حسابك';
   @override
   String get informatsiyaOPrilozhenii_00c4 => 'معلومات التطبيق';
-  @override
-  String get versiya1001LinuxWindowsMacos_ff6c =>
-      'الإصدار: 1.0.loc_0+1 (لينكس / ويندوز / ماك)';
+
   @override
   String get proverka_13bc => 'جارٍ التحقق...';
   @override
@@ -1947,8 +1945,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get pushUvedomleniyaZvuki_9cc2 => 'دفع الإخطارات والأصوات';
   @override
   String get oPrilozhenii_77b2 => 'حول التطبيق';
-  @override
-  String get versiya200Build200_0e7b => 'الإصدار 2.0.loc_0 (النسخة 200)';
+
   @override
   String get redaktirovatProfil_56ad => 'تحرير الملف الشخصي';
   @override

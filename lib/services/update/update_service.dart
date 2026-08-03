@@ -80,7 +80,7 @@ class UpdateService {
     await prefs.setString(_ignoredVersionKey, version);
   }
 
-  /// Сравнение версий SemVer (например 2.0.loc_0 < 2.1.loc_0)
+  /// Сравнение версий SemVer (например 2.0.0 < 2.1.0)
   static bool isVersionNewer(String current, String remote) {
     try {
       final currentParts = current.split('+')[0].split('.').map((e) => int.tryParse(e) ?? 0).toList();

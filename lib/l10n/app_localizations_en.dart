@@ -519,9 +519,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get vyytiIzAkkaunta_6d41 => 'Log out of your account';
   @override
   String get informatsiyaOPrilozhenii_00c4 => 'Application information';
-  @override
-  String get versiya1001LinuxWindowsMacos_ff6c =>
-      'Version: 1.0.loc_0+1 (Linux / Windows / macOS)';
+
   @override
   String get proverka_13bc => 'Checking...';
   @override
@@ -1964,8 +1962,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pushUvedomleniyaZvuki_9cc2 => 'Push notifications, sounds';
   @override
   String get oPrilozhenii_77b2 => 'ABOUT THE APPLICATION';
-  @override
-  String get versiya200Build200_0e7b => 'Version 2.0.loc_0 (Build 200)';
+
   @override
   String get redaktirovatProfil_56ad => 'Edit profile';
   @override

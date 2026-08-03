@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
+import '../../config/app_config.dart';
 import '../../providers/locale_provider.dart';
 import '../../styles/app_styles.dart';
 import 'mobile_language_modal.dart';
@@ -23,13 +24,6 @@ class AuthSettingsModal extends StatefulWidget {
 }
 
 class _AuthSettingsModalState extends State<AuthSettingsModal> {
-  final String _appVersion = '2.0.loc_0+1'; // Hardcoded for now
-  
-  @override
-  void initState() {
-    super.initState();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -88,7 +82,7 @@ class _AuthSettingsModalState extends State<AuthSettingsModal> {
             const SizedBox(height: 32),
             Center(
               child: Text(
-                'Xaneo v\$_appVersion',
+                'Xaneo v${AppConfig.appVersion}',
                 style: AppStyles.bodyMuted.copyWith(fontSize: 12),
               ),
             ),

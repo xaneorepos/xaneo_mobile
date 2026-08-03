@@ -744,7 +744,7 @@ abstract class AppLocalizations {
   String get interfeys_49be;
   String get vyytiIzAkkaunta_6d41;
   String get informatsiyaOPrilozhenii_00c4;
-  String get versiya1001LinuxWindowsMacos_ff6c;
+
   String get proverka_13bc;
   String get proveritObnovleniya_ab45;
   String get osnovnayaInformatsiya_6fec;
@@ -1367,7 +1367,7 @@ abstract class AppLocalizations {
   String get temaRazmerTekstaAnimatsii_f0a8;
   String get pushUvedomleniyaZvuki_9cc2;
   String get oPrilozhenii_77b2;
-  String get versiya200Build200_0e7b;
+
   String get redaktirovatProfil_56ad;
   String get dobavitKontakt_2903;
   String get nikneymPolzovatelyaUsername_a6ff;
