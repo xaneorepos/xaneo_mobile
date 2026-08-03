@@ -7,8 +7,9 @@ import '../database/app_database.dart';
 class LocalChatRepository {
   final AppDatabase _db;
   final String? userId;
+  final String? storageScope;
 
-  LocalChatRepository(this._db, {this.userId});
+  LocalChatRepository(this._db, {this.userId, this.storageScope});
 
   /// Освобождает ресурсы базы данных
   Future<void> dispose() async {
@@ -21,15 +22,12 @@ class LocalChatRepository {
           ..where((c) => c.isArchived.equals(false))
           ..orderBy([(c) => OrderingTerm.desc(c.lastMessageTime)]))
         .watch()
-        .map((rows) => rows
-            .map(_mapChatToModel)
-            .where((chat) {
+        .map((rows) => rows.map(_mapChatToModel).where((chat) {
               if (chat.isGroup || chat.isChannel) {
                 return chat.otherUser?['is_member'] != false;
               }
               return true;
-            })
-            .toList());
+            }).toList());
   }
 
   /// Получение архивных чатов в виде потока (Stream)
@@ -38,15 +36,12 @@ class LocalChatRepository {
           ..where((c) => c.isArchived.equals(true))
           ..orderBy([(c) => OrderingTerm.desc(c.lastMessageTime)]))
         .watch()
-        .map((rows) => rows
-            .map(_mapChatToModel)
-            .where((chat) {
+        .map((rows) => rows.map(_mapChatToModel).where((chat) {
               if (chat.isGroup || chat.isChannel) {
                 return chat.otherUser?['is_member'] != false;
               }
               return true;
-            })
-            .toList());
+            }).toList());
   }
 
   /// Обновление статуса архивации чата
@@ -57,9 +52,9 @@ class LocalChatRepository {
     if (existing != null) {
       await (_db.update(_db.chats)..where((c) => c.id.equals(existing.id)))
           .write(ChatsCompanion(
-            isArchived: Value(isArchived),
-            archivedAt: Value(isArchived ? DateTime.now() : null),
-          ));
+        isArchived: Value(isArchived),
+        archivedAt: Value(isArchived ? DateTime.now() : null),
+      ));
     }
   }
 
@@ -86,10 +81,10 @@ class LocalChatRepository {
   }
 
   /// Получение сообщений конкретного чата по его строковому serverChatId с возможностью лимита
-  Stream<List<Message>> watchMessagesForServerChat(String serverChatId, {int? limit}) {
-    final query = _db.select(_db.messages).join([
-      innerJoin(_db.chats, _db.chats.id.equalsExp(_db.messages.chatId))
-    ])
+  Stream<List<Message>> watchMessagesForServerChat(String serverChatId,
+      {int? limit}) {
+    final query = _db.select(_db.messages).join(
+        [innerJoin(_db.chats, _db.chats.id.equalsExp(_db.messages.chatId))])
       ..where(_db.chats.serverChatId.equals(serverChatId))
       ..orderBy([
         OrderingTerm.desc(_db.messages.timestamp),
@@ -128,16 +123,70 @@ class LocalChatRepository {
   }
 
   Future<int> deleteChatByServerId(String serverChatId) {
-    return (_db.delete(_db.chats)
-          ..where((c) => c.serverChatId.equals(serverChatId)))
-        .go();
+    return _db.transaction(() async {
+      final chat = await (_db.select(_db.chats)
+            ..where((c) => c.serverChatId.equals(serverChatId)))
+          .getSingleOrNull();
+      if (chat == null) return 0;
+
+      await (_db.delete(_db.messages)
+            ..where((message) => message.chatId.equals(chat.id)))
+          .go();
+      return (_db.delete(_db.chats)..where((row) => row.id.equals(chat.id)))
+          .go();
+    });
   }
 
   /// Удаление всех сообщений чата из локальной БД
   Future<int> deleteMessagesForChat(int chatId) {
-    return (_db.delete(_db.messages)
-          ..where((m) => m.chatId.equals(chatId)))
+    return (_db.delete(_db.messages)..where((m) => m.chatId.equals(chatId)))
         .go();
+  }
+
+  Future<void> updateChatSettings(
+    String serverChatId, {
+    bool? isPinned,
+    bool? isMuted,
+  }) async {
+    final row = await (_db.select(_db.chats)
+          ..where((chat) => chat.serverChatId.equals(serverChatId)))
+        .getSingleOrNull();
+    if (row == null) return;
+
+    final metadata = <String, dynamic>{};
+    final rawMetadata = row.otherUserJson;
+    if (rawMetadata != null && rawMetadata.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawMetadata);
+        if (decoded is Map) {
+          metadata.addAll(Map<String, dynamic>.from(decoded));
+        }
+      } catch (_) {}
+    }
+    if (isPinned != null) metadata['_chat_is_pinned'] = isPinned;
+    if (isMuted != null) metadata['_chat_is_muted'] = isMuted;
+
+    await (_db.update(_db.chats)..where((chat) => chat.id.equals(row.id)))
+        .write(ChatsCompanion(otherUserJson: Value(jsonEncode(metadata))));
+  }
+
+  Future<void> clearHistoryByServerChatId(String serverChatId) async {
+    await _db.transaction(() async {
+      final row = await (_db.select(_db.chats)
+            ..where((chat) => chat.serverChatId.equals(serverChatId)))
+          .getSingleOrNull();
+      if (row == null) return;
+      await deleteMessagesForChat(row.id);
+      await (_db.update(_db.chats)..where((chat) => chat.id.equals(row.id)))
+          .write(
+        const ChatsCompanion(
+          lastMessage: Value(null),
+          lastMessageTime: Value(null),
+          lastMessageType: Value(null),
+          unreadCount: Value(0),
+        ),
+      );
+    });
   }
 
   /// Удаление одного сообщения по серверному ID (например, temp-сообщения
@@ -164,6 +213,38 @@ class LocalChatRepository {
     });
   }
 
+  /// Применяет полный снимок списка чатов с сервера.
+  ///
+  /// В отличие от [saveChatsBatch], удаляет локальные чаты, которых больше нет
+  /// в серверном списке. Сообщения удаляются первыми, чтобы не оставлять
+  /// сиротские строки и не нарушать foreign key constraint.
+  Future<void> syncChatsSnapshot(List<ChatModel> chatModels) async {
+    final snapshotById = <String, ChatModel>{
+      for (final chat in chatModels)
+        if (chat.id.isNotEmpty) chat.id: chat,
+    };
+
+    await _db.transaction(() async {
+      for (final chat in snapshotById.values) {
+        await _upsertChat(chat, authoritative: true);
+      }
+
+      final localChats = await _db.select(_db.chats).get();
+      final staleChats = localChats
+          .where((chat) => !snapshotById.containsKey(chat.serverChatId))
+          .toList();
+
+      for (final staleChat in staleChats) {
+        await (_db.delete(_db.messages)
+              ..where((message) => message.chatId.equals(staleChat.id)))
+            .go();
+        await (_db.delete(_db.chats)
+              ..where((chat) => chat.id.equals(staleChat.id)))
+            .go();
+      }
+    });
+  }
+
   /// Сохранение или обновление одного чата
   Future<int> saveChat(ChatModel chatModel) {
     return _upsertChat(chatModel);
@@ -172,12 +253,12 @@ class LocalChatRepository {
   /// Сохранение сообщения
   Future<int> saveMessage(MessagesCompanion message) {
     return _db.into(_db.messages).insert(
-      message,
-      onConflict: DoUpdate(
-        (old) => message,
-        target: [_db.messages.serverMessageId],
-      ),
-    );
+          message,
+          onConflict: DoUpdate(
+            (old) => message,
+            target: [_db.messages.serverMessageId],
+          ),
+        );
   }
 
   /// Пакетное сохранение сообщений (полезно при загрузке истории)
@@ -225,7 +306,8 @@ class LocalChatRepository {
   }
 
   /// Получение порядкового номера (индекса) сообщения по его serverMessageId при сортировке по времени убывания
-  Future<int?> getMessageIndexByServerId(String serverChatId, String serverMessageId) async {
+  Future<int?> getMessageIndexByServerId(
+      String serverChatId, String serverMessageId) async {
     final chatId = await getLocalChatId(serverChatId);
     if (chatId == null) return null;
 
@@ -296,8 +378,7 @@ class LocalChatRepository {
   Future<void> updateMessageCompanion(MessagesCompanion companion) async {
     if (companion.id.present) {
       final id = companion.id.value;
-      await (_db.update(_db.messages)
-            ..where((m) => m.id.equals(id)))
+      await (_db.update(_db.messages)..where((m) => m.id.equals(id)))
           .write(companion);
     } else if (companion.serverMessageId.present) {
       final serverId = companion.serverMessageId.value;
@@ -308,7 +389,8 @@ class LocalChatRepository {
   }
 
   /// Отметить сообщения в локальной базе данных как прочитанные
-  Future<void> markMessagesAsReadInDb(int chatId, {List<String>? serverMessageIds}) async {
+  Future<void> markMessagesAsReadInDb(int chatId,
+      {List<String>? serverMessageIds}) async {
     int updatedCount = 0;
     if (serverMessageIds != null && serverMessageIds.isNotEmpty) {
       updatedCount = await (_db.update(_db.messages)
@@ -320,7 +402,8 @@ class LocalChatRepository {
             ..where((m) => m.chatId.equals(chatId)))
           .write(const MessagesCompanion(isRead: Value(true)));
     }
-    debugPrint('[READ_STATUS_LOG] markMessagesAsReadInDb: chatId=$chatId, serverMessageIds=$serverMessageIds => updated $updatedCount rows to isRead=true');
+    debugPrint(
+        '[READ_STATUS_LOG] markMessagesAsReadInDb: chatId=$chatId, serverMessageIds=$serverMessageIds => updated $updatedCount rows to isRead=true');
   }
 
   ChatModel _mapChatToModel(Chat row) {
@@ -332,7 +415,9 @@ class LocalChatRepository {
     }
     final rawCallsEnabled = otherUser?['group_calls_enabled'];
     bool groupCallsEnabled = rawCallsEnabled != null
-        ? (rawCallsEnabled == true || rawCallsEnabled == 1 || rawCallsEnabled == 'true')
+        ? (rawCallsEnabled == true ||
+            rawCallsEnabled == 1 ||
+            rawCallsEnabled == 'true')
         : true;
 
     return ChatModel(
@@ -353,12 +438,19 @@ class LocalChatRepository {
       archivedAt: row.archivedAt,
       lastMessageType: row.lastMessageType,
       groupCallsEnabled: groupCallsEnabled,
+      raw: {
+        'is_pinned': otherUser?['_chat_is_pinned'] == true,
+        'is_muted': otherUser?['_chat_is_muted'] == true,
+      },
     );
   }
 
   ChatsCompanion _mapModelToCompanion(ChatModel model) {
-    Map<String, dynamic> otherUserMap = Map<String, dynamic>.from(model.otherUser ?? {});
+    Map<String, dynamic> otherUserMap =
+        Map<String, dynamic>.from(model.otherUser ?? {});
     otherUserMap['group_calls_enabled'] = model.groupCallsEnabled;
+    otherUserMap['_chat_is_pinned'] = model.isPinned;
+    otherUserMap['_chat_is_muted'] = model.isMuted;
     final otherUserJson = jsonEncode(otherUserMap);
 
     return ChatsCompanion(
@@ -381,12 +473,20 @@ class LocalChatRepository {
     );
   }
 
-  Future<int> _upsertChat(ChatModel incoming) async {
+  Future<int> _upsertChat(
+    ChatModel incoming, {
+    bool authoritative = false,
+  }) async {
     final existing = await (_db.select(_db.chats)
           ..where((c) => c.serverChatId.equals(incoming.id)))
         .getSingleOrNull();
 
-    final merged = existing == null ? incoming : _mergeChat(_mapChatToModel(existing), incoming);
+    final existingModel = existing == null ? null : _mapChatToModel(existing);
+    final merged = existingModel == null
+        ? incoming
+        : authoritative
+            ? _mergeAuthoritativeSnapshot(existingModel, incoming)
+            : _mergeChat(existingModel, incoming);
 
     if (existing == null) {
       return _db.into(_db.chats).insert(_mapModelToCompanion(merged));
@@ -396,13 +496,52 @@ class LocalChatRepository {
         .write(_mapModelToCompanion(merged));
   }
 
+  ChatModel _mergeAuthoritativeSnapshot(
+    ChatModel existing,
+    ChatModel incoming,
+  ) {
+    final existingTime = existing.lastMessageTime;
+    final incomingTime = incoming.lastMessageTime;
+    final keepNewerLocalPreview = existingTime != null &&
+        (incomingTime == null || existingTime.isAfter(incomingTime));
+
+    return ChatModel(
+      id: incoming.id,
+      name: incoming.name,
+      avatar: incoming.avatar,
+      avatarGradient: incoming.avatarGradient,
+      lastMessage:
+          keepNewerLocalPreview ? existing.lastMessage : incoming.lastMessage,
+      lastMessageTime: keepNewerLocalPreview
+          ? existing.lastMessageTime
+          : incoming.lastMessageTime,
+      unreadCount:
+          keepNewerLocalPreview ? existing.unreadCount : incoming.unreadCount,
+      isGroup: incoming.isGroup,
+      isChannel: incoming.isChannel,
+      isPersonal: incoming.isPersonal,
+      isFavorites: incoming.isFavorites,
+      otherUser: incoming.otherUser,
+      isEncrypted:
+          keepNewerLocalPreview ? existing.isEncrypted : incoming.isEncrypted,
+      isArchived: incoming.isArchived,
+      archivedAt: incoming.archivedAt,
+      lastMessageType: keepNewerLocalPreview
+          ? existing.lastMessageType
+          : incoming.lastMessageType,
+      groupCallsEnabled: incoming.groupCallsEnabled,
+      raw: incoming.raw,
+    );
+  }
+
   ChatModel _mergeChat(ChatModel existing, ChatModel incoming) {
     final hasIncomingTime = incoming.lastMessageTime != null;
     final hasExistingTime = existing.lastMessageTime != null;
 
     bool incomingIsLatest;
     if (hasIncomingTime && hasExistingTime) {
-      incomingIsLatest = !incoming.lastMessageTime!.isBefore(existing.lastMessageTime!);
+      incomingIsLatest =
+          !incoming.lastMessageTime!.isBefore(existing.lastMessageTime!);
     } else if (hasIncomingTime && !hasExistingTime) {
       incomingIsLatest = true;
     } else if (!hasIncomingTime && hasExistingTime) {
@@ -417,7 +556,8 @@ class LocalChatRepository {
     if (incoming.otherUser != null || existing.otherUser != null) {
       mergedOtherUser = Map<String, dynamic>.from(incoming.otherUser ?? {});
       final existingProfiles = existing.otherUser?['user_profiles'];
-      if (existingProfiles != null && mergedOtherUser['user_profiles'] == null) {
+      if (existingProfiles != null &&
+          mergedOtherUser['user_profiles'] == null) {
         mergedOtherUser['user_profiles'] = existingProfiles;
       }
     }
@@ -427,19 +567,26 @@ class LocalChatRepository {
       name: incoming.name,
       avatar: incoming.avatar ?? existing.avatar,
       avatarGradient: incoming.avatarGradient ?? existing.avatarGradient,
-      lastMessage: incomingIsLatest ? incoming.lastMessage : existing.lastMessage,
-      lastMessageTime: incomingIsLatest ? incoming.lastMessageTime : existing.lastMessageTime,
+      lastMessage:
+          incomingIsLatest ? incoming.lastMessage : existing.lastMessage,
+      lastMessageTime: incomingIsLatest
+          ? incoming.lastMessageTime
+          : existing.lastMessageTime,
       unreadCount: incoming.unreadCount,
       isGroup: incoming.isGroup,
       isChannel: incoming.isChannel,
       isPersonal: incoming.isPersonal,
       isFavorites: incoming.isFavorites,
       otherUser: mergedOtherUser,
-      isEncrypted: incomingIsLatest ? incoming.isEncrypted : existing.isEncrypted,
+      isEncrypted:
+          incomingIsLatest ? incoming.isEncrypted : existing.isEncrypted,
       isArchived: incoming.isArchived,
       archivedAt: incoming.archivedAt ?? existing.archivedAt,
-      lastMessageType: incomingIsLatest ? incoming.lastMessageType : existing.lastMessageType,
-      groupCallsEnabled: incoming.groupCallsEnabled || existing.groupCallsEnabled,
+      lastMessageType: incomingIsLatest
+          ? incoming.lastMessageType
+          : existing.lastMessageType,
+      groupCallsEnabled:
+          incoming.groupCallsEnabled || existing.groupCallsEnabled,
     );
   }
 }

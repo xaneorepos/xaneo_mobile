@@ -200,7 +200,7 @@ class ChatWebSocketService {
   }
 
   bool _isPrivateIp(String host) {
-    if (host == 'localhost' || host == '127.0.0.1') return true;
+    if (host == 'localhost' || host == '127.0.loc_0.1') return true;
     final address = InternetAddress.tryParse(host);
     if (address == null) return false;
 

@@ -14,6 +14,7 @@ import '../../widgets/common/premium_page_route.dart';
 
 import 'base_call_screen.dart';
 import 'group_active_call_screen.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 class ActiveCallScreen extends BaseCallScreen {
   const ActiveCallScreen({super.key});
@@ -84,7 +85,7 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
                 if (chat == null) {
                   chat = ChatModel(
                     id: chatServerId,
-                    name: _lastTargetName ?? 'Чат',
+                    name: _lastTargetName ?? (AppLocalizations.of(context)?.chat_c52b ?? 'Fallback'),
                     avatar: _lastTargetAvatar,
                     avatarGradient: _lastTargetGradient,
                     isPersonal: true,
@@ -108,7 +109,7 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
     final isVideo = callManager.callType == 'video';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Color(0xFF0F172A),
       body: Stack(
         children: [
           // 1. Основной фон или видеопоток собеседника
@@ -171,7 +172,7 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  callManager.targetName ?? 'Пользователь',
+                  callManager.targetName ?? (AppLocalizations.of(context)?.polzovatel_f154 ?? 'Fallback'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -254,11 +255,11 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
   String _getStatusText(CallState state) {
     switch (state) {
       case CallState.outgoing:
-        return 'Исходящий вызов...';
+        return (AppLocalizations.of(context)?.ishodyaschiyVyzov_650b ?? 'Fallback');
       case CallState.incoming:
-        return 'Входящий вызов...';
+        return (AppLocalizations.of(context)?.vhodyaschiyVyzov_19ff ?? 'Fallback');
       case CallState.connected:
-        return 'Подключено';
+        return (AppLocalizations.of(context)?.podklyucheno_d022 ?? 'Fallback');
       default:
         return '';
     }
@@ -294,9 +295,9 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
             size: 130,
           ),
         ),
-        const SizedBox(height: 48),
-        const Text(
-          'Ожидание ответа...',
+        SizedBox(height: 48),
+        Text(
+          (AppLocalizations.of(context)?.ozhidanieOtveta_a984 ?? 'Fallback'),
           style: TextStyle(
             color: Colors.white70,
             fontSize: 15,
@@ -319,9 +320,9 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
             username: callManager.targetName ?? 'User',
             size: 140,
           ),
-          const SizedBox(height: 32),
-          const Text(
-            'Разговор по аудиосвязи',
+          SizedBox(height: 32),
+          Text(
+            (AppLocalizations.of(context)?.razgovorPoAudiosvyazi_3ed7 ?? 'Fallback'),
             style: TextStyle(
               color: Colors.white70,
               fontSize: 15,

@@ -1,11 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
-import 'database_key_service.dart';
 import '../../models/database/chats_table.dart';
 import '../../models/database/messages_table.dart';
 
@@ -18,15 +17,21 @@ class AppDatabase extends _$AppDatabase {
   /// Конструктор для тестов в памяти
   AppDatabase.forTesting(super.e);
 
-  static AppDatabase? _instance;
-
-  /// Создает экземпляр БД для конкретного пользователя (или общую, если userId null)
+  /// Создает экземпляр БД для конкретной пары сервер + пользователь.
+  ///
+  /// Один и тот же числовой userId может существовать на prod, staging и
+  /// локальном сервере, поэтому userId сам по себе не является безопасным
+  /// namespace для локального кеша.
   static AppDatabase createForUser({
     required Directory dbFolder,
     required String dbKey,
+    required String serverScope,
     String? userId,
   }) {
-    final dbName = userId != null ? 'app_db_$userId.sqlite' : 'app_db.sqlite';
+    final dbName = databaseFileName(
+      serverScope: serverScope,
+      userId: userId,
+    );
     final file = File(p.join(dbFolder.path, dbName));
 
     return AppDatabase._(NativeDatabase.createInBackground(
@@ -34,32 +39,46 @@ class AppDatabase extends _$AppDatabase {
       setup: (db) {
         // Устанавливаем ключ для SQLCipher при открытии БД
         db.execute("PRAGMA key = '$dbKey';");
+        // Не допускаем появления сообщений без существующего чата.
+        db.execute('PRAGMA foreign_keys = ON;');
         // Включаем WAL-режим для параллельного чтения и записи
         db.execute("PRAGMA journal_mode = WAL;");
       },
     ));
   }
 
-  static Future<AppDatabase> getInstance() async {
-    if (_instance != null) return _instance!;
-    
-    final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'app_db.sqlite'));
-    
-    final keyService = DatabaseKeyService();
-    final encryptionKey = await keyService.getEncryptionKey();
+  /// Стабильное имя файла без утечки URL сервера в файловую систему.
+  static String databaseFileName({
+    required String serverScope,
+    String? userId,
+  }) {
+    final normalizedServer = normalizeServerScope(serverScope);
+    final encodedServer =
+        base64Url.encode(utf8.encode(normalizedServer)).replaceAll('=', '');
+    final normalizedUser = (userId == null || userId.trim().isEmpty)
+        ? 'anonymous'
+        : userId.trim().replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    return 'app_db_${encodedServer}_user_$normalizedUser.sqlite';
+  }
 
-    _instance = AppDatabase._(NativeDatabase.createInBackground(
-      file,
-      setup: (db) {
-        // Устанавливаем ключ для SQLCipher при открытии БД
-        db.execute("PRAGMA key = '$encryptionKey';");
-        // Включаем WAL-режим для параллельного чтения и записи
-        db.execute("PRAGMA journal_mode = WAL;");
-      },
-    ));
-    
-    return _instance!;
+  static String normalizeServerScope(String serverScope) {
+    final raw = serverScope.trim();
+    final uri = Uri.tryParse(raw);
+    if (uri == null || uri.scheme.isEmpty || uri.host.isEmpty) {
+      return raw.toLowerCase().replaceAll(RegExp(r'/+$'), '');
+    }
+
+    final scheme = uri.scheme.toLowerCase();
+    final host = uri.host.toLowerCase();
+    final port = uri.hasPort
+        ? uri.port
+        : switch (scheme) {
+            'http' => 80,
+            'https' => 443,
+            _ => 0,
+          };
+    final path = uri.path.replaceAll(RegExp(r'/+$'), '');
+    return '$scheme://$host:$port$path';
   }
 
   @override

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -18,8 +19,10 @@ import '../../services/api/api_client.dart';
 import '../../services/chat/chat_service.dart';
 import '../../providers/playback_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/chat_name_localizer.dart';
 import 'avatar_widget.dart';
 import 'base_custom_modal.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Модалка информации о чате (собеседник, группа, канал, бот, избранное).
 class ChatInfoModal extends BaseCustomModal {
@@ -32,12 +35,12 @@ class ChatInfoModal extends BaseCustomModal {
 
   /// Вспомогательный статический метод для показа модалки
   static Future<String?> show(BuildContext context, ChatModel chat) {
-    return showModalBottomSheet<String>(
+    return BaseCustomModal.show<String>(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      barrierColor: Colors.black54,
-      builder: (context) => ChatInfoModal(chat: chat),
+      child: ChatInfoModal(chat: chat),
+      // Сам контент уже использует DraggableScrollableSheet.
+      // Второй drag от ModalBottomSheet создавал конкурирующие gesture arena.
+      enableDrag: false,
     );
   }
 
@@ -67,13 +70,14 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
   List<SharedFileItem> _voiceList = const [];
   List<SharedFileItem> _musicList = const [];
   List<SharedLinkItem> _linksList = const [];
+  int _sharedItemsGeneration = 0;
+  final List<int> _visibleItemsByTab = [18, 30, 30, 30, 30];
 
   @override
   void initState() {
     super.initState();
-    // Запускаем загрузку данных и расшифровку ТОЛЬКО после завершения 300мс анимации вылета модалки,
-    // чтобы не блокировать UI-поток во время анимации скольжения.
-    Future.delayed(const Duration(milliseconds: 320), () {
+    // Первый кадр и короткая анимация должны завершиться до чтения БД.
+    Future.delayed(const Duration(milliseconds: 220), () {
       if (mounted) {
         _loadData();
       }
@@ -101,7 +105,11 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
 
       if (id != null) {
         _subscribeToMessages(repo, id);
-        _syncHistoryFromServer(id);
+        // Не запускаем дешифровку 300 сообщений в тот же кадр,
+        // когда первый раз строится локальный контент.
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) _syncHistoryFromServer(id);
+        });
       }
     } catch (e) {
       debugPrint('Error loading chat info data: $e');
@@ -119,9 +127,11 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
   /// ConnectionState.waiting).
   void _subscribeToMessages(LocalChatRepository repo, int localId) {
     _messagesSub?.cancel();
-    _messagesSub = repo.watchMessagesForChat(localId).listen((messages) {
-      final buckets = _computeSharedItems(messages);
-      if (!mounted) return;
+    _messagesSub = repo.watchMessagesForChat(localId).listen((messages) async {
+      final generation = ++_sharedItemsGeneration;
+      // JSON/ссылки во всей истории разбираем в фоновом isolate.
+      final buckets = await compute(_computeSharedItemsInBackground, messages);
+      if (!mounted || generation != _sharedItemsGeneration) return;
       setState(() {
         _mediaList = buckets.media;
         _filesList = buckets.files;
@@ -140,7 +150,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
 
   /// Разбирает сообщения на категории вложений. Чистая функция — вызывается
   /// только при изменении данных, не при перерисовке.
-  _SharedItemsBuckets _computeSharedItems(List<Message> messages) {
+  static _SharedItemsBuckets _computeSharedItemsInBackground(
+      List<Message> messages) {
     final List<SharedFileItem> mediaList = [];
     final List<SharedFileItem> filesList = [];
     final List<SharedFileItem> voiceList = [];
@@ -149,7 +160,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
 
     for (final message in messages) {
       // Извлекаем файлы
-      final files = _extractFileItems(message);
+      final files = _extractFileItemsInBackground(message);
       for (final file in files) {
         final isVoiceMsg = file.messageType == 'voice' ||
             file.messageType == 'video_message' ||
@@ -162,9 +173,11 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
 
         if (isVoiceMsg) {
           voiceList.add(file);
-        } else if (file.mimeType.startsWith('image/') || file.mimeType.startsWith('video/')) {
+        } else if (file.mimeType.startsWith('image/') ||
+            file.mimeType.startsWith('video/')) {
           mediaList.add(file);
-        } else if (file.mimeType.startsWith('audio/') || _isMusicExtension(file.fileName)) {
+        } else if (file.mimeType.startsWith('audio/') ||
+            _isMusicExtensionInBackground(file.fileName)) {
           musicList.add(file);
         } else {
           filesList.add(file);
@@ -172,7 +185,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
       }
 
       // Извлекаем ссылки
-      final links = _extractLinks(message);
+      final links = _extractLinksInBackground(message);
       linksList.addAll(links);
     }
 
@@ -191,7 +204,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
       final apiClient = context.read<ApiClient>();
       final chatService = ChatService(apiClient: apiClient);
       final localChatRepo = context.read<LocalChatRepository>();
-      
+
       // Загружаем до 300 сообщений с сервера для извлечения всех вложений
       final response = await chatService.getEncryptedMessages(
         widget.chat.id,
@@ -209,37 +222,49 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
             .where((id) => id.isNotEmpty)
             .toList();
 
-        final existingMessages = await localChatRepo.getMessagesByServerIds(msgIds);
-        final existingMap = {for (final m in existingMessages) m.serverMessageId: m};
+        final existingMessages =
+            await localChatRepo.getMessagesByServerIds(msgIds);
+        final existingMap = {
+          for (final m in existingMessages) m.serverMessageId: m
+        };
 
         for (final item in results) {
           final msgId = item['id']?.toString() ?? '';
           if (msgId.isEmpty) continue;
-          
+
           final senderId = item['author_username']?.toString() ?? 'unknown';
           final encryptedText = item['encrypted_text']?.toString() ?? '';
-          final timestamp = _parseDateTime(item['created_at']) ?? DateTime.now();
+          final timestamp =
+              _parseDateTime(item['created_at']) ?? DateTime.now();
 
           String? decrypted;
           if (existingMap.containsKey(msgId)) {
             final existingMsg = existingMap[msgId]!;
             final existingText = existingMsg.textContent;
-            if (cryptoService.isEncryptedMessage(existingText) && encryptedText.isNotEmpty) {
-              decrypted = await cryptoService.decryptChatMessage(encryptedText, widget.chat.id);
+            if (cryptoService.isEncryptedMessage(existingText) &&
+                encryptedText.isNotEmpty) {
+              decrypted = await cryptoService.decryptChatMessage(
+                  encryptedText, widget.chat.id);
               await Future.delayed(Duration.zero);
             } else {
               decrypted = existingText;
             }
           } else if (encryptedText.isNotEmpty) {
-            decrypted = await cryptoService.decryptChatMessage(encryptedText, widget.chat.id);
+            decrypted = await cryptoService.decryptChatMessage(
+                encryptedText, widget.chat.id);
             await Future.delayed(Duration.zero);
           }
 
-          final fileInfoJson = _parseFileInfo(Map<String, dynamic>.from(item), decrypted);
+          final fileInfoJson =
+              _parseFileInfo(Map<String, dynamic>.from(item), decrypted);
           final messageType = item['message_type']?.toString();
           final messageId = item['message_id']?.toString();
-          final completionStatusVal = item['completion_status'] != null ? jsonEncode(item['completion_status']) : null;
-          final votesByOptionVal = item['votes_by_option'] != null ? jsonEncode(item['votes_by_option']) : null;
+          final completionStatusVal = item['completion_status'] != null
+              ? jsonEncode(item['completion_status'])
+              : null;
+          final votesByOptionVal = item['votes_by_option'] != null
+              ? jsonEncode(item['votes_by_option'])
+              : null;
 
           companions.add(
             MessagesCompanion(
@@ -291,7 +316,9 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
           borderRadius: borderRadius,
           onTap: onTap,
           child: Padding(
-            padding: isCircle ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: isCircle
+                ? EdgeInsets.zero
+                : const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: isCircle ? Center(child: child) : child,
           ),
         ),
@@ -299,19 +326,39 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     );
   }
 
-  void _openMediaViewer(BuildContext context, String url, bool isVideo, {SharedFileItem? item}) {
+  void _openMediaViewer(BuildContext context, String url, bool isVideo,
+      {SharedFileItem? item}) {
     String senderName = widget.chat.name;
     String dateStr = '';
     if (item != null) {
-      final timeStr = '${item.timestamp.hour.toString().padLeft(2, '0')}:${item.timestamp.minute.toString().padLeft(2, '0')}';
-      final months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-      dateStr = '${item.timestamp.day} ${months[item.timestamp.month - 1]} в $timeStr';
-      
+      final timeStr =
+          '${item.timestamp.hour.toString().padLeft(2, '0')}:${item.timestamp.minute.toString().padLeft(2, '0')}';
+      final months = [
+        (AppLocalizations.of(context)?.yanvarya_d861 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.fevralya_fcf9 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.marta_bb77 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.aprelya_2b5a ?? 'Fallback'),
+        (AppLocalizations.of(context)?.maya_4dbb ?? 'Fallback'),
+        (AppLocalizations.of(context)?.iyunya_adcb ?? 'Fallback'),
+        (AppLocalizations.of(context)?.iyulya_3236 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.avgusta_e3aa ?? 'Fallback'),
+        (AppLocalizations.of(context)?.sentyabrya_a146 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.oktyabrya_7abd ?? 'Fallback'),
+        (AppLocalizations.of(context)?.noyabrya_6e78 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.dekabrya_29cc ?? 'Fallback')
+      ];
+      dateStr =
+          '${item.timestamp.day} ${months[item.timestamp.month - 1]} • $timeStr';
+
       final currentUser = context.read<AuthProvider>().user;
-      final isMe = currentUser != null && (item.senderId == currentUser.username || item.senderId == currentUser.id.toString() || item.senderId == 'me');
-      final myName = (currentUser?.firstName != null && currentUser!.firstName!.isNotEmpty)
-          ? currentUser.firstName!
-          : 'Вы';
+      final isMe = currentUser != null &&
+          (item.senderId == currentUser.username ||
+              item.senderId == currentUser.id.toString() ||
+              item.senderId == 'me');
+      final myName =
+          (currentUser?.firstName != null && currentUser!.firstName!.isNotEmpty)
+              ? currentUser.firstName!
+              : (AppLocalizations.of(context)?.vy_0101 ?? 'Fallback');
       final otherFirstName = widget.chat.otherUser?['first_name']?.toString() ??
           widget.chat.otherUser?['firstName']?.toString() ??
           widget.chat.otherUser?['name']?.toString();
@@ -324,7 +371,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
       } else if (widget.chat.isPersonal) {
         senderName = otherName;
       } else {
-        senderName = item.senderId.isNotEmpty ? item.senderId : widget.chat.name;
+        senderName =
+            item.senderId.isNotEmpty ? item.senderId : widget.chat.name;
       }
     }
 
@@ -340,7 +388,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
             children: [
               Center(
                 child: isVideo
-                    ? FullScreenVideoPlayer(videoUrl: url, jwtToken: _accessToken)
+                    ? FullScreenVideoPlayer(
+                        videoUrl: url, jwtToken: _accessToken)
                     : InteractiveViewer(
                         minScale: 0.5,
                         maxScale: 4.0,
@@ -348,24 +397,33 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                           tag: url,
                           child: Image.network(
                             url,
-                            headers: _accessToken != null ? {'Authorization': 'Bearer $_accessToken'} : null,
+                            headers: _accessToken != null
+                                ? {'Authorization': 'Bearer $_accessToken'}
+                                : null,
                             fit: BoxFit.contain,
                             loadingBuilder: (context, child, loadingProgress) {
                               if (loadingProgress == null) return child;
                               return const Center(
-                                child: CircularProgressIndicator(color: Colors.white),
+                                child: CircularProgressIndicator(
+                                    color: Colors.white),
                               );
                             },
                             errorBuilder: (context, error, stackTrace) {
                               debugPrint('FULLSCREEN IMAGE LOAD ERROR: $error');
                               debugPrint('FULLSCREEN IMAGE URL: $url');
-                              return const Center(
+                              return Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.broken_image, color: Colors.white54, size: 64),
+                                    Icon(Icons.broken_image,
+                                        color: Colors.white54, size: 64),
                                     SizedBox(height: 16),
-                                    Text('Не удалось загрузить изображение', style: TextStyle(color: Colors.white54)),
+                                    Text(
+                                        (AppLocalizations.of(context)
+                                                ?.neUdalosZagruzitIzobrazhenie_3fa0 ??
+                                            'Fallback'),
+                                        style:
+                                            TextStyle(color: Colors.white54)),
                                   ],
                                 ),
                               );
@@ -384,7 +442,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                       child: _buildDroplet(
                         isCircle: true,
                         onTap: () => Navigator.pop(context),
-                        child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+                        child: const Icon(Icons.arrow_back,
+                            color: Colors.white, size: 22),
                       ),
                     ),
                     Positioned(
@@ -397,7 +456,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                             _downloadFile(context, url, item.fileName);
                           }
                         },
-                        child: const Icon(Icons.more_vert, color: Colors.white, size: 22),
+                        child: const Icon(Icons.more_vert,
+                            color: Colors.white, size: 22),
                       ),
                     ),
                     if (item != null && dateStr.isNotEmpty)
@@ -413,12 +473,16 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                               children: [
                                 Text(
                                   senderName,
-                                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   dateStr,
-                                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                  style: const TextStyle(
+                                      color: Colors.white70, fontSize: 11),
                                 ),
                               ],
                             ),
@@ -435,12 +499,16 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     );
   }
 
-  Future<void> _downloadFile(BuildContext context, String url, String fileName) async {
+  Future<void> _downloadFile(
+      BuildContext context, String url, String fileName) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Скачивание $fileName...'), duration: const Duration(seconds: 1)),
+        SnackBar(
+            content: Text(
+                '${AppLocalizations.of(context)?.zagruzkaFayla_f817 ?? 'Downloading file'} $fileName'),
+            duration: const Duration(seconds: 1)),
       );
-      
+
       Directory? dir;
       if (Platform.isAndroid) {
         dir = Directory('/storage/emulated/0/Download/Xaneo');
@@ -465,16 +533,20 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
         dio.options.headers['Authorization'] = 'Bearer $_accessToken';
       }
       await dio.download(url, savePath);
-      
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Файл сохранен: $savePath')),
+          SnackBar(
+              content: Text(
+                  '${AppLocalizations.of(context)?.faylZagruzhenIPrikreplen_dc24 ?? 'File saved'}: $savePath')),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка скачивания: $e')),
+          SnackBar(
+              content: Text(
+                  '${AppLocalizations.of(context)?.oshibkaSkachivaniyaFayla_34ac ?? 'Download error'}: $e')),
         );
       }
     }
@@ -488,16 +560,25 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
   }
 
   String? _parseFileInfo(Map<String, dynamic> item, String? decrypted) {
-    if ((item['message_type'] == 'call' || item['type'] == 'call') && item['message_data'] != null) {
+    if ((item['message_type'] == 'call' || item['type'] == 'call') &&
+        item['message_data'] != null) {
       return jsonEncode(item['message_data']);
     }
-    final hasServerFile = (item['attached_file_id'] != null && item['attached_file_id'].toString().isNotEmpty) ||
-                          (item['file_id'] != null && item['file_id'].toString().isNotEmpty) ||
-                          (item['file_url'] != null && item['file_url'].toString().isNotEmpty);
-    if (hasServerFile && decrypted != null && decrypted.trim().startsWith('{')) {
+    final hasServerFile = (item['attached_file_id'] != null &&
+            item['attached_file_id'].toString().isNotEmpty) ||
+        (item['file_id'] != null && item['file_id'].toString().isNotEmpty) ||
+        (item['file_url'] != null && item['file_url'].toString().isNotEmpty);
+    if (hasServerFile &&
+        decrypted != null &&
+        decrypted.trim().startsWith('{')) {
       try {
         final parsed = jsonDecode(decrypted);
-        if (parsed is Map && (parsed['type'] == 'file' || parsed['type'] == 'voice' || parsed['type'] == 'video_message') && parsed['file_id'] != null && parsed['file_id'].toString().isNotEmpty) {
+        if (parsed is Map &&
+            (parsed['type'] == 'file' ||
+                parsed['type'] == 'voice' ||
+                parsed['type'] == 'video_message') &&
+            parsed['file_id'] != null &&
+            parsed['file_id'].toString().isNotEmpty) {
           return decrypted;
         }
       } catch (_) {}
@@ -510,10 +591,15 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
         if (img is Map) {
           final fId = img['file_id']?.toString();
           if (fId != null && fId.isNotEmpty) {
-            final fName = img['name']?.toString() ?? img['file_name']?.toString() ?? 'file';
+            final fName = img['name']?.toString() ??
+                img['file_name']?.toString() ??
+                'file';
             final fSize = img['size'] as int? ?? img['file_size'] as int? ?? 0;
-            final fType = img['mime_type']?.toString() ?? img['file_type']?.toString() ?? 'image/jpeg';
-            String fUrl = img['url']?.toString() ?? img['file_url']?.toString() ?? '';
+            final fType = img['mime_type']?.toString() ??
+                img['file_type']?.toString() ??
+                'image/jpeg';
+            String fUrl =
+                img['url']?.toString() ?? img['file_url']?.toString() ?? '';
             if (fUrl.isEmpty) {
               fUrl = '/api/files/download/$fId/';
             }
@@ -536,12 +622,20 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
       }
     }
 
-    final fileId = item['attached_file_id']?.toString() ?? item['file_id']?.toString();
+    final fileId =
+        item['attached_file_id']?.toString() ?? item['file_id']?.toString();
     if (fileId != null && fileId.isNotEmpty) {
-      final fileName = item['attached_file_name']?.toString() ?? item['file_name']?.toString() ?? 'file';
-      final fileSize = item['attached_file_size'] as int? ?? item['file_size'] as int? ?? 0;
-      final fileType = item['attached_file_type']?.toString() ?? item['mime_type']?.toString() ?? 'application/octet-stream';
-      String fileUrlSuffix = item['attached_file_url']?.toString() ?? item['file_url']?.toString() ?? '';
+      final fileName = item['attached_file_name']?.toString() ??
+          item['file_name']?.toString() ??
+          'file';
+      final fileSize =
+          item['attached_file_size'] as int? ?? item['file_size'] as int? ?? 0;
+      final fileType = item['attached_file_type']?.toString() ??
+          item['mime_type']?.toString() ??
+          'application/octet-stream';
+      String fileUrlSuffix = item['attached_file_url']?.toString() ??
+          item['file_url']?.toString() ??
+          '';
       if (fileUrlSuffix.isEmpty) {
         fileUrlSuffix = '/api/files/download/$fileId/';
       }
@@ -563,17 +657,19 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     final otherUser = chat.otherUser;
 
     // Свойства пользователя/чата
-    final String? username = chat.isFavorites ? null : otherUser?['username']?.toString();
-    final String? phone = chat.isFavorites ? null : otherUser?['phone']?.toString();
-    
+    final String? username =
+        chat.isFavorites ? null : otherUser?['username']?.toString();
+    final String? phone =
+        chat.isFavorites ? null : otherUser?['phone']?.toString();
+
     // Получение описания
     String? bio;
     if (chat.isFavorites) {
       bio = null;
     } else {
-      bio = otherUser?['bio']?.toString() ?? 
-            otherUser?['description']?.toString() ?? 
-            otherUser?['about']?.toString();
+      bio = otherUser?['bio']?.toString() ??
+          otherUser?['description']?.toString() ??
+          otherUser?['about']?.toString();
     }
 
     // Парсим цвета градиента для эффекта свечения
@@ -587,20 +683,42 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     }
 
     if (_localChatId == null) {
-      return _buildStaticLayout(context, scrollController, username, phone, bio, primaryGlowColor);
+      return _buildStaticLayout(
+          context, scrollController, username, phone, bio, primaryGlowColor);
     }
 
     // Ждём первую порцию данных из подписки (см. _subscribeToMessages).
     if (!_sharedItemsReady) {
-      return const Center(child: CircularProgressIndicator(color: Colors.white));
+      return const Center(
+          child: CircularProgressIndicator(color: Colors.white));
     }
 
     final tabs = [
-      {'title': 'Медиа', 'count': _mediaList.length.toString(), 'icon': Icons.image_rounded},
-      {'title': 'Файлы', 'count': _filesList.length.toString(), 'icon': Icons.description_rounded},
-      {'title': 'Голос', 'count': _voiceList.length.toString(), 'icon': Icons.mic_rounded},
-      {'title': 'Музыка', 'count': _musicList.length.toString(), 'icon': Icons.music_note_rounded},
-      {'title': 'Ссылки', 'count': _linksList.length.toString(), 'icon': Icons.link_rounded},
+      {
+        'title': (AppLocalizations.of(context)?.media_c247 ?? 'Fallback'),
+        'count': _mediaList.length.toString(),
+        'icon': Icons.image_rounded
+      },
+      {
+        'title': (AppLocalizations.of(context)?.fayly_200c ?? 'Fallback'),
+        'count': _filesList.length.toString(),
+        'icon': Icons.description_rounded
+      },
+      {
+        'title': (AppLocalizations.of(context)?.golos_2d89 ?? 'Fallback'),
+        'count': _voiceList.length.toString(),
+        'icon': Icons.mic_rounded
+      },
+      {
+        'title': (AppLocalizations.of(context)?.muzyka_0660 ?? 'Fallback'),
+        'count': _musicList.length.toString(),
+        'icon': Icons.music_note_rounded
+      },
+      {
+        'title': (AppLocalizations.of(context)?.ssylki_9f58 ?? 'Fallback'),
+        'count': _linksList.length.toString(),
+        'icon': Icons.link_rounded
+      },
     ];
 
     return ListView(
@@ -636,16 +754,36 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     Color primaryGlowColor,
   ) {
     final tabs = [
-      {'title': 'Медиа', 'count': '0', 'icon': Icons.image_rounded},
-      {'title': 'Файлы', 'count': '0', 'icon': Icons.description_rounded},
-      {'title': 'Голос', 'count': '0', 'icon': Icons.mic_rounded},
-      {'title': 'Музыка', 'count': '0', 'icon': Icons.music_note_rounded},
-      {'title': 'Ссылки', 'count': '0', 'icon': Icons.link_rounded},
+      {
+        'title': (AppLocalizations.of(context)?.media_c247 ?? 'Fallback'),
+        'count': '0',
+        'icon': Icons.image_rounded
+      },
+      {
+        'title': (AppLocalizations.of(context)?.fayly_200c ?? 'Fallback'),
+        'count': '0',
+        'icon': Icons.description_rounded
+      },
+      {
+        'title': (AppLocalizations.of(context)?.golos_2d89 ?? 'Fallback'),
+        'count': '0',
+        'icon': Icons.mic_rounded
+      },
+      {
+        'title': (AppLocalizations.of(context)?.muzyka_0660 ?? 'Fallback'),
+        'count': '0',
+        'icon': Icons.music_note_rounded
+      },
+      {
+        'title': (AppLocalizations.of(context)?.ssylki_9f58 ?? 'Fallback'),
+        'count': '0',
+        'icon': Icons.link_rounded
+      },
     ];
 
     return ListView(
       controller: scrollController,
-      physics: const BouncingScrollPhysics(),
+      physics: BouncingScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 24),
       children: [
         const SizedBox(height: 10),
@@ -657,8 +795,9 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
         const SizedBox(height: 16),
         _buildEmptyPlaceholder(
           Icons.cloud_off_rounded,
-          'Нет данных',
-          'История сообщений пуста или чат еще не сохранен локально',
+          (AppLocalizations.of(context)?.netDannyh_dee9 ?? 'Fallback'),
+          (AppLocalizations.of(context)?.istoriyaSoobscheniyPustaIliChat_2d07 ??
+              'Fallback'),
         ),
       ],
     );
@@ -667,65 +806,65 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
   Widget _buildProfileHeader(BuildContext context, Color primaryGlowColor) {
     final chat = widget.chat;
     return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Center(
-            child: Hero(
-              tag: 'chat_avatar_${chat.id}',
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: primaryGlowColor.withOpacity(0.24),
-                      blurRadius: 36,
-                      spreadRadius: 4,
-                    ),
-                  ],
-                ),
-                child: AvatarWidget(
-                  avatar: chat.avatar,
-                  avatarGradient: chat.avatarGradient,
-                  hasAvatar: chat.avatar != null && chat.avatar!.isNotEmpty,
-                  username: chat.name,
-                  size: 96,
-                ),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Center(
+          child: Hero(
+            tag: 'chat_avatar_${chat.id}',
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: primaryGlowColor.withOpacity(0.24),
+                    blurRadius: 36,
+                    spreadRadius: 4,
+                  ),
+                ],
+              ),
+              child: AvatarWidget(
+                avatar: chat.avatar,
+                avatarGradient: chat.avatarGradient,
+                hasAvatar: chat.avatar != null && chat.avatar!.isNotEmpty,
+                username: localizedChatName(context, chat),
+                size: 96,
               ),
             ),
           ),
-          const SizedBox(height: 18),
-          Hero(
-            tag: 'chat_name_${chat.id}',
-            child: Material(
-              color: Colors.transparent,
-              child: Text(
-                chat.name,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
-                ),
+        ),
+        const SizedBox(height: 18),
+        Hero(
+          tag: 'chat_name_${chat.id}',
+          child: Material(
+            color: Colors.transparent,
+            child: Text(
+              localizedChatName(context, chat),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                letterSpacing: -0.5,
               ),
             ),
           ),
-          const SizedBox(height: 4),
-          Center(
-            child: _buildStatusWidget(),
-          ),
-        ],
-      );
+        ),
+        const SizedBox(height: 4),
+        Center(
+          child: _buildStatusWidget(),
+        ),
+      ],
+    );
   }
 
   Widget _buildSharedMediaTabsHeader(List<Map<String, dynamic>> tabsList) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(left: 4, bottom: 12),
           child: Text(
-            'Общие материалы',
+            (AppLocalizations.of(context)?.obschieMaterialy_11e4 ?? 'Fallback'),
             style: TextStyle(
               color: Colors.white70,
               fontSize: 12,
@@ -760,7 +899,9 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutCubic,
                     decoration: BoxDecoration(
-                      color: isSelected ? Colors.white.withOpacity(0.06) : Colors.transparent,
+                      color: isSelected
+                          ? Colors.white.withOpacity(0.06)
+                          : Colors.transparent,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     alignment: Alignment.center,
@@ -770,22 +911,30 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                         Text(
                           tab['title'].toString(),
                           style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.white.withOpacity(0.4),
+                            color: isSelected
+                                ? Colors.white
+                                : Colors.white.withOpacity(0.4),
                             fontSize: 11,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w500,
                           ),
                         ),
                         const SizedBox(width: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1.5),
                           decoration: BoxDecoration(
-                            color: isSelected ? Colors.white.withOpacity(0.12) : Colors.white.withOpacity(0.04),
+                            color: isSelected
+                                ? Colors.white.withOpacity(0.12)
+                                : Colors.white.withOpacity(0.04),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             tab['count'].toString(),
                             style: TextStyle(
-                              color: isSelected ? Colors.white70 : Colors.white.withOpacity(0.3),
+                              color: isSelected
+                                  ? Colors.white70
+                                  : Colors.white.withOpacity(0.3),
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
                             ),
@@ -811,28 +960,84 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     List<SharedFileItem> musicList,
     List<SharedLinkItem> linksList,
   ) {
+    final visibleCount = _visibleItemsByTab[index];
     switch (index) {
       case 0:
-        return _buildMediaGrid(mediaList);
+        return _buildPaginatedTab(
+          _buildMediaGrid(mediaList.take(visibleCount).toList()),
+          shown: visibleCount,
+          total: mediaList.length,
+          tabIndex: index,
+        );
       case 1:
-        return _buildFilesList(filesList);
+        return _buildPaginatedTab(
+          _buildFilesList(filesList.take(visibleCount).toList()),
+          shown: visibleCount,
+          total: filesList.length,
+          tabIndex: index,
+        );
       case 2:
-        return _buildVoiceAndVideoList(voiceList);
+        return _buildPaginatedTab(
+          _buildVoiceAndVideoList(voiceList.take(visibleCount).toList()),
+          shown: visibleCount,
+          total: voiceList.length,
+          tabIndex: index,
+        );
       case 3:
-        return _buildMusicList(musicList);
+        return _buildPaginatedTab(
+          _buildMusicList(musicList.take(visibleCount).toList()),
+          shown: visibleCount,
+          total: musicList.length,
+          tabIndex: index,
+        );
       case 4:
-        return _buildLinksList(linksList);
+        return _buildPaginatedTab(
+          _buildLinksList(linksList.take(visibleCount).toList()),
+          shown: visibleCount,
+          total: linksList.length,
+          tabIndex: index,
+        );
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  Widget _buildPaginatedTab(
+    Widget content, {
+    required int shown,
+    required int total,
+    required int tabIndex,
+  }) {
+    if (shown >= total) return content;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        content,
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton.icon(
+            onPressed: () {
+              setState(() => _visibleItemsByTab[tabIndex] += 30);
+            },
+            icon: const Icon(Icons.expand_more_rounded),
+            label: Text(
+              'Показать ещё (${total - shown})',
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildMediaGrid(List<SharedFileItem> items) {
     if (items.isEmpty) {
       return _buildEmptyPlaceholder(
         Icons.image_rounded,
-        'Нет медиафайлов',
-        'Здесь будут отображаться общие фото и видео',
+        (AppLocalizations.of(context)?.netMediafaylov_08d2 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.zdesBudutOtobrazhatsyaObschieFoto_9bc7 ??
+            'Fallback'),
       );
     }
 
@@ -860,20 +1065,33 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    fileUrl,
-                    headers: _accessToken != null ? {'Authorization': 'Bearer $_accessToken'} : null,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Center(
-                        child: Icon(
-                          isVideo ? Icons.videocam_rounded : Icons.image_rounded,
-                          color: Colors.white24,
-                          size: 28,
-                        ),
-                      );
-                    },
-                  ),
+                  if (isVideo)
+                    const Center(
+                      child: Icon(
+                        Icons.videocam_rounded,
+                        color: Colors.white24,
+                        size: 28,
+                      ),
+                    )
+                  else
+                    Image.network(
+                      fileUrl,
+                      headers: _accessToken != null
+                          ? {'Authorization': 'Bearer $_accessToken'}
+                          : null,
+                      fit: BoxFit.cover,
+                      cacheWidth: 320,
+                      filterQuality: FilterQuality.low,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
+                          child: Icon(
+                            Icons.image_rounded,
+                            color: Colors.white24,
+                            size: 28,
+                          ),
+                        );
+                      },
+                    ),
                   if (isVideo)
                     Container(
                       color: Colors.black26,
@@ -898,8 +1116,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     if (items.isEmpty) {
       return _buildEmptyPlaceholder(
         Icons.description_rounded,
-        'Нет файлов',
-        'Здесь будут отображаться отправленные файлы',
+        (AppLocalizations.of(context)?.netFaylov_e95e ?? 'Fallback'),
+        (AppLocalizations.of(context)
+                ?.zdesBudutOtobrazhatsyaOtpravlennyeFayly_f62c ??
+            'Fallback'),
       );
     }
 
@@ -913,7 +1133,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
         final sizeStr = _formatBytes(item.fileSize);
         final dateStr = _formatDate(item.timestamp);
         final fileUrl = _getAbsoluteUrl(item.fileUrl);
-        
+
         return Container(
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.02),
@@ -969,8 +1189,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     if (items.isEmpty) {
       return _buildEmptyPlaceholder(
         Icons.mic_rounded,
-        'Нет голосовых сообщений',
-        'Здесь будут отображаться голосовые и видеосообщения',
+        (AppLocalizations.of(context)?.netGolosovyhSoobscheniy_2427 ??
+            'Fallback'),
+        (AppLocalizations.of(context)?.zdesBudutOtobrazhatsyaGolosovyeI_0a73 ??
+            'Fallback'),
       );
     }
 
@@ -990,7 +1212,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
         final isCurrent = playbackProvider.currentAudioUrl == fileUrl;
         final isPlaying = isCurrent && playbackProvider.isPlaying;
         final isLoading = isCurrent && playbackProvider.isLoading;
-        
+
         return Container(
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.02),
@@ -1010,22 +1232,34 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                     width: 40,
                     height: 40,
                     padding: const EdgeInsets.all(10),
-                    child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: const CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
                   )
                 else
                   IconButton(
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                    constraints:
+                        const BoxConstraints(minWidth: 40, minHeight: 40),
                     icon: Icon(
-                      isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
-                      color: isVideoMessage ? const Color(0xFF10B981) : const Color(0xFF6366F1),
+                      isPlaying
+                          ? Icons.pause_circle_filled_rounded
+                          : Icons.play_circle_fill_rounded,
+                      color: isVideoMessage
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFF6366F1),
                       size: 36,
                     ),
                     onPressed: () {
                       final provider = context.read<PlaybackProvider>();
                       provider.play(
                         fileUrl,
-                        isVideoMessage ? 'Видеосообщение' : 'Голосовое сообщение',
+                        isVideoMessage
+                            ? (AppLocalizations.of(context)
+                                    ?.videosoobschenie_2951 ??
+                                'Fallback')
+                            : (AppLocalizations.of(context)
+                                    ?.golosovoeSoobschenie_33d5 ??
+                                'Fallback'),
                         dateStr,
                         mimeType: item.mimeType,
                       );
@@ -1044,7 +1278,13 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          isVideoMessage ? 'Видеосообщение' : 'Голосовое сообщение',
+                          isVideoMessage
+                              ? (AppLocalizations.of(context)
+                                      ?.videosoobschenie_2951 ??
+                                  'Fallback')
+                              : (AppLocalizations.of(context)
+                                      ?.golosovoeSoobschenie_33d5 ??
+                                  'Fallback'),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
@@ -1090,8 +1330,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     if (items.isEmpty) {
       return _buildEmptyPlaceholder(
         Icons.link_rounded,
-        'Нет ссылок',
-        'Здесь будут отображаться общие ссылки',
+        (AppLocalizations.of(context)?.netSsylok_b0ec ?? 'Fallback'),
+        (AppLocalizations.of(context)
+                ?.zdesBudutOtobrazhatsyaObschieSsylki_6b61 ??
+            'Fallback'),
       );
     }
 
@@ -1103,7 +1345,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
       itemBuilder: (context, index) {
         final item = items[index];
         final dateStr = _formatDate(item.timestamp);
-        
+
         return Container(
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.02),
@@ -1167,11 +1409,14 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
               Clipboard.setData(ClipboardData(text: item.url));
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Ссылка скопирована в буфер'),
+                  content: Text((AppLocalizations.of(context)
+                          ?.ssylkaSkopirovanaVBufer_c16e ??
+                      'Fallback')),
                   duration: const Duration(seconds: 1),
                   backgroundColor: const Color(0xFF1E1E22),
                   behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               );
             },
@@ -1185,8 +1430,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     if (items.isEmpty) {
       return _buildEmptyPlaceholder(
         Icons.music_note_rounded,
-        'Нет музыки',
-        'Здесь будут отображаться отправленные треки',
+        (AppLocalizations.of(context)?.netMuzyki_1ca3 ?? 'Fallback'),
+        (AppLocalizations.of(context)
+                ?.zdesBudutOtobrazhatsyaOtpravlennyeTreki_ea23 ??
+            'Fallback'),
       );
     }
 
@@ -1205,7 +1452,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
         final isCurrent = playbackProvider.currentAudioUrl == fileUrl;
         final isPlaying = isCurrent && playbackProvider.isPlaying;
         final isLoading = isCurrent && playbackProvider.isLoading;
-        
+
         return Container(
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.02),
@@ -1221,13 +1468,17 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                     width: 36,
                     height: 36,
                     padding: const EdgeInsets.all(8),
-                    child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: const CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
                   )
                 : IconButton(
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    constraints:
+                        const BoxConstraints(minWidth: 36, minHeight: 36),
                     icon: Icon(
-                      isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
+                      isPlaying
+                          ? Icons.pause_circle_filled_rounded
+                          : Icons.play_circle_fill_rounded,
                       color: const Color(0xFFF59E0B),
                       size: 36,
                     ),
@@ -1320,21 +1571,22 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
       final token = _accessToken;
       return '$fileUrlSuffix${token != null ? (fileUrlSuffix.contains('?') ? "&token=$token" : "?token=$token") : ""}';
     }
-    
+
     final uri = Uri.parse(AppConfig.apiBaseUrl);
-    final hostUrl = '${uri.scheme}://${uri.host}${uri.hasPort ? ":${uri.port}" : ""}';
+    final hostUrl =
+        '${uri.scheme}://${uri.host}${uri.hasPort ? ":${uri.port}" : ""}';
     final prefix = fileUrlSuffix.startsWith('/') ? '' : '/';
     final token = _accessToken;
-    
+
     return '$hostUrl$prefix$fileUrlSuffix${token != null ? "?token=$token" : ""}';
   }
 
-  List<SharedFileItem> _extractFileItems(Message message) {
+  static List<SharedFileItem> _extractFileItemsInBackground(Message message) {
     if (message.fileUrl == null || message.fileUrl!.isEmpty) return [];
     try {
       final parsed = jsonDecode(message.fileUrl!);
       if (parsed is! Map) return [];
-      
+
       if (parsed['type'] == 'collage') {
         final filesList = parsed['files'];
         if (filesList is List) {
@@ -1349,7 +1601,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
               fileId: fId,
               fileName: map['file_name']?.toString() ?? 'file',
               fileSize: map['file_size'] as int? ?? 0,
-              mimeType: map['mime_type']?.toString() ?? 'application/octet-stream',
+              mimeType:
+                  map['mime_type']?.toString() ?? 'application/octet-stream',
               fileUrl: fUrl,
               timestamp: message.timestamp,
               senderId: message.senderId,
@@ -1369,7 +1622,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
             fileId: fId,
             fileName: parsed['file_name']?.toString() ?? 'file',
             fileSize: parsed['file_size'] as int? ?? 0,
-            mimeType: parsed['mime_type']?.toString() ?? 'application/octet-stream',
+            mimeType:
+                parsed['mime_type']?.toString() ?? 'application/octet-stream',
             fileUrl: fUrl,
             timestamp: message.timestamp,
             senderId: message.senderId,
@@ -1382,18 +1636,18 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     return [];
   }
 
-  final urlRegex = RegExp(
+  static final RegExp _urlRegex = RegExp(
     r'(https?:\/\/[^\s]+)',
     caseSensitive: false,
   );
 
-  List<SharedLinkItem> _extractLinks(Message message) {
+  static List<SharedLinkItem> _extractLinksInBackground(Message message) {
     if (message.textContent.isEmpty) return [];
     if (message.textContent.trim().startsWith('{')) return [];
-    
-    final matches = urlRegex.allMatches(message.textContent);
+
+    final matches = _urlRegex.allMatches(message.textContent);
     if (matches.isEmpty) return [];
-    
+
     return matches.map((match) {
       return SharedLinkItem(
         url: match.group(0)!,
@@ -1404,7 +1658,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     }).toList();
   }
 
-  bool _isMusicExtension(String filename) {
+  static bool _isMusicExtensionInBackground(String filename) {
     final lower = filename.toLowerCase();
     return lower.endsWith('.mp3') ||
         lower.endsWith('.wav') ||
@@ -1462,33 +1716,47 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     if (chat.isFavorites) {
       // Статус для "Избранного" не отображается
     } else if (_isDeleted()) {
-      text = 'удалённый аккаунт';
+      text =
+          (AppLocalizations.of(context)?.udalennyyAkkaunt_ce47 ?? 'Fallback');
       textColor = Colors.white38;
     } else if (chat.isPersonal) {
       if (_isBot()) {
-        text = 'бот';
+        text = (AppLocalizations.of(context)?.bot_2712 ?? 'Fallback');
         textColor = const Color(0xFF60A5FA); // Blue
         icon = Icons.android_rounded;
       } else {
         text = _formatUserStatus(chat.otherUser);
-        if (text == 'в сети') {
+        if (text == (AppLocalizations.of(context)?.vSeti_d902 ?? 'Fallback')) {
           textColor = const Color(0xFF4ADE80); // Green
         }
       }
     } else if (chat.isGroup) {
       final rawMem = chat.otherUser?['members_count'];
-      final membersCount = rawMem is int ? rawMem : (rawMem is num ? rawMem.toInt() : int.tryParse(rawMem?.toString() ?? '') ?? 0);
+      final membersCount = rawMem is int
+          ? rawMem
+          : (rawMem is num
+              ? rawMem.toInt()
+              : int.tryParse(rawMem?.toString() ?? '') ?? 0);
       final rawOnline = chat.otherUser?['online_count'];
-      final onlineCount = rawOnline is int ? rawOnline : (rawOnline is num ? rawOnline.toInt() : int.tryParse(rawOnline?.toString() ?? '') ?? 0);
+      final onlineCount = rawOnline is int
+          ? rawOnline
+          : (rawOnline is num
+              ? rawOnline.toInt()
+              : int.tryParse(rawOnline?.toString() ?? '') ?? 0);
       text = _pluralizeParticipants(membersCount);
       if (onlineCount > 0) {
-        text += ', $onlineCount в сети';
+        text +=
+            ' • $onlineCount ${AppLocalizations.of(context)?.online ?? 'online'}';
       }
       textColor = Colors.white54;
       icon = Icons.people_alt_rounded;
     } else if (chat.isChannel) {
       final rawSub = chat.otherUser?['subscribers_count'];
-      final subscribersCount = rawSub is int ? rawSub : (rawSub is num ? rawSub.toInt() : int.tryParse(rawSub?.toString() ?? '') ?? 0);
+      final subscribersCount = rawSub is int
+          ? rawSub
+          : (rawSub is num
+              ? rawSub.toInt()
+              : int.tryParse(rawSub?.toString() ?? '') ?? 0);
       text = _formatSubscribers(subscribersCount);
       textColor = Colors.white54;
       icon = Icons.campaign_rounded;
@@ -1511,8 +1779,9 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
         children: [
           if (icon != null) ...[
             Icon(icon, size: 12, color: textColor),
-            const SizedBox(width: 6),
-          ] else if (text == 'в сети') ...[
+            SizedBox(width: 6),
+          ] else if (text ==
+              (AppLocalizations.of(context)?.vSeti_d902 ?? 'Fallback')) ...[
             Container(
               width: 6,
               height: 6,
@@ -1569,7 +1838,9 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
             _buildInfoTile(
               icon: Icons.info_outline_rounded,
               value: bio,
-              label: widget.chat.isGroup || widget.chat.isChannel ? 'Описание' : 'О себе',
+              label: widget.chat.isGroup || widget.chat.isChannel
+                  ? (AppLocalizations.of(context)?.opisanie_38ca ?? 'Fallback')
+                  : (AppLocalizations.of(context)?.oSebe_0b3b ?? 'Fallback'),
             ),
             if (hasPhone || hasUsername) _buildDivider(),
           ],
@@ -1577,7 +1848,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
             _buildInfoTile(
               icon: Icons.phone_outlined,
               value: phone,
-              label: 'Мобильный',
+              label:
+                  (AppLocalizations.of(context)?.mobilnyy_5ac7 ?? 'Fallback'),
             ),
             if (hasUsername) _buildDivider(),
           ],
@@ -1585,7 +1857,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
             _buildInfoTile(
               icon: Icons.alternate_email_rounded,
               value: username.startsWith('@') ? username : '@$username',
-              label: 'Имя пользователя',
+              label: (AppLocalizations.of(context)?.imyaPolzovatelya_6fd4 ??
+                  'Fallback'),
             ),
           ],
         ],
@@ -1613,11 +1886,13 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
           Clipboard.setData(ClipboardData(text: value));
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('"$value" скопировано в буфер'),
+              content: Text(
+                  '${AppLocalizations.of(context)?.copied ?? 'Copied'}: "$value"'),
               duration: const Duration(seconds: 1),
               backgroundColor: const Color(0xFF1E1E22),
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           );
         },
@@ -1696,16 +1971,21 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
   }
 
   String _formatUserStatus(Map<String, dynamic>? otherUser) {
-    if (otherUser == null) return 'был(-а) недавно';
-    
+    if (otherUser == null)
+      return (AppLocalizations.of(context)?.bylANedavno_168d ?? 'Fallback');
+
     final isOnlineVal = otherUser['is_online'] ?? otherUser['online'];
-    if (isOnlineVal == true || isOnlineVal?.toString().toLowerCase() == 'true') {
-      return 'в сети';
+    if (isOnlineVal == true ||
+        isOnlineVal?.toString().toLowerCase() == 'true') {
+      return (AppLocalizations.of(context)?.vSeti_d902 ?? 'Fallback');
     }
-    
-    final lastSeenVal = otherUser['last_seen'] ?? otherUser['last_login'] ?? otherUser['last_activity'];
-    if (lastSeenVal == null) return 'был(-а) недавно';
-    
+
+    final lastSeenVal = otherUser['last_seen'] ??
+        otherUser['last_login'] ??
+        otherUser['last_activity'];
+    if (lastSeenVal == null)
+      return (AppLocalizations.of(context)?.bylANedavno_168d ?? 'Fallback');
+
     DateTime? lastSeen;
     if (lastSeenVal is String) {
       lastSeen = DateTime.tryParse(lastSeenVal);
@@ -1714,78 +1994,50 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     } else if (lastSeenVal is DateTime) {
       lastSeen = lastSeenVal;
     }
-    
-    if (lastSeen == null) return 'был(-а) недавно';
-    
+
+    if (lastSeen == null)
+      return (AppLocalizations.of(context)?.bylANedavno_168d ?? 'Fallback');
+
     final now = DateTime.now();
     final difference = now.difference(lastSeen);
-    
+
     if (difference.inMinutes < 5) {
-      return 'в сети';
+      return (AppLocalizations.of(context)?.vSeti_d902 ?? 'Fallback');
     }
-    
+
     if (difference.inMinutes < 60) {
-      final mins = difference.inMinutes;
-      String minStr;
-      if (mins % 10 == 1 && mins % 100 != 11) {
-        minStr = 'минуту';
-      } else if ([2, 3, 4].contains(mins % 10) && ![12, 13, 14].contains(mins % 100)) {
-        minStr = 'минуты';
-      } else {
-        minStr = 'минут';
-      }
-      return 'был(-а) в сети $mins $minStr назад';
+      return AppLocalizations.of(context)?.lastSeenRecently ??
+          'last seen recently';
     }
-    
+
     final today = DateTime(now.year, now.month, now.day);
     final lastSeenDay = DateTime(lastSeen.year, lastSeen.month, lastSeen.day);
-    
+
     final hour = lastSeen.hour.toString().padLeft(2, '0');
     final minute = lastSeen.minute.toString().padLeft(2, '0');
-    
+
     if (lastSeenDay == today) {
-      return 'был(-а) в сети сегодня в $hour:$minute';
+      return '${AppLocalizations.of(context)?.today ?? 'Today'} • $hour:$minute';
     }
-    
+
     final yesterday = today.subtract(const Duration(days: 1));
     if (lastSeenDay == yesterday) {
-      return 'был(-а) в сети вчера в $hour:$minute';
+      return '${AppLocalizations.of(context)?.yesterday ?? 'Yesterday'} • $hour:$minute';
     }
-    
+
     final day = lastSeen.day.toString().padLeft(2, '0');
     final month = lastSeen.month.toString().padLeft(2, '0');
-    return 'был(-а) в сети $day.$month.${lastSeen.year} в $hour:$minute';
+    return '$day.$month.${lastSeen.year} • $hour:$minute';
   }
 
   String _pluralizeParticipants(int count) {
-    if (count % 10 == 1 && count % 100 != 11) {
-      return '$count участник';
-    } else if ([2, 3, 4].contains(count % 10) && ![12, 13, 14].contains(count % 100)) {
-      return '$count участника';
-    } else {
-      return '$count участников';
-    }
+    return AppLocalizations.of(context)?.membersCount(count) ??
+        '$count members';
   }
 
   String _formatSubscribers(int count) {
-    String countStr;
-    if (count >= 1000000000) {
-      countStr = '${(count / 1000000000.0).toStringAsFixed(1).replaceAll('.0', '')}B';
-    } else if (count >= 1000000) {
-      countStr = '${(count / 1000000.0).toStringAsFixed(1).replaceAll('.0', '')}M';
-    } else if (count >= 1000) {
-      countStr = '${(count / 1000.0).toStringAsFixed(1).replaceAll('.0', '')}K';
-    } else {
-      countStr = count.toString();
-    }
-
-    if (count % 10 == 1 && count % 100 != 11) {
-      return '$countStr подписчик';
-    } else if ([2, 3, 4].contains(count % 10) && ![12, 13, 14].contains(count % 100)) {
-      return '$countStr подписчика';
-    } else {
-      return '$countStr подписчиков';
-    }
+    return AppLocalizations.of(context)?.subscribersCount(count) ??
+        '$count subscribers';
   }
 }
 

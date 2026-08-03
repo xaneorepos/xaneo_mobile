@@ -13,6 +13,7 @@ import '../../providers/auth_provider.dart';
 import '../../styles/app_styles.dart';
 import '../../widgets/common/auth_settings_modal.dart';
 import '../../widgets/common/avatar_cropper.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -21,7 +22,8 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProviderStateMixin {
+class _RegisterScreenState extends State<RegisterScreen>
+    with SingleTickerProviderStateMixin {
   // Steps (new order):
   // 0: Name (Как вас зовут)
   // 1: Birthdate (Дата рождения)
@@ -122,9 +124,13 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
     setState(() {
       _isNameValid = _nameController.text.trim().isNotEmpty;
       _isBirthdateValid = _selectedBirthdate != null;
-      _isPasswordValid = _passwordController.text.length >= AppConfig.minPasswordLength;
-      _isPasswordConfirmValid = _passwordController.text == _passwordConfirmController.text && _passwordConfirmController.text.isNotEmpty;
-      _isVerificationCodeValid = _verificationCodeController.text.length == AppConfig.verificationCodeLength;
+      _isPasswordValid =
+          _passwordController.text.length >= AppConfig.minPasswordLength;
+      _isPasswordConfirmValid =
+          _passwordController.text == _passwordConfirmController.text &&
+              _passwordConfirmController.text.isNotEmpty;
+      _isVerificationCodeValid = _verificationCodeController.text.length ==
+          AppConfig.verificationCodeLength;
     });
   }
 
@@ -135,7 +141,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
 
     // Reset availability status when text changes
     setState(() {
-      _isUsernameValid = _usernameController.text.trim().length >= AppConfig.minUsernameLength;
+      _isUsernameValid =
+          _usernameController.text.trim().length >= AppConfig.minUsernameLength;
       _usernameError = null;
       _isUsernameAvailable = false;
     });
@@ -171,7 +178,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
             _usernameError = null;
           } else {
             _isUsernameAvailable = false;
-            _usernameError = result.message ?? 'Никнейм уже занят';
+            _usernameError = result.message ??
+                (AppLocalizations.of(context)?.nikneymUzheZanyat_59aa ??
+                    'Fallback');
           }
         });
       }
@@ -179,7 +188,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       if (mounted) {
         setState(() {
           _isCheckingUsername = false;
-          _usernameError = 'Ошибка проверки';
+          _usernameError =
+              (AppLocalizations.of(context)?.oshibkaProverki_2ab0 ??
+                  'Fallback');
         });
       }
     }
@@ -192,7 +203,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
 
     // Reset availability status when text changes
     setState(() {
-      _isEmailValid = _emailController.text.trim().contains('@') && _emailController.text.trim().contains('.');
+      _isEmailValid = _emailController.text.trim().contains('@') &&
+          _emailController.text.trim().contains('.');
       _emailError = null;
       _isEmailAvailable = false;
     });
@@ -228,7 +240,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
             _emailError = null;
           } else {
             _isEmailAvailable = false;
-            _emailError = result.message ?? 'Email недоступен';
+            _emailError = result.message ??
+                (AppLocalizations.of(context)?.emailNedostupen_fc3e ??
+                    'Fallback');
           }
         });
       }
@@ -236,7 +250,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       if (mounted) {
         setState(() {
           _isCheckingEmail = false;
-          _emailError = 'Ошибка проверки';
+          _emailError = (AppLocalizations.of(context)?.oshibkaProverki_2ab0 ??
+              'Fallback');
         });
       }
     }
@@ -266,7 +281,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       if (mounted) {
         setState(() {
           _isSendingCode = false;
-          _verificationError = 'Ошибка отправки кода';
+          _verificationError =
+              (AppLocalizations.of(context)?.oshibkaOtpravkiKoda_a42a ??
+                  'Fallback');
         });
       }
     }
@@ -292,7 +309,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
             // Move to password step
             _goToNextStepInternal();
           } else {
-            _verificationError = result.message ?? 'Неверный код';
+            _verificationError = result.message ??
+                (AppLocalizations.of(context)?.nevernyyKod_50f9 ?? 'Fallback');
           }
         });
       }
@@ -300,7 +318,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       if (mounted) {
         setState(() {
           _isVerifyingCode = false;
-          _verificationError = 'Ошибка проверки кода';
+          _verificationError =
+              (AppLocalizations.of(context)?.oshibkaProverkiKoda_9018 ??
+                  'Fallback');
         });
       }
     }
@@ -361,7 +381,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
 
     String? birthDateStr;
     if (_selectedBirthdate != null) {
-      birthDateStr = "${_selectedBirthdate!.year}-${_selectedBirthdate!.month.toString().padLeft(2, '0')}-${_selectedBirthdate!.day.toString().padLeft(2, '0')}";
+      birthDateStr =
+          "${_selectedBirthdate!.year}-${_selectedBirthdate!.month.toString().padLeft(2, '0')}-${_selectedBirthdate!.day.toString().padLeft(2, '0')}";
     }
 
     final success = await auth.register(
@@ -381,7 +402,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
     } else if (auth.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(auth.error!.message, style: AppStyles.bodyMedium.copyWith(color: Colors.white)),
+          content: Text(auth.error!.message,
+              style: AppStyles.bodyMedium.copyWith(color: Colors.white)),
           backgroundColor: AppStyles.errorColor,
           behavior: SnackBarBehavior.floating,
         ),
@@ -391,23 +413,33 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
 
   bool _isStepValid() {
     switch (_currentStep) {
-      case 0: return _isNameValid;
-      case 1: return _isBirthdateValid;
-      case 2: return _isUsernameValid && _isUsernameAvailable && !_isCheckingUsername;
-      case 3: return _isEmailValid && _isEmailAvailable && !_isCheckingEmail;
-      case 4: return _isVerificationCodeValid && !_isVerifyingCode;
-      case 5: return _isPasswordValid;
-      case 6: return _isPasswordConfirmValid;
-      case 7: return true;
-      case 8: return _agreedToTerms && _agreedToDataStorage;
-      default: return false;
+      case 0:
+        return _isNameValid;
+      case 1:
+        return _isBirthdateValid;
+      case 2:
+        return _isUsernameValid && _isUsernameAvailable && !_isCheckingUsername;
+      case 3:
+        return _isEmailValid && _isEmailAvailable && !_isCheckingEmail;
+      case 4:
+        return _isVerificationCodeValid && !_isVerifyingCode;
+      case 5:
+        return _isPasswordValid;
+      case 6:
+        return _isPasswordConfirmValid;
+      case 7:
+        return true;
+      case 8:
+        return _agreedToTerms && _agreedToDataStorage;
+      default:
+        return false;
     }
   }
 
   Future<void> _pickAvatarImage() async {
     // Request permission first
     PermissionStatus permissionStatus;
-    
+
     // On iOS, we use photos permission, on Android storage/photos
     if (Platform.isIOS) {
       permissionStatus = await Permission.photos.request();
@@ -418,16 +450,19 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         permissionStatus = await Permission.storage.request();
       }
     }
-    
+
     if (!permissionStatus.isGranted) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Необходимо разрешение на доступ к фотографиям'),
+            content: Text((AppLocalizations.of(context)
+                    ?.neobhodimoRazreshenieNaDostupK_5f5c ??
+                'Fallback')),
             backgroundColor: AppStyles.errorColor,
             behavior: SnackBarBehavior.floating,
             action: SnackBarAction(
-              label: 'Настройки',
+              label:
+                  (AppLocalizations.of(context)?.nastroyki_c919 ?? 'Fallback'),
               textColor: Colors.white,
               onPressed: () => openAppSettings(),
             ),
@@ -462,7 +497,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Color(0xFF161616),
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
@@ -483,33 +518,42 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                 ),
               ),
               const SizedBox(height: 32),
-              const Text('О выборе Email', style: AppStyles.titleLarge),
+              Text(
+                  (AppLocalizations.of(context)?.oVyboreEmail_2609 ??
+                      'Fallback'),
+                  style: AppStyles.titleLarge),
               const SizedBox(height: 24),
-              
+
               // Simple text with clickable link
               RichText(
                 text: TextSpan(
                   style: AppStyles.bodyMedium.copyWith(color: Colors.white70),
                   children: [
-                    const TextSpan(text: 'Поддерживаются все домены электронной почты, кроме '),
                     TextSpan(
-                      text: 'запрещённых',
+                        text: (AppLocalizations.of(context)
+                                ?.podderzhivayutsyaVseDomenyElektronnoyPochty_a4e0 ??
+                            'Fallback')),
+                    TextSpan(
+                      text: (AppLocalizations.of(context)?.zapreschennyh_1f49 ??
+                          'Fallback'),
                       style: const TextStyle(
                         color: Colors.blue,
                         decoration: TextDecoration.underline,
                       ),
                       recognizer: TapGestureRecognizer()
                         ..onTap = () async {
-                          final uri = Uri.parse('https://github.com/disposable-email-domains/disposable-email-domains');
+                          final uri = Uri.parse(
+                              'https://github.com/disposable-email-domains/disposable-email-domains');
                           if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            await launchUrl(uri,
+                                mode: LaunchMode.externalApplication);
                           }
                         },
                     ),
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 24),
             ],
           ),
@@ -528,12 +572,14 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const FaIcon(FontAwesomeIcons.chevronLeft, color: Colors.white, size: 18),
+          icon: const FaIcon(FontAwesomeIcons.chevronLeft,
+              color: Colors.white, size: 18),
           onPressed: isLoading ? null : _goBack,
         ),
         actions: [
           IconButton(
-            icon: const FaIcon(FontAwesomeIcons.gear, color: Colors.white70, size: 18),
+            icon: const FaIcon(FontAwesomeIcons.gear,
+                color: Colors.white70, size: 18),
             onPressed: () => AuthSettingsModal.show(context),
           ),
         ],
@@ -550,7 +596,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                   'assets/images/logo.png',
                   height: 48,
                   width: 48,
-                  errorBuilder: (context, error, stackTrace) => const Center(child: FaIcon(FontAwesomeIcons.comments, color: Colors.white, size: 40)),
+                  errorBuilder: (context, error, stackTrace) => const Center(
+                      child: FaIcon(FontAwesomeIcons.comments,
+                          color: Colors.white, size: 40)),
                 ),
               ),
               const Spacer(flex: 1),
@@ -572,24 +620,41 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                 },
                 child: _buildCurrentStep(key: ValueKey('step$_currentStep')),
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: 32),
               _buildProgressIndicator(),
               const Spacer(flex: 2),
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: isLoading || !_isStepValid() ? null : _goToNextStep,
+                  onPressed:
+                      isLoading || !_isStepValid() ? null : _goToNextStep,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppStyles.buttonBackgroundColor,
                     disabledBackgroundColor: Colors.white24,
                     foregroundColor: AppStyles.buttonTextColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                     elevation: 0,
                   ),
-                  child: isLoading || _isCheckingUsername || _isCheckingEmail || _isSendingCode || _isVerifyingCode
-                      ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                      : Text(_currentStep < 8 ? 'Далее' : 'Создать аккаунт', style: AppStyles.buttonText),
+                  child: isLoading ||
+                          _isCheckingUsername ||
+                          _isCheckingEmail ||
+                          _isSendingCode ||
+                          _isVerifyingCode
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                              color: Colors.black, strokeWidth: 2))
+                      : Text(
+                          _currentStep < 8
+                              ? (AppLocalizations.of(context)?.dalee_c453 ??
+                                  'Fallback')
+                              : (AppLocalizations.of(context)
+                                      ?.sozdatAkkaunt_19ed ??
+                                  'Fallback'),
+                          style: AppStyles.buttonText),
                 ),
               ),
               const SizedBox(height: 32),
@@ -602,20 +667,45 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
 
   Widget _buildCurrentStep({Key? key}) {
     switch (_currentStep) {
-      case 0: return _buildInputStep(key, 'Как вас зовут?', 'Имя', 'Например, Иван', _nameController, _nameFocusNode);
-      case 1: return _buildBirthdateStep(key);
-      case 2: return _buildUsernameStep(key);
-      case 3: return _buildEmailStep(key);
-      case 4: return _buildVerificationStep(key);
-      case 5: return _buildInputStep(key, 'Задайте пароль', 'Пароль', 'Минимум 8 символов', _passwordController, _passwordFocusNode, obscureText: true);
-      case 6: return _buildPasswordConfirmStep(key);
-      case 7: return _buildAvatarStep(key);
-      case 8: return _buildProfilePreviewStep(key);
-      default: return const SizedBox.shrink();
+      case 0:
+        return _buildInputStep(
+            key,
+            (AppLocalizations.of(context)?.kakVasZovut_68b7 ?? 'Fallback'),
+            (AppLocalizations.of(context)?.imya_d38d ?? 'Fallback'),
+            (AppLocalizations.of(context)?.naprimerIvan_d7cb ?? 'Fallback'),
+            _nameController,
+            _nameFocusNode);
+      case 1:
+        return _buildBirthdateStep(key);
+      case 2:
+        return _buildUsernameStep(key);
+      case 3:
+        return _buildEmailStep(key);
+      case 4:
+        return _buildVerificationStep(key);
+      case 5:
+        return _buildInputStep(
+            key,
+            (AppLocalizations.of(context)?.zadayteParol_53d2 ?? 'Fallback'),
+            (AppLocalizations.of(context)?.parol_5ebe ?? 'Fallback'),
+            (AppLocalizations.of(context)?.minimum8Simvolov_4ccd ?? 'Fallback'),
+            _passwordController,
+            _passwordFocusNode,
+            obscureText: true);
+      case 6:
+        return _buildPasswordConfirmStep(key);
+      case 7:
+        return _buildAvatarStep(key);
+      case 8:
+        return _buildProfilePreviewStep(key);
+      default:
+        return const SizedBox.shrink();
     }
   }
 
-  Widget _buildInputStep(Key? key, String title, String label, String hint, TextEditingController controller, FocusNode focusNode, {bool obscureText = false, TextInputType? keyboardType}) {
+  Widget _buildInputStep(Key? key, String title, String label, String hint,
+      TextEditingController controller, FocusNode focusNode,
+      {bool obscureText = false, TextInputType? keyboardType}) {
     final isPassword = controller == _passwordController;
     return Column(
       key: key,
@@ -635,16 +725,21 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
           decoration: InputDecoration(
             hintText: label,
             hintStyle: AppStyles.inputHint,
-            border: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+            border: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white24)),
+            enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white24)),
+            focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white)),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             suffixIcon: isPassword
                 ? IconButton(
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     icon: FaIcon(
-                      _obscurePassword ? FontAwesomeIcons.eyeSlash : FontAwesomeIcons.eye,
+                      _obscurePassword
+                          ? FontAwesomeIcons.eyeSlash
+                          : FontAwesomeIcons.eye,
                       color: Colors.white70,
                       size: 16,
                     ),
@@ -667,9 +762,16 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Придумайте никнейм', style: AppStyles.titleGiant),
+        Text(
+            (AppLocalizations.of(context)?.pridumayteNikneym_221b ??
+                'Fallback'),
+            style: AppStyles.titleGiant),
         const SizedBox(height: 8),
-        const Text('Уникальное имя для вашего профиля', style: AppStyles.bodyMuted),
+        Text(
+            (AppLocalizations.of(context)
+                    ?.unikalnoeImyaDlyaVashegoProfilya_a0ea ??
+                'Fallback'),
+            style: AppStyles.bodyMuted),
         const SizedBox(height: 32),
         TextField(
           controller: _usernameController,
@@ -677,26 +779,43 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
           style: AppStyles.inputText,
           cursorColor: Colors.white,
           decoration: InputDecoration(
-            hintText: 'Никнейм',
+            hintText:
+                (AppLocalizations.of(context)?.nikneym_3fea ?? 'Fallback'),
             hintStyle: AppStyles.inputHint,
-            border: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+            border: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white24)),
+            enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white24)),
+            focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white)),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             suffixIcon: _isCheckingUsername
-                ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54)))
-                : _isUsernameAvailable && _usernameController.text.length >= AppConfig.minUsernameLength
-                    ? const FaIcon(FontAwesomeIcons.circleCheck, color: Colors.green, size: 16)
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Padding(
+                        padding: EdgeInsets.all(12),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white54)))
+                : _isUsernameAvailable &&
+                        _usernameController.text.length >=
+                            AppConfig.minUsernameLength
+                    ? const FaIcon(FontAwesomeIcons.circleCheck,
+                        color: Colors.green, size: 16)
                     : null,
             errorText: _usernameError,
             errorStyle: const TextStyle(color: Colors.red),
           ),
           onSubmitted: (_) => _isStepValid() ? _goToNextStep() : null,
         ),
-        if (_isUsernameAvailable && _usernameController.text.length >= AppConfig.minUsernameLength)
+        if (_isUsernameAvailable &&
+            _usernameController.text.length >= AppConfig.minUsernameLength)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text('Никнейм доступен', style: AppStyles.bodyMuted.copyWith(color: Colors.green)),
+            child: Text(
+                (AppLocalizations.of(context)?.nikneymDostupen_3fc9 ??
+                    'Fallback'),
+                style: AppStyles.bodyMuted.copyWith(color: Colors.green)),
           ),
       ],
     );
@@ -709,15 +828,24 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       children: [
         Row(
           children: [
-            Expanded(child: Text('Ваш Email', style: AppStyles.titleGiant)),
+            Expanded(
+                child: Text(
+                    (AppLocalizations.of(context)?.vashEmail_879d ??
+                        'Fallback'),
+                    style: AppStyles.titleGiant)),
             IconButton(
-              icon: const FaIcon(FontAwesomeIcons.circleInfo, color: Colors.white54, size: 18),
+              icon: FaIcon(FontAwesomeIcons.circleInfo,
+                  color: Colors.white54, size: 18),
               onPressed: _showEmailInfoModal,
             ),
           ],
         ),
         const SizedBox(height: 8),
-        const Text('Для связи и восстановления доступа', style: AppStyles.bodyMuted),
+        Text(
+            (AppLocalizations.of(context)
+                    ?.dlyaSvyaziIVosstanovleniyaDostupa_c770 ??
+                'Fallback'),
+            style: AppStyles.bodyMuted),
         const SizedBox(height: 32),
         TextField(
           controller: _emailController,
@@ -726,16 +854,27 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
           cursorColor: Colors.white,
           keyboardType: TextInputType.emailAddress,
           decoration: InputDecoration(
-            hintText: 'Email адрес',
+            hintText:
+                (AppLocalizations.of(context)?.emailAdres_9130 ?? 'Fallback'),
             hintStyle: AppStyles.inputHint,
-            border: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+            border: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white24)),
+            enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white24)),
+            focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white)),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             suffixIcon: _isCheckingEmail
-                ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54)))
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Padding(
+                        padding: EdgeInsets.all(12),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white54)))
                 : _isEmailAvailable && _emailController.text.contains('@')
-                    ? const FaIcon(FontAwesomeIcons.circleCheck, color: Colors.green, size: 16)
+                    ? const FaIcon(FontAwesomeIcons.circleCheck,
+                        color: Colors.green, size: 16)
                     : null,
             errorText: _emailError,
             errorStyle: const TextStyle(color: Colors.red),
@@ -745,7 +884,10 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         if (_isEmailAvailable && _emailController.text.contains('@'))
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text('Email доступен', style: AppStyles.bodyMuted.copyWith(color: Colors.green)),
+            child: Text(
+                (AppLocalizations.of(context)?.emailDostupen_e903 ??
+                    'Fallback'),
+                style: AppStyles.bodyMuted.copyWith(color: Colors.green)),
           ),
       ],
     );
@@ -756,9 +898,16 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       key: key,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Text('Подтверждение Email', style: AppStyles.titleGiant),
+        Text(
+            (AppLocalizations.of(context)?.podtverzhdenieEmail_281f ??
+                'Fallback'),
+            style: AppStyles.titleGiant),
         const SizedBox(height: 8),
-        Text('Код отправлен на ${_emailController.text}', style: AppStyles.bodyMuted),
+        Text(
+            AppLocalizations.of(context)
+                    ?.codeSentToEmail(_emailController.text) ??
+                'Code sent to ${_emailController.text}',
+            style: AppStyles.bodyMuted),
         const SizedBox(height: 32),
         // Visual code boxes + transparent input overlay
         LayoutBuilder(
@@ -788,7 +937,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           return Container(
                             width: boxWidth,
                             height: 56,
-                            margin: EdgeInsets.only(right: index == codeLength - 1 ? 0 : spacing),
+                            margin: EdgeInsets.only(
+                                right: index == codeLength - 1 ? 0 : spacing),
                             decoration: BoxDecoration(
                               color: Colors.white10,
                               borderRadius: BorderRadius.circular(12),
@@ -796,8 +946,11 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                             ),
                             child: Center(
                               child: Text(
-                                _verificationCodeController.text.length > index ? _verificationCodeController.text[index] : '',
-                                style: AppStyles.titleLarge.copyWith(fontSize: 24),
+                                _verificationCodeController.text.length > index
+                                    ? _verificationCodeController.text[index]
+                                    : '',
+                                style:
+                                    AppStyles.titleLarge.copyWith(fontSize: 24),
                                 textAlign: TextAlign.center,
                               ),
                             ),
@@ -814,8 +967,11 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           keyboardType: TextInputType.number,
                           textInputAction: TextInputAction.done,
                           maxLength: 6,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          style: const TextStyle(color: Colors.transparent, fontSize: 1),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
+                          style: const TextStyle(
+                              color: Colors.transparent, fontSize: 1),
                           cursorColor: Colors.transparent,
                           decoration: const InputDecoration(
                             counterText: '',
@@ -835,17 +991,20 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
             );
           },
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         if (_verificationError != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(_verificationError!, style: AppStyles.bodyMuted.copyWith(color: Colors.red)),
+            child: Text(_verificationError!,
+                style: AppStyles.bodyMuted.copyWith(color: Colors.red)),
           ),
         TextButton(
           onPressed: _isSendingCode ? null : () => _sendVerificationCode(),
           child: Text(
-            'Отправить код повторно',
-            style: TextStyle(color: _isSendingCode ? Colors.white38 : Colors.white),
+            (AppLocalizations.of(context)?.otpravitKodPovtorno_7703 ??
+                'Fallback'),
+            style: TextStyle(
+                color: _isSendingCode ? Colors.white38 : Colors.white),
           ),
         ),
       ],
@@ -857,9 +1016,14 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Подтвердите пароль', style: AppStyles.titleGiant),
+        Text(
+            (AppLocalizations.of(context)?.podtverditeParol_e3e3 ?? 'Fallback'),
+            style: AppStyles.titleGiant),
         const SizedBox(height: 8),
-        const Text('Введите пароль ещё раз', style: AppStyles.bodyMuted),
+        Text(
+            (AppLocalizations.of(context)?.vvediteParolEscheRaz_7383 ??
+                'Fallback'),
+            style: AppStyles.bodyMuted),
         const SizedBox(height: 32),
         TextField(
           controller: _passwordConfirmController,
@@ -868,11 +1032,15 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
           cursorColor: Colors.white,
           obscureText: _obscureConfirmPassword,
           decoration: InputDecoration(
-            hintText: 'Пароль ещё раз',
+            hintText: (AppLocalizations.of(context)?.parolEscheRaz_6daf ??
+                'Fallback'),
             hintStyle: AppStyles.inputHint,
-            border: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+            border: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white24)),
+            enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white24)),
+            focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white)),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
@@ -882,7 +1050,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   icon: FaIcon(
-                    _obscureConfirmPassword ? FontAwesomeIcons.eyeSlash : FontAwesomeIcons.eye,
+                    _obscureConfirmPassword
+                        ? FontAwesomeIcons.eyeSlash
+                        : FontAwesomeIcons.eye,
                     color: Colors.white70,
                     size: 16,
                   ),
@@ -893,21 +1063,28 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                   },
                 ),
                 if (_isPasswordConfirmValid) ...[
+                  SizedBox(width: 8),
+                  const FaIcon(FontAwesomeIcons.circleCheck,
+                      color: Colors.green, size: 16),
+                ] else if (_passwordConfirmController.text.isNotEmpty &&
+                    !_isPasswordConfirmValid) ...[
                   const SizedBox(width: 8),
-                  const FaIcon(FontAwesomeIcons.circleCheck, color: Colors.green, size: 16),
-                ] else if (_passwordConfirmController.text.isNotEmpty && !_isPasswordConfirmValid) ...[
-                  const SizedBox(width: 8),
-                  const FaIcon(FontAwesomeIcons.circleExclamation, color: Colors.red, size: 16),
+                  const FaIcon(FontAwesomeIcons.circleExclamation,
+                      color: Colors.red, size: 16),
                 ],
               ],
             ),
           ),
           onSubmitted: (_) => _isStepValid() ? _goToNextStep() : null,
         ),
-        if (_passwordConfirmController.text.isNotEmpty && !_isPasswordConfirmValid)
+        if (_passwordConfirmController.text.isNotEmpty &&
+            !_isPasswordConfirmValid)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text('Пароли не совпадают', style: AppStyles.bodyMuted.copyWith(color: Colors.red)),
+            child: Text(
+                (AppLocalizations.of(context)?.paroliNeSovpadayut_d82f ??
+                    'Fallback'),
+                style: AppStyles.bodyMuted.copyWith(color: Colors.red)),
           ),
       ],
     );
@@ -918,7 +1095,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       context: context,
       builder: (_) => Container(
         height: 250,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Color(0xFF1E1E1E),
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(24),
@@ -934,11 +1111,17 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   CupertinoButton(
-                    child: const Text('Отмена', style: TextStyle(color: Colors.white54)),
+                    child: Text(
+                        (AppLocalizations.of(context)?.otmena_987b ??
+                            'Fallback'),
+                        style: TextStyle(color: Colors.white54)),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   CupertinoButton(
-                    child: const Text('Готово', style: TextStyle(color: Colors.white)),
+                    child: Text(
+                        (AppLocalizations.of(context)?.gotovo_34e1 ??
+                            'Fallback'),
+                        style: TextStyle(color: Colors.white)),
                     onPressed: () {
                       setState(() {
                         if (_selectedBirthdate == null) {
@@ -956,7 +1139,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
               child: CupertinoTheme(
                 data: const CupertinoThemeData(
                   textTheme: CupertinoTextThemeData(
-                    dateTimePickerTextStyle: TextStyle(color: Colors.white, fontSize: 22),
+                    dateTimePickerTextStyle:
+                        TextStyle(color: Colors.white, fontSize: 22),
                   ),
                 ),
                 child: CupertinoDatePicker(
@@ -984,9 +1168,14 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Дата рождения', style: AppStyles.titleGiant),
+        Text((AppLocalizations.of(context)?.dataRozhdeniya_505e ?? 'Fallback'),
+            style: AppStyles.titleGiant),
         const SizedBox(height: 8),
-        const Text('Укажите вашу реальную дату рождения', style: AppStyles.bodyMuted),
+        Text(
+            (AppLocalizations.of(context)
+                    ?.ukazhiteVashuRealnuyuDatuRozhdeniya_d9ed ??
+                'Fallback'),
+            style: AppStyles.bodyMuted),
         const SizedBox(height: 32),
         GestureDetector(
           onTap: () {
@@ -996,7 +1185,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: Colors.white24)),
             ),
             child: Row(
@@ -1005,8 +1194,11 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                 Text(
                   _selectedBirthdate != null
                       ? "${_selectedBirthdate!.day.toString().padLeft(2, '0')}.${_selectedBirthdate!.month.toString().padLeft(2, '0')}.${_selectedBirthdate!.year}"
-                      : "ДД.ММ.ГГГГ",
-                  style: _selectedBirthdate != null ? AppStyles.inputText : AppStyles.inputHint,
+                      : (AppLocalizations.of(context)?.ddmmgggg_3524 ??
+                          'Fallback'),
+                  style: _selectedBirthdate != null
+                      ? AppStyles.inputText
+                      : AppStyles.inputHint,
                 ),
                 const Icon(CupertinoIcons.calendar, color: Colors.white24),
               ],
@@ -1024,9 +1216,13 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         key: key,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text('Добавьте фото', style: AppStyles.titleGiant),
+          Text((AppLocalizations.of(context)?.dobavteFoto_25eb ?? 'Fallback'),
+              style: AppStyles.titleGiant),
           const SizedBox(height: 8),
-          const Text('Сделайте профиль узнаваемым', style: AppStyles.bodyMuted),
+          Text(
+              (AppLocalizations.of(context)?.sdelayteProfilUznavaemym_f2c5 ??
+                  'Fallback'),
+              style: AppStyles.bodyMuted),
           const SizedBox(height: 48),
           GestureDetector(
             onTap: _pickAvatarImage,
@@ -1034,7 +1230,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
               width: 140,
               height: 140,
               decoration: BoxDecoration(
-                color: _selectedAvatarImage != null ? Colors.transparent : Colors.white10,
+                color: _selectedAvatarImage != null
+                    ? Colors.transparent
+                    : Colors.white10,
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white24, width: 2),
                 image: _selectedAvatarImage != null
@@ -1045,7 +1243,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                     : null,
               ),
               child: _selectedAvatarImage == null
-                  ? const FaIcon(FontAwesomeIcons.camera, color: Colors.white70, size: 34)
+                  ? const FaIcon(FontAwesomeIcons.camera,
+                      color: Colors.white70, size: 34)
                   : null,
             ),
           ),
@@ -1059,9 +1258,13 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       key: key,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Text('Профиль готов', style: AppStyles.titleGiant),
+        Text((AppLocalizations.of(context)?.profilGotov_b57d ?? 'Fallback'),
+            style: AppStyles.titleGiant),
         const SizedBox(height: 8),
-        const Text('Осталось всего пара шагов', style: AppStyles.bodyMuted),
+        Text(
+            (AppLocalizations.of(context)?.ostalosVsegoParaShagov_37e3 ??
+                'Fallback'),
+            style: AppStyles.bodyMuted),
         const SizedBox(height: 32),
         Container(
           padding: const EdgeInsets.all(24),
@@ -1075,7 +1278,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: _selectedAvatarImage != null ? Colors.transparent : Colors.white24,
+                  color: _selectedAvatarImage != null
+                      ? Colors.transparent
+                      : Colors.white24,
                   shape: BoxShape.circle,
                   image: _selectedAvatarImage != null
                       ? DecorationImage(
@@ -1085,7 +1290,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                       : null,
                 ),
                 child: _selectedAvatarImage == null
-                    ? const FaIcon(FontAwesomeIcons.user, color: Colors.white, size: 34)
+                    ? const FaIcon(FontAwesomeIcons.user,
+                        color: Colors.white, size: 34)
                     : null,
               ),
               const SizedBox(height: 16),
@@ -1097,7 +1303,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         ),
         const SizedBox(height: 24),
         _buildCheckbox(
-          title: 'Я принимаю Пользовательское соглашение',
+          title: (AppLocalizations.of(context)
+                  ?.yaPrinimayuPolzovatelskoeSoglashenie_c431 ??
+              'Fallback'),
           value: _agreedToTerms,
           onChanged: (val) {
             setState(() {
@@ -1105,9 +1313,11 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
             });
           },
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         _buildCheckbox(
-          title: 'Я даю согласие на обработку персональных данных',
+          title:
+              (AppLocalizations.of(context)?.yaDayuSoglasieNaObrabotku_0d03 ??
+                  'Fallback'),
           value: _agreedToDataStorage,
           onChanged: (val) {
             setState(() {
@@ -1119,7 +1329,10 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildCheckbox({required String title, required bool value, required ValueChanged<bool?> onChanged}) {
+  Widget _buildCheckbox(
+      {required String title,
+      required bool value,
+      required ValueChanged<bool?> onChanged}) {
     return GestureDetector(
       onTap: () => onChanged(!value),
       child: Row(
@@ -1137,14 +1350,16 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
               }),
               checkColor: Colors.black,
               side: const BorderSide(color: Colors.white54, width: 1.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6)),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+              style: const TextStyle(
+                  color: Colors.white70, fontSize: 13, height: 1.4),
             ),
           ),
         ],

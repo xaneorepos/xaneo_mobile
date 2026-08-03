@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'dart:math' as math;
 import 'package:path_provider/path_provider.dart';
 import '../../styles/app_styles.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 class AvatarCropper extends StatefulWidget {
   final File? imageFile;
@@ -51,25 +52,25 @@ class _AvatarCropperState extends State<AvatarCropper> {
     final ImageProvider provider = widget.imageFile != null
         ? FileImage(widget.imageFile!)
         : const AssetImage('assets/images/medved.png') as ImageProvider;
-    
+
     provider.resolve(const ImageConfiguration()).addListener(
-      ImageStreamListener(
-        (ImageInfo info, bool _) {
-          if (mounted) {
-            setState(() {
-              _imageAspectRatio = info.image.width / info.image.height;
-            });
-          }
-        },
-        onError: (dynamic exception, StackTrace? stackTrace) {
-          if (mounted) {
-            setState(() {
-              _imageAspectRatio = 1.0;
-            });
-          }
-        },
-      ),
-    );
+          ImageStreamListener(
+            (ImageInfo info, bool _) {
+              if (mounted) {
+                setState(() {
+                  _imageAspectRatio = info.image.width / info.image.height;
+                });
+              }
+            },
+            onError: (dynamic exception, StackTrace? stackTrace) {
+              if (mounted) {
+                setState(() {
+                  _imageAspectRatio = 1.0;
+                });
+              }
+            },
+          ),
+        );
   }
 
   @override
@@ -81,10 +82,12 @@ class _AvatarCropperState extends State<AvatarCropper> {
           backgroundColor: Colors.black,
           elevation: 0,
           leading: IconButton(
-            icon: const FaIcon(FontAwesomeIcons.xmark, color: Colors.white, size: 18),
+            icon: FaIcon(FontAwesomeIcons.xmark, color: Colors.white, size: 18),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          title: const Text('Редактирование', style: AppStyles.titleLarge),
+          title: Text(
+              (AppLocalizations.of(context)?.redaktirovanie_1167 ?? 'Fallback'),
+              style: AppStyles.titleLarge),
         ),
         body: const Center(
           child: CircularProgressIndicator(color: Colors.white),
@@ -98,19 +101,23 @@ class _AvatarCropperState extends State<AvatarCropper> {
         backgroundColor: Colors.black,
         elevation: 0,
         leading: IconButton(
-          icon: const FaIcon(FontAwesomeIcons.xmark, color: Colors.white, size: 18),
+          icon: FaIcon(FontAwesomeIcons.xmark, color: Colors.white, size: 18),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Редактирование', style: AppStyles.titleLarge),
+        title: Text(
+            (AppLocalizations.of(context)?.redaktirovanie_1167 ?? 'Fallback'),
+            style: AppStyles.titleLarge),
         actions: [
           IconButton(
-            icon: _isSaving 
+            icon: _isSaving
                 ? const SizedBox(
-                    width: 20, 
-                    height: 20, 
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
                   )
-                : const FaIcon(FontAwesomeIcons.check, color: Colors.white, size: 18),
+                : const FaIcon(FontAwesomeIcons.check,
+                    color: Colors.white, size: 18),
             onPressed: _isSaving ? null : _saveCroppedImage,
           ),
         ],
@@ -120,7 +127,8 @@ class _AvatarCropperState extends State<AvatarCropper> {
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final double cropSize = math.min(constraints.maxWidth, constraints.maxHeight) * 0.9;
+                final double cropSize =
+                    math.min(constraints.maxWidth, constraints.maxHeight) * 0.9;
                 final double baseWidth;
                 final double baseHeight;
 
@@ -132,12 +140,17 @@ class _AvatarCropperState extends State<AvatarCropper> {
                   baseHeight = cropSize / _imageAspectRatio!;
                 }
 
-                final bool isRotatedOdd = ((_rotation / (math.pi / 2)).round() % 2) != 0;
-                final double currentW = (isRotatedOdd ? baseHeight : baseWidth) * _scale;
-                final double currentH = (isRotatedOdd ? baseWidth : baseHeight) * _scale;
+                final bool isRotatedOdd =
+                    ((_rotation / (math.pi / 2)).round() % 2) != 0;
+                final double currentW =
+                    (isRotatedOdd ? baseHeight : baseWidth) * _scale;
+                final double currentH =
+                    (isRotatedOdd ? baseWidth : baseHeight) * _scale;
 
-                final double maxOffsetX = math.max(0.0, (currentW - cropSize) / 2);
-                final double maxOffsetY = math.max(0.0, (currentH - cropSize) / 2);
+                final double maxOffsetX =
+                    math.max(0.0, (currentW - cropSize) / 2);
+                final double maxOffsetY =
+                    math.max(0.0, (currentH - cropSize) / 2);
 
                 final clampedOffset = Offset(
                   _offset.dx.clamp(-maxOffsetX, maxOffsetX),
@@ -149,7 +162,7 @@ class _AvatarCropperState extends State<AvatarCropper> {
                   children: [
                     // Base background
                     Container(color: Colors.black),
-                    
+
                     // The capture area
                     RepaintBoundary(
                       key: _repaintBoundaryKey,
@@ -183,8 +196,11 @@ class _AvatarCropperState extends State<AvatarCropper> {
                                         1.0,
                                       )..rotateZ(_rotation),
                                       child: widget.imageFile != null
-                                          ? Image.file(widget.imageFile!, fit: BoxFit.fill)
-                                          : Image.asset('assets/images/medved.png', fit: BoxFit.fill),
+                                          ? Image.file(widget.imageFile!,
+                                              fit: BoxFit.fill)
+                                          : Image.asset(
+                                              'assets/images/medved.png',
+                                              fit: BoxFit.fill),
                                     ),
                                   ),
                                 ),
@@ -194,7 +210,7 @@ class _AvatarCropperState extends State<AvatarCropper> {
                         ),
                       ),
                     ),
-                    
+
                     // Overlay with dark mask and white circle border
                     IgnorePointer(
                       child: CustomPaint(
@@ -202,7 +218,7 @@ class _AvatarCropperState extends State<AvatarCropper> {
                         painter: CircleOverlayPainter(cropSize: cropSize),
                       ),
                     ),
-                    
+
                     // Full-screen gesture detector so dragging is smooth anywhere
                     Positioned.fill(
                       child: GestureDetector(
@@ -220,9 +236,11 @@ class _AvatarCropperState extends State<AvatarCropper> {
                             return;
                           }
                           setState(() {
-                            _scale = math.max(1.0, _previousScale * details.scale);
-                            
-                            Offset newOffset = _offset + (details.focalPoint - _previousOffset);
+                            _scale =
+                                math.max(1.0, _previousScale * details.scale);
+
+                            Offset newOffset = _offset +
+                                (details.focalPoint - _previousOffset);
                             _offset = newOffset;
                             _previousOffset = details.focalPoint;
                           });
@@ -239,7 +257,8 @@ class _AvatarCropperState extends State<AvatarCropper> {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.only(left: 20, right: 20, bottom: 16, top: 8),
+              padding: const EdgeInsets.only(
+                  left: 20, right: 20, bottom: 16, top: 8),
               child: Container(
                 height: 64,
                 decoration: BoxDecoration(
@@ -262,31 +281,40 @@ class _AvatarCropperState extends State<AvatarCropper> {
                     filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                     child: Container(
                       color: Colors.white.withOpacity(0.08),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           _buildGlassToolButton(
                             icon: FontAwesomeIcons.rotateLeft,
-                            label: 'Влево',
-                            onTap: () => setState(() => _rotation -= math.pi / 2),
+                            label: (AppLocalizations.of(context)?.vlevo_1af1 ??
+                                'Fallback'),
+                            onTap: () =>
+                                setState(() => _rotation -= math.pi / 2),
                           ),
                           _buildGlassToolButton(
                             icon: FontAwesomeIcons.rotateRight,
-                            label: 'Вправо',
-                            onTap: () => setState(() => _rotation += math.pi / 2),
+                            label: (AppLocalizations.of(context)?.vpravo_c316 ??
+                                'Fallback'),
+                            onTap: () =>
+                                setState(() => _rotation += math.pi / 2),
                           ),
                           _buildGlassToolButton(
                             icon: FontAwesomeIcons.rightLeft,
-                            label: 'По гор.',
+                            label: (AppLocalizations.of(context)?.poGor_ff50 ??
+                                'Fallback'),
                             isActive: _flipHorizontal,
-                            onTap: () => setState(() => _flipHorizontal = !_flipHorizontal),
+                            onTap: () => setState(
+                                () => _flipHorizontal = !_flipHorizontal),
                           ),
                           _buildGlassToolButton(
                             icon: FontAwesomeIcons.upDown,
-                            label: 'По верт.',
+                            label: (AppLocalizations.of(context)?.poVert_b4a9 ??
+                                'Fallback'),
                             isActive: _flipVertical,
-                            onTap: () => setState(() => _flipVertical = !_flipVertical),
+                            onTap: () =>
+                                setState(() => _flipVertical = !_flipVertical),
                           ),
                         ],
                       ),
@@ -313,19 +341,22 @@ class _AvatarCropperState extends State<AvatarCropper> {
 
     try {
       // Capture the exact visible area in the screen boundary Box
-      final boundary = _repaintBoundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary = _repaintBoundaryKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
       if (boundary == null) throw Exception('Boundary not found');
 
       final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final ByteData? byteData =
+          await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) throw Exception('Failed to get byte data');
 
       final Uint8List pngBytes = byteData.buffer.asUint8List();
-      
+
       final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/cropped_avatar_${DateTime.now().millisecondsSinceEpoch}.png');
+      final tempFile = File(
+          '${tempDir.path}/cropped_avatar_${DateTime.now().millisecondsSinceEpoch}.png');
       await tempFile.writeAsBytes(pngBytes);
-      
+
       if (mounted) {
         Navigator.of(context).pop(tempFile);
       }
@@ -333,7 +364,8 @@ class _AvatarCropperState extends State<AvatarCropper> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ошибка сохранения: $e'),
+            content: Text(
+                '${AppLocalizations.of(context)?.oshibkaSohraneniya_0387 ?? 'Save error'}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -361,7 +393,8 @@ class _AvatarCropperState extends State<AvatarCropper> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 6),
             decoration: BoxDecoration(
-              color: isActive ? Colors.white.withOpacity(0.2) : Colors.transparent,
+              color:
+                  isActive ? Colors.white.withOpacity(0.2) : Colors.transparent,
               borderRadius: BorderRadius.circular(24),
               border: isActive
                   ? Border.all(color: Colors.white.withOpacity(0.3), width: 1)
@@ -373,7 +406,8 @@ class _AvatarCropperState extends State<AvatarCropper> {
               children: [
                 FaIcon(
                   icon,
-                  color: isActive ? Colors.white : Colors.white.withOpacity(0.85),
+                  color:
+                      isActive ? Colors.white : Colors.white.withOpacity(0.85),
                   size: 16,
                 ),
                 const SizedBox(height: 3),
@@ -382,7 +416,8 @@ class _AvatarCropperState extends State<AvatarCropper> {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                    color: isActive ? Colors.white : Colors.white.withOpacity(0.7),
+                    color:
+                        isActive ? Colors.white : Colors.white.withOpacity(0.7),
                     fontFamily: AppStyles.fontFamily,
                   ),
                 ),

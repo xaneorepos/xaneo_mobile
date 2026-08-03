@@ -10,6 +10,7 @@ import '../../styles/app_styles.dart';
 import 'create_channel_modal.dart';
 import 'create_group_modal.dart';
 import 'global_search_modal.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Легковесное модальное окно выбора варианта создания (Личный чат, Группа, Канал)
 class CreateOptionsModal extends StatelessWidget {
@@ -46,7 +47,7 @@ class CreateOptionsModal extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF141416),
+        color: Color(0xFF141416),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         border: Border(
           top: BorderSide(
@@ -76,10 +77,10 @@ class CreateOptionsModal extends StatelessWidget {
               const SizedBox(height: 16),
 
               // Заголовок
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(left: 4, bottom: 14),
                 child: Text(
-                  'Создать новый чат',
+                  (AppLocalizations.of(context)?.sozdatNovyyChat_fd41 ?? 'Fallback'),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -95,8 +96,8 @@ class CreateOptionsModal extends StatelessWidget {
                 context: context,
                 icon: FontAwesomeIcons.solidComment,
                 iconColor: const Color(0xFF60A5FA),
-                title: 'Личный чат',
-                subtitle: 'Начать общение с пользователем',
+                title: (AppLocalizations.of(context)?.lichnyyChat_cbec ?? 'Fallback'),
+                subtitle: (AppLocalizations.of(context)?.nachatObschenieSPolzovatelem_0578 ?? 'Fallback'),
                 onTap: () async {
                   final authProvider = context.read<AuthProvider>();
                   final rootContext = Navigator.of(context).context;
@@ -114,15 +115,15 @@ class CreateOptionsModal extends StatelessWidget {
                 },
               ),
 
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
 
               // Вариант 2: Создать группу
               _buildOptionItem(
                 context: context,
                 icon: FontAwesomeIcons.users,
                 iconColor: const Color(0xFF34D399),
-                title: 'Создать группу',
-                subtitle: 'Групповой чат для общения с друзьями',
+                title: (AppLocalizations.of(context)?.sozdatGruppu_459f ?? 'Fallback'),
+                subtitle: (AppLocalizations.of(context)?.gruppovoyChatDlyaObscheniyaS_01ba ?? 'Fallback'),
                 onTap: () async {
                   final rootContext = Navigator.of(context).context;
 
@@ -138,15 +139,15 @@ class CreateOptionsModal extends StatelessWidget {
                 },
               ),
 
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
 
               // Вариант 3: Создать канал
               _buildOptionItem(
                 context: context,
                 icon: FontAwesomeIcons.bullhorn,
                 iconColor: const Color(0xFFA78BFA),
-                title: 'Создать канал',
-                subtitle: 'Канал для широкой аудитории',
+                title: (AppLocalizations.of(context)?.sozdatKanal_9022 ?? 'Fallback'),
+                subtitle: (AppLocalizations.of(context)?.kanalDlyaShirokoyAuditorii_9dba ?? 'Fallback'),
                 onTap: () async {
                   final rootContext = Navigator.of(context).context;
 

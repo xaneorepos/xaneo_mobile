@@ -25,7 +25,8 @@ class AuthService {
   AuthService({
     required ApiClient apiClient,
     required TokenStorage tokenStorage,
-  }) : _apiClient = apiClient, _tokenStorage = tokenStorage;
+  })  : _apiClient = apiClient,
+        _tokenStorage = tokenStorage;
 
   TokenStorage get tokenStorage => _tokenStorage;
 
@@ -49,7 +50,6 @@ class AuthService {
       );
 
       final mobileResponse = MobileLoginResponse.fromJson(response.data);
-      
       // Если требуется 2FA
       if (mobileResponse.requiresTfa) {
         return MobileLoginResult.fromTfaRequired(mobileResponse);
@@ -136,21 +136,73 @@ class AuthService {
     }
   }
 
-  /// Подтверждение 2FA кода
-  Future<AuthResponse> verifyTfaCode({
-    required String tfaCodeId,
+  /// Отправка 2FA кода на email для временного токена mobile-login.
+  Future<VerificationCodeResponse> sendTfaCode({
+    required String token,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        AppConfig.authSendTfaCode,
+        data: {'token': token},
+      );
+
+      return VerificationCodeResponse.fromJson(response.data);
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  /// Подтверждение 2FA кода для временного токена mobile-login.
+  Future<AuthResponse?> verifyTfaCode({
+    required String token,
     required String code,
   }) async {
     try {
       final response = await _apiClient.post(
         AppConfig.authVerifyTfaCode,
         data: {
-          'tfa_code_id': tfaCodeId,
+          'token': token,
           'code': code,
         },
       );
 
-      final authResponse = AuthResponse.fromJson(response.data);
+      final data = Map<String, dynamic>.from(response.data as Map);
+      final tokenData = data['tokens'] is Map
+          ? Map<String, dynamic>.from(data['tokens'] as Map)
+          : data;
+      final access = tokenData['access'];
+      final refresh = tokenData['refresh'];
+
+      // Новый API сразу возвращает JWT после успешной проверки 2FA.
+      // Старый API возвращал только success/user_info; null позволяет
+      // провайдеру завершить вход через legacy login endpoint.
+      if (access is! String || refresh is! String) {
+        if (data['success'] == true) return null;
+        throw const ApiError(
+          message: 'Сервер не подтвердил двухфакторную аутентификацию',
+        );
+      }
+
+      final userData = data['user'];
+      final userInfoData = data['user_info'];
+      final user = userData is Map
+          ? UserModel.fromJson(Map<String, dynamic>.from(userData))
+          : userInfoData is Map
+              ? UserModel.fromUserInfoJson(
+                  Map<String, dynamic>.from(userInfoData),
+                )
+              : null;
+      if (user == null) {
+        throw const ApiError(
+          message: 'Сервер не вернул данные пользователя после проверки 2FA',
+        );
+      }
+
+      final authResponse = AuthResponse(
+        accessToken: access,
+        refreshToken: refresh,
+        user: user,
+      );
       await _saveAuthData(authResponse);
       return authResponse;
     } on DioException catch (e) {
@@ -207,11 +259,13 @@ class AuthService {
       );
 
       final registerResponse = MobileRegisterResponse.fromJson(response.data);
-      
+
       // Сохраняем токены авторизации и данные пользователя
       if (registerResponse.success) {
-        final access = response.data['access'] ?? response.data['tokens']?['access'];
-        final refresh = response.data['refresh'] ?? response.data['tokens']?['refresh'];
+        final access =
+            response.data['access'] ?? response.data['tokens']?['access'];
+        final refresh =
+            response.data['refresh'] ?? response.data['tokens']?['refresh'];
 
         if (access != null && access is String) {
           await _tokenStorage.saveAccessToken(access);
@@ -232,7 +286,7 @@ class AuthService {
           });
         }
       }
-      
+
       return registerResponse;
     } on DioException catch (e) {
       throw _handleDioError(e);
@@ -301,7 +355,8 @@ class AuthService {
   }
 
   /// Отправка кода верификации на email
-  Future<VerificationCodeResponse> sendVerificationCode(String email, {String? username}) async {
+  Future<VerificationCodeResponse> sendVerificationCode(String email,
+      {String? username}) async {
     try {
       final data = <String, dynamic>{'email': email};
       if (username != null) {
@@ -318,7 +373,7 @@ class AuthService {
   }
 
   /// Проверка кода верификации email
-  /// 
+  ///
   /// После успешной проверки устанавливается флаг в сессии
   Future<VerifyCodeResponse> verifyEmailCode({
     required String email,
@@ -357,7 +412,7 @@ class AuthService {
   Future<UserModel?> getCurrentUser() async {
     final userData = await _tokenStorage.getUserData();
     if (userData == null) return null;
-    
+
     try {
       return UserModel.fromJson(userData);
     } catch (_) {
@@ -424,7 +479,7 @@ class AuthService {
   // ==================== Недавние аккаунты ====================
 
   /// Получение недавних аккаунтов для устройства
-  /// 
+  ///
   /// Возвращает список аккаунтов, в которые ранее входили на этом устройстве
   Future<RecentAccountsResponse> getRecentAccounts() async {
     try {
@@ -436,14 +491,14 @@ class AuthService {
   }
 
   /// Быстрый вход в аккаунт
-  /// 
+  ///
   /// Проверяет, входил ли пользователь с этого устройства ранее.
   /// Если да - позволяет войти без пароля.
-  /// 
+  ///
   /// Параметры:
   /// - userId: ID пользователя для быстрого входа
   /// - tfaCode: код 2FA (если включен)
-  /// 
+  ///
   /// Возвращает QuickLoginResponse:
   /// - success: true если вход успешен
   /// - requiresTfa: true если требуется код 2FA
@@ -487,10 +542,10 @@ class AuthService {
   }
 
   /// Быстрый вход с получением JWT токенов
-  /// 
+  ///
   /// После успешного quickLogin нужно вызвать этот метод для получения токенов.
   /// Использует обычный login endpoint с сохранёнными credentials.
-  /// 
+  ///
   /// ВНИМАНИЕ: Этот метод не должен использоваться напрямую!
   /// Быстрый вход не требует пароля, поэтому токены выдаются сервером
   /// в ответе quickLogin если вход успешен.

@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../styles/app_styles.dart';
 import 'login_screen.dart';
 import '../main/main_screen.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Экран подтверждения 2FA
 class TfaScreen extends StatefulWidget {
@@ -97,8 +98,8 @@ class _TfaScreenState extends State<TfaScreen>
   void _resendCode() {
     // TODO: Вызвать API для повторной отправки кода
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Код отправлен повторно'),
+      SnackBar(
+        content: Text((AppLocalizations.of(context)?.kodOtpravlenPovtorno_e109 ?? 'Fallback')),
         backgroundColor: AppStyles.textPrimaryColor,
       ),
     );
@@ -134,7 +135,7 @@ class _TfaScreenState extends State<TfaScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 80),
+            SizedBox(height: 80),
             
             // Иконка
             _buildIcon(),
@@ -142,7 +143,7 @@ class _TfaScreenState extends State<TfaScreen>
             
             // Заголовок
             Text(
-              'Двухфакторная\nаутентификация',
+              (AppLocalizations.of(context)?.dvuhfaktornayanautentifikatsiya_bacc ?? 'Fallback'),
               style: AppStyles.titleLarge,
               textAlign: TextAlign.center,
             ),
@@ -150,7 +151,7 @@ class _TfaScreenState extends State<TfaScreen>
             
             // Описание
             Text(
-              'На ваш email отправлен 6-значный код',
+              (AppLocalizations.of(context)?.naVashEmailOtpravlen6_b457 ?? 'Fallback'),
               style: AppStyles.bodyMedium,
               textAlign: TextAlign.center,
             ),
@@ -250,7 +251,7 @@ class _TfaScreenState extends State<TfaScreen>
         onPressed: auth.isLoading ? null : _verifyCode,
         style: AppStyles.primaryButton,
         child: auth.isLoading
-            ? const SizedBox(
+            ? SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
@@ -258,7 +259,7 @@ class _TfaScreenState extends State<TfaScreen>
                   valueColor: AlwaysStoppedAnimation<Color>(AppStyles.backgroundColor),
                 ),
               )
-            : const Text('Подтвердить', style: AppStyles.buttonText),
+            : Text((AppLocalizations.of(context)?.podtverdit_e260 ?? 'Fallback'), style: AppStyles.buttonText),
       ),
     );
   }
@@ -268,7 +269,7 @@ class _TfaScreenState extends State<TfaScreen>
       child: TextButton(
         onPressed: _resendCode,
         style: AppStyles.textButton,
-        child: const Text('Не получили код? Отправить повторно'),
+        child: Text((AppLocalizations.of(context)?.nePoluchiliKodOtpravitPovtorno_c1d2 ?? 'Fallback')),
       ),
     );
   }
@@ -283,7 +284,7 @@ class _TfaScreenState extends State<TfaScreen>
           );
         },
         style: AppStyles.textButton,
-        child: const Text('Отмена'),
+        child: Text((AppLocalizations.of(context)?.otmena_987b ?? 'Fallback')),
       ),
     );
   }

@@ -38,6 +38,7 @@ dependencies:
   # UI Components
   google_fonts: ^6.1.0
   cupertino_icons: ^1.0.6
+  flutter_svg: ^2.0.10
 
   # Localization (pinned by flutter_localizations)
   intl: ^0.20.2

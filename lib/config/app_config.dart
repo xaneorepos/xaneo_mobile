@@ -13,6 +13,18 @@ class AppConfig {
     defaultValue: 'https://xaneo.ru/api/v1',
   );
 
+  /// Версия приложения (настраивается через --dart-define=APP_VERSION=...)
+  static const String appVersion = String.fromEnvironment(
+    'APP_VERSION',
+    defaultValue: '2.0.0',
+  );
+
+  /// Номер сборки (настраивается через --dart-define=BUILD_NUMBER=...)
+  static const String buildNumber = String.fromEnvironment(
+    'BUILD_NUMBER',
+    defaultValue: '1',
+  );
+
   /// Серверный Origin без `/api/v1` (например: `https://xaneo.ru`)
   static String get serverOrigin {
     final uri = Uri.parse(apiBaseUrl);
@@ -131,7 +143,7 @@ class AppConfig {
   // ========== Security ==========
   
   /// User-Agent для идентификации мобильного приложения
-  static const String userAgent = 'XaneoMobile/2.0';
+  static String get userAgent => 'XaneoMobile/$appVersion';
   
   /// Порог для автоматического обновления токена (за 5 минут до истечения)
   static const Duration tokenRefreshThreshold = Duration(minutes: 5);

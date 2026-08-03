@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/update/app_version_info.dart';
-import '../../services/update/update_service.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Стильный кастомный плавающий Тост-баннер уведомления об обновлении
 class CustomUpdateToast extends StatefulWidget {
@@ -98,13 +98,12 @@ class _CustomUpdateToastState extends State<CustomUpdateToast>
               key: UniqueKey(),
               direction: DismissDirection.up,
               onDismissed: (_) {
-                UpdateService().ignoreVersion(widget.updateInfo.version);
                 widget.onDismiss();
               },
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E212B) : const Color(0xFF2D3748),
+                  color: isDark ? Color(0xFF1E212B) : const Color(0xFF2D3748),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -138,7 +137,7 @@ class _CustomUpdateToastState extends State<CustomUpdateToast>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Доступно обновление v${widget.updateInfo.version}',
+                            '${AppLocalizations.of(context)?.updateAvailable ?? 'Update available'} v${widget.updateInfo.version}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -149,8 +148,12 @@ class _CustomUpdateToastState extends State<CustomUpdateToast>
                           const SizedBox(height: 2),
                           Text(
                             widget.updateInfo.releaseNotes.isNotEmpty
-                                ? widget.updateInfo.releaseNotes.split('\n').first
-                                : 'Нажмите, чтобы загрузить новую версию',
+                                ? widget.updateInfo.releaseNotes
+                                    .split('\n')
+                                    .first
+                                : (AppLocalizations.of(context)
+                                        ?.nazhmiteChtobyZagruzitNovuyuVersiyu_8b2a ??
+                                    'Fallback'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -169,15 +172,17 @@ class _CustomUpdateToastState extends State<CustomUpdateToast>
                         backgroundColor: Colors.white,
                         foregroundColor: Colors.black87,
                         elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
-                        'Обновить',
+                      child: Text(
+                        (AppLocalizations.of(context)?.obnovit_dbe5 ??
+                            'Fallback'),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -195,7 +200,6 @@ class _CustomUpdateToastState extends State<CustomUpdateToast>
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       onPressed: () {
-                        UpdateService().ignoreVersion(widget.updateInfo.version);
                         _dismiss();
                       },
                     ),

@@ -405,264 +405,272 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get cancel => '취소';
   @override
-  String get obnovlenie_7e32 => 'ОБНОВЛЕНИЕ';
+  String get obnovlenie_7e32 => '업데이트';
   @override
-  String get obnovleniePrilozheniya_b6c3 => 'ОБНОВЛЕНИЕ ПРИЛОЖЕНИЯ';
+  String get obnovleniePrilozheniya_b6c3 => '앱 업데이트';
   @override
-  String get podgotovkaKZagruzke_a5c7 => 'Подготовка к загрузке...';
+  String get podgotovkaKZagruzke_a5c7 => '다운로드 준비 중...';
   @override
-  String get ustanovkaZapuschena_d378 => 'Установка запущена!';
+  String get ustanovkaZapuschena_d378 => '설치가 시작되었습니다!';
   @override
-  String get dostupnaNovayaVersiyaPrilozheniya_eeae => 'Доступна новая версия приложения';
+  String get dostupnaNovayaVersiyaPrilozheniya_eeae =>
+      '새로운 버전의 애플리케이션을 사용할 수 있습니다.';
   @override
-  String get chtoNovogo_74e2 => 'ЧТО НОВОГО';
+  String get chtoNovogo_74e2 => '새로운 소식';
   @override
-  String get ofitsialnoeOpisanieRelizaDostupnoNa_3ea3 => 'Официальное описание релиза доступно на странице GitHub.';
+  String get ofitsialnoeOpisanieRelizaDostupnoNa_3ea3 =>
+      '공식 릴리스 설명은 GitHub 페이지에서 확인할 수 있습니다.';
   @override
-  String get istochnikZagruzki_0e6e => 'ИСТОЧНИК ЗАГРУЗКИ';
+  String get istochnikZagruzki_0e6e => '다운로드 소스';
   @override
-  String get pryamayaUstanovkaVPrilozhenii_16f5 => 'Прямая установка в приложении';
+  String get pryamayaUstanovkaVPrilozhenii_16f5 => '애플리케이션에 직접 설치';
   @override
-  String get avtomaticheskoeSkachivanieIZapusk_9a3f => 'Автоматическое скачивание и запуск';
+  String get avtomaticheskoeSkachivanieIZapusk_9a3f => '자동 다운로드 및 실행';
   @override
-  String get stranitsaRelizaNaGithub_1531 => 'Страница релиза на GitHub';
+  String get stranitsaRelizaNaGithub_1531 => 'GitHub의 릴리스 페이지';
   @override
-  String get propustit_03ee => 'Пропустить';
+  String get propustit_03ee => '건너뛰기';
   @override
-  String get ustanovka_516d => 'Установка...';
+  String get ustanovka_516d => '설치...';
   @override
-  String get obnovit_dbe5 => 'Обновить';
+  String get obnovit_dbe5 => '업데이트';
   @override
-  String get lichnyeDannye_be85 => 'Личные данные';
+  String get lichnyeDannye_be85 => '개인정보';
   @override
-  String get imyaNikneymFotoProfilya_28ac => 'Имя, никнейм, фото профиля';
+  String get imyaNikneymFotoProfilya_28ac => '이름, 닉네임, 프로필 사진';
   @override
-  String get privatnost_0899 => 'Приватность';
+  String get privatnost_0899 => '개인 정보 보호';
   @override
-  String get ktoMozhetPisatZvonitVidet_1789 => 'Кто может писать, звонить, видеть профиль';
+  String get ktoMozhetPisatZvonitVidet_1789 => '글을 쓰고, 전화하고, 프로필을 볼 수 있는 사람';
   @override
-  String get nastroykiChatov_7ca8 => 'Настройки чатов';
+  String get nastroykiChatov_7ca8 => '채팅 설정';
   @override
-  String get uvedomleniyaTemyIstoriya_51da => 'Уведомления, темы, история';
+  String get uvedomleniyaTemyIstoriya_51da => '알림, 주제, 기록';
   @override
-  String get kontakty_7576 => 'Контакты';
+  String get kontakty_7576 => '연락처';
   @override
-  String get vashiSohranennyeKontakty_a641 => 'Ваши сохранённые контакты';
+  String get vashiSohranennyeKontakty_a641 => '저장된 연락처';
   @override
-  String get bezopasnost_3677 => 'Безопасность';
+  String get bezopasnost_3677 => '보안';
   @override
-  String get sessiiParolAutentifikatsiya_73f5 => 'Сессии, пароль, аутентификация';
+  String get sessiiParolAutentifikatsiya_73f5 => '세션, 비밀번호, 인증';
   @override
-  String get vneshniyVid_6873 => 'Внешний вид';
+  String get vneshniyVid_6873 => '외관';
   @override
-  String get temaShriftMasshtab_d8c9 => 'Тема, шрифт, масштаб';
+  String get temaShriftMasshtab_d8c9 => '테마, 글꼴, 규모';
   @override
-  String get yazyk_0577 => 'Язык';
+  String get yazyk_0577 => '언어';
   @override
-  String get yazykInterfeysaKlienta_2ad3 => 'Язык интерфейса клиента';
+  String get yazykInterfeysaKlienta_2ad3 => '클라이언트 인터페이스 언어';
   @override
-  String get uvedomleniya_d2ed => 'Уведомления';
+  String get uvedomleniya_d2ed => '알림';
   @override
-  String get zvukiBannery_1b60 => 'Звуки, баннеры';
+  String get zvukiBannery_1b60 => '소리, 배너';
   @override
-  String get energosberezhenie_0b19 => 'Энергосбережение';
+  String get energosberezhenie_0b19 => '에너지 절약';
   @override
-  String get animatsiiIProizvoditelnost_fba8 => 'Анимации и производительность';
+  String get animatsiiIProizvoditelnost_fba8 => '애니메이션과 퍼포먼스';
   @override
-  String get oPrilozhenii_322e => 'О приложении';
+  String get oPrilozhenii_322e => '응용 프로그램에 대해';
   @override
-  String get versiyaProverkaObnovleniySsylki_6efc => 'Версия, проверка обновлений, ссылки';
+  String get versiyaProverkaObnovleniySsylki_6efc => '버전, 업데이트 확인, 링크';
   @override
-  String get nastroyki_b01b => 'НАСТРОЙКИ';
+  String get nastroyki_b01b => '설정';
   @override
-  String get nastroyki_c919 => 'Настройки';
+  String get nastroyki_c919 => '설정';
   @override
-  String get proverkaObnovleniy_f3e0 => 'Проверка обновлений...';
+  String get proverkaObnovleniy_f3e0 => '업데이트 확인 중...';
   @override
-  String get neUdalosZagruzitNastroyki_f753 => 'Не удалось загрузить настройки';
+  String get neUdalosZagruzitNastroyki_f753 => '설정을 로드하지 못했습니다.';
   @override
-  String get oshibkaSohraneniya_0387 => 'Ошибка сохранения';
+  String get oshibkaSohraneniya_0387 => '저장 오류';
   @override
-  String get dannyeSohraneny_fd62 => 'Данные сохранены';
+  String get dannyeSohraneny_fd62 => '저장된 데이터';
   @override
-  String get gost_9618 => 'Гость';
+  String get gost_9618 => '손님';
   @override
-  String get akkaunt_38ac => 'АККАУНТ';
+  String get akkaunt_38ac => '계정';
   @override
-  String get interfeys_49be => 'ИНТЕРФЕЙС';
+  String get interfeys_49be => '인터페이스';
   @override
-  String get vyytiIzAkkaunta_6d41 => 'Выйти из аккаунта';
+  String get vyytiIzAkkaunta_6d41 => '계정에서 로그아웃하세요';
   @override
-  String get informatsiyaOPrilozhenii_00c4 => 'Информация о приложении';
+  String get informatsiyaOPrilozhenii_00c4 => '신청정보';
   @override
-  String get versiya1001LinuxWindowsMacos_ff6c => 'Версия: 1.0.loc_0+1 (Linux / Windows / macOS)';
+  String get versiya1001LinuxWindowsMacos_ff6c =>
+      '버전: 1.0.loc_0+1 (Linux / Windows / macOS)';
   @override
-  String get proverka_13bc => 'Проверка...';
+  String get proverka_13bc => '확인 중...';
   @override
-  String get proveritObnovleniya_ab45 => 'Проверить обновления';
+  String get proveritObnovleniya_ab45 => '업데이트 확인';
   @override
-  String get osnovnayaInformatsiya_6fec => 'Основная информация';
+  String get osnovnayaInformatsiya_6fec => '기본정보';
   @override
-  String get imya_d38d => 'Имя';
+  String get imya_d38d => '이름';
   @override
-  String get vvediteVasheImya_751e => 'Введите ваше имя';
+  String get vvediteVasheImya_751e => '이름을 입력하세요';
   @override
   @override
   String get nikneym_3fea => '사용자 이름';
   @override
-  String get nikneymNelzyaIzmenitVPrilozhenii_75d0 => 'Никнейм нельзя изменить в приложении';
+  String get nikneymNelzyaIzmenitVPrilozhenii_75d0 =>
+      '닉네임은 애플리케이션 내에서 변경할 수 없습니다.';
   @override
-  String get oSebe_0b3b => 'О себе';
+  String get oSebe_0b3b => '나에 대해';
   @override
-  String get rasskazhiteOSebe_1c37 => 'Расскажите о себе...';
+  String get rasskazhiteOSebe_1c37 => '자신에 대해 말해 보세요...';
   @override
-  String get sohranenie_c15f => 'Сохранение...';
+  String get sohranenie_c15f => '저장 중...';
   @override
-  String get sohranit_74ea => 'Сохранить';
+  String get sohranit_74ea => '저장';
   @override
   @override
   String get vse_984b => '전체';
   @override
-  String get tolkoKontakty_a559 => 'Только контакты';
+  String get tolkoKontakty_a559 => '연락처만';
   @override
-  String get nikto_ba19 => 'Никто';
+  String get nikto_ba19 => '아무도';
   @override
-  String get kommunikatsii_1242 => 'Коммуникации';
+  String get kommunikatsii_1242 => '커뮤니케이션';
   @override
-  String get ktoMozhetPisatSoobscheniya_4645 => 'Кто может писать сообщения';
+  String get ktoMozhetPisatSoobscheniya_4645 => '메시지를 작성할 수 있는 사람';
   @override
-  String get ktoMozhetZvonit_c427 => 'Кто может звонить';
+  String get ktoMozhetZvonit_c427 => '누가 전화할 수 있나요?';
   @override
-  String get ktoMozhetZapisyvatGolosovye_c69a => 'Кто может записывать голосовые';
+  String get ktoMozhetZapisyvatGolosovye_c69a => '음성을 녹음할 수 있는 사람';
   @override
-  String get ktoMozhetOtpravlyatFayly_2e40 => 'Кто может отправлять файлы';
+  String get ktoMozhetOtpravlyatFayly_2e40 => '파일을 보낼 수 있는 사람';
   @override
-  String get ktoMozhetPriglashatVGruppy_cdc0 => 'Кто может приглашать в группы';
+  String get ktoMozhetPriglashatVGruppy_cdc0 => '그룹에 초대할 수 있는 사람';
   @override
-  String get vidimostProfilya_34bf => 'Видимость профиля';
+  String get vidimostProfilya_34bf => '프로필 가시성';
   @override
-  String get ktoViditMoyNikneym_54b8 => 'Кто видит мой никнейм';
+  String get ktoViditMoyNikneym_54b8 => '내 닉네임을 누가 볼 수 있나요?';
   @override
-  String get ktoViditMoyAvatar_e9f6 => 'Кто видит мой аватар';
+  String get ktoViditMoyAvatar_e9f6 => '내 아바타를 보는 사람';
   @override
-  String get ktoViditMoyDenRozhdeniya_ccc7 => 'Кто видит мой день рождения';
+  String get ktoViditMoyDenRozhdeniya_ccc7 => '내 생일을 볼 수 있는 사람';
   @override
-  String get ktoViditVremyaMoeyAktivnosti_4349 => 'Кто видит время моей активности';
+  String get ktoViditVremyaMoeyAktivnosti_4349 => '내 활동 시간을 보는 사람';
   @override
-  String get neUdalosZagruzitKontakty_02a3 => 'Не удалось загрузить контакты';
+  String get neUdalosZagruzitKontakty_02a3 => '연락처를 로드하지 못했습니다.';
   @override
-  String get dobavitKontakt_4278 => 'Добавить контакт';
+  String get dobavitKontakt_4278 => '연락처 추가';
   @override
-  String get nikneymPolzovatelya_5610 => 'Никнейм пользователя';
+  String get nikneymPolzovatelya_5610 => '사용자 닉네임';
   @override
-  String get otobrazhaemoeImyaOptsionalno_bbd1 => 'Отображаемое имя (опционально)';
+  String get otobrazhaemoeImyaOptsionalno_bbd1 => '표시 이름(선택사항)';
   @override
   @override
   String get otmena_987b => '취소';
   @override
-  String get dobavit_5eba => 'Добавить';
+  String get dobavit_5eba => '추가';
   @override
-  String get uVasPokaNetSohranennyh_b64b => 'У вас пока нет сохранённых контактов';
+  String get uVasPokaNetSohranennyh_b64b => '아직 저장된 연락처가 없습니다.';
   @override
-  String get pozvonit_ccfa => 'Позвонить';
+  String get pozvonit_ccfa => '전화';
   @override
-  String get napisat_0144 => 'Написать';
+  String get napisat_0144 => '쓰기';
   @override
-  String get udalitKontakt_065d => 'Удалить контакт';
+  String get udalitKontakt_065d => '연락처 삭제';
   @override
-  String get soobscheniya_7e26 => 'Сообщения';
+  String get soobscheniya_7e26 => '메시지';
   @override
-  String get animatsiiSoobscheniy_bc8b => 'Анимации сообщений';
+  String get animatsiiSoobscheniy_bc8b => '메시지 애니메이션';
   @override
-  String get pokazyvatAnimatsiiPriOtpravkeI_d663 => 'Показывать анимации при отправке и получении';
+  String get pokazyvatAnimatsiiPriOtpravkeI_d663 => '보내고 받을 때 애니메이션 표시';
   @override
-  String get arhivirovannyeChaty_d990 => 'Архивированные чаты';
+  String get arhivirovannyeChaty_d990 => '보관된 채팅';
   @override
-  String get upravlenieArhivom_e843 => 'Управление архивом';
+  String get upravlenieArhivom_e843 => '아카이브 관리';
   @override
-  String get ochistitIstoriyu_837a => 'Очистить историю';
+  String get ochistitIstoriyu_837a => '기록 지우기';
   @override
-  String get udalitVseSoobscheniyaLokalno_fbbd => 'Удалить все сообщения локально';
+  String get udalitVseSoobscheniyaLokalno_fbbd => '모든 메시지를 로컬에서 삭제';
   @override
-  String get aktivnyeSessii_5c96 => 'Активные сессии';
+  String get aktivnyeSessii_5c96 => '활성 세션';
   @override
-  String get etoUstroystvo_26f6 => 'Это устройство';
+  String get etoUstroystvo_26f6 => '이 장치';
   @override
-  String get xaneoPcAktivnoSeychas_25b4 => 'Xaneo PC • Активно сейчас';
+  String get xaneoPcAktivnoSeychas_25b4 => 'Xaneo PC • 현재 활성화됨';
   @override
-  String get aktivno_87a4 => 'Активно';
+  String get aktivno_87a4 => '활성';
   @override
-  String get dvoynayaAutentifikatsiya_66ae => 'Двойная аутентификация';
+  String get dvoynayaAutentifikatsiya_66ae => '이중 인증';
   @override
-  String get zaschitaAkkauntaOdnorazovymParolem_e9f1 => 'Защита аккаунта одноразовым паролем';
+  String get zaschitaAkkauntaOdnorazovymParolem_e9f1 => '일회용 비밀번호로 계정 보호';
   @override
-  String get opasnayaZona_25bc => 'Опасная зона';
+  String get opasnayaZona_25bc => '위험지대';
   @override
-  String get udalitAkkaunt_05c7 => 'Удалить аккаунт';
+  String get udalitAkkaunt_05c7 => '계정 삭제';
   @override
-  String get neobratimoeDeystvie_7232 => 'Необратимое действие';
+  String get neobratimoeDeystvie_7232 => '되돌릴 수 없는 행동';
   @override
-  String get tema_9e26 => 'Тема';
+  String get tema_9e26 => '주제';
   @override
-  String get temnayaTema_cb48 => 'Тёмная тема';
+  String get temnayaTema_cb48 => '어두운 테마';
   @override
-  String get pereklyuchitMezhduTemnymISvetlym_5415 => 'Переключить между тёмным и светлым режимом';
+  String get pereklyuchitMezhduTemnymISvetlym_5415 => '어두운 모드와 밝은 모드 간 전환';
   @override
-  String get razmerShrifta_1155 => 'Размер шрифта';
+  String get razmerShrifta_1155 => '글꼴 크기';
   @override
-  String get a_87a0 => 'А';
+  String get a_87a0 => '에이';
   @override
-  String get pokazyvatVsplyvayuschieUvedomleniya_754e => 'Показывать всплывающие уведомления';
+  String get pokazyvatVsplyvayuschieUvedomleniya_754e => '팝업 알림 표시';
   @override
-  String get zvuk_9329 => 'Звук';
+  String get zvuk_9329 => '소리';
   @override
-  String get vosproizvoditZvukPriNovomSoobschenii_47cc => 'Воспроизводить звук при новом сообщении';
+  String get vosproizvoditZvukPriNovomSoobschenii_47cc => '새 메시지에서 소리 재생';
   @override
-  String get osnovnyeNastroyki_231c => 'Основные настройки';
+  String get osnovnyeNastroyki_231c => '기본 설정';
   @override
-  String get rezhimEkonomiiEnergii_edfc => 'Режим экономии энергии';
+  String get rezhimEkonomiiEnergii_edfc => '절전 모드';
   @override
-  String get optimiziruetRabotuPrilozheniyaDlyaEkonomii_d9eb => 'Оптимизирует работу приложения для экономии ресурсов';
+  String get optimiziruetRabotuPrilozheniyaDlyaEkonomii_d9eb =>
+      '리소스를 절약하기 위해 애플리케이션 성능을 최적화합니다.';
   @override
-  String get avtomaticheskiySpyaschiyRezhim_5955 => 'Автоматический спящий режим';
+  String get avtomaticheskiySpyaschiyRezhim_5955 => '자동 절전 모드';
   @override
-  String get perevoditPrilozhenieVSpyaschiyRezhim_1c07 => 'Переводит приложение в спящий режим при неактивности';
+  String get perevoditPrilozhenieVSpyaschiyRezhim_1c07 =>
+      '비활성 상태일 때 애플리케이션을 절전 모드로 전환합니다.';
   @override
-  String get animatsii_05c7 => 'Анимации';
+  String get animatsii_05c7 => '애니메이션';
   @override
-  String get uproschennyeAnimatsii_3a13 => 'Упрощённые анимации';
+  String get uproschennyeAnimatsii_3a13 => '단순화된 애니메이션';
   @override
-  String get umenshaetKolichestvoAnimatsiyInterfeysa_6bf1 => 'Уменьшает количество анимаций интерфейса';
+  String get umenshaetKolichestvoAnimatsiyInterfeysa_6bf1 =>
+      '인터페이스 애니메이션 수를 줄입니다.';
   @override
-  String get skoroBudetDostupno_de07 => 'Скоро будет доступно';
+  String get skoroBudetDostupno_de07 => '곧 출시 예정';
   @override
-  String get gostevoyRezhim_6d82 => 'Гостевой режим';
+  String get gostevoyRezhim_6d82 => '게스트 모드';
   @override
-  String get voyditeDlyaDostupaKAkkauntu_a5c8 => 'Войдите для доступа к аккаунту';
+  String get voyditeDlyaDostupaKAkkauntu_a5c8 => '귀하의 계정에 액세스하려면 로그인하세요';
   @override
-  String get nazhmiteDlyaProsmotraIzmeneniy_0255 => 'Нажмите для просмотра изменений';
+  String get nazhmiteDlyaProsmotraIzmeneniy_0255 => '변경사항을 보려면 클릭하세요.';
   @override
-  String get vvediteKodPodtverzhdeniya_61af => 'Введите код подтверждения';
+  String get vvediteKodPodtverzhdeniya_61af => '인증코드를 입력하세요';
   @override
   @override
   String get nevernyyKodPodtverzhdeniya_7762 => '유효하지 않은 인증 코드입니다';
   @override
-  String get podtverditeEMail_4bd4 => 'Подтвердите e-mail';
+  String get podtverditeEMail_4bd4 => '이메일을 확인하세요';
   @override
-  String get proverit_340b => 'Проверить';
+  String get proverit_340b => '확인';
   @override
   @override
   String get otpravitKodPovtorno_7703 => '코드 재전송';
   @override
-  String get sovremennoeDesktopnoePrilozheniensKrasivymInterfeysom_8a4e => 'Современное десктопное приложение\nс красивым интерфейсом и 3D эффектами';
+  String get sovremennoeDesktopnoePrilozheniensKrasivymInterfeysom_8a4e =>
+      '최신 데스크탑 애플리케이션\n아름다운 인터페이스와 3D 효과로';
   @override
-  String get tehnologii_6332 => 'Технологии';
+  String get tehnologii_6332 => '기술';
   @override
-  String get vyNashliPashalku_1a57 => '🎉 Вы нашли пасхалку! 🎉';
+  String get vyNashliPashalku_1a57 => '🎉 부활절 달걀을 찾았습니다! 🎉';
   @override
-  String get spasiboZaIspolzovanieXaneo_d079 => 'Спасибо за использование xaneo!';
+  String get spasiboZaIspolzovanieXaneo_d079 => 'xaneo를 사용해 주셔서 감사합니다!';
   @override
-  String get globalnyyPoisk_77bf => 'ГЛОБАЛЬНЫЙ ПОИСК';
+  String get globalnyyPoisk_77bf => '글로벌 검색';
   @override
   @override
   String get poiskKontaktovChatovKanalovBotov_db66 => '연락처, 대화방, 채널, 봇 검색...';
@@ -718,47 +726,48 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get kanal_2710 => '채널';
   @override
-  String get versiya_3725 => 'Версия';
+  String get versiya_3725 => '버전';
   @override
-  String get tehnicheskayaInformatsiya_ba0f => 'Техническая информация';
+  String get tehnicheskayaInformatsiya_ba0f => '기술정보';
   @override
-  String get platforma_8848 => 'Платформа';
+  String get platforma_8848 => '플랫폼';
   @override
-  String get arhitekturaProtsessora_c079 => 'Архитектура процессора';
+  String get arhitekturaProtsessora_c079 => '프로세서 아키텍처';
   @override
-  String get posmotretNaGithub_5238 => 'Посмотреть на GitHub';
+  String get posmotretNaGithub_5238 => 'GitHub에서 보기';
   @override
-  String get zakryt_dd94 => 'Закрыть';
+  String get zakryt_dd94 => '닫기';
   @override
-  String get vklyuchitTemnuyuTemu_ed17 => 'Включить тёмную тему';
+  String get vklyuchitTemnuyuTemu_ed17 => '어두운 테마 활성화';
   @override
-  String get vklyuchitUvedomleniya_d311 => 'Включить уведомления';
+  String get vklyuchitUvedomleniya_d311 => '알림 활성화';
   @override
-  String get kastomnyyOverleyXaneo_7d39 => 'Кастомный оверлей Xaneo';
+  String get kastomnyyOverleyXaneo_7d39 => '사용자 정의 Xaneo 오버레이';
   @override
-  String get animirovannyeUvedomleniyaSBystrymOtvetom_a25d => 'Анимированные уведомления с быстрым ответом';
+  String get animirovannyeUvedomleniyaSBystrymOtvetom_a25d =>
+      '빠른 응답을 제공하는 애니메이션 알림';
   @override
-  String get aaBbVv_1c6b => 'Aa Бб Вв';
+  String get aaBbVv_1c6b => '아아 bb bb';
   @override
-  String get pleylist_a04c => 'ПЛЕЙЛИСТ';
+  String get pleylist_a04c => '재생목록';
   @override
-  String get spisokMuzyki_d477 => 'СПИСОК МУЗЫКИ';
+  String get spisokMuzyki_d477 => '음악 목록';
   @override
-  String get loc_0B_5a4d => '0 Б';
+  String get loc_0B_5a4d => '0B';
   @override
-  String get b_3b67 => 'Б';
+  String get b_3b67 => '비';
   @override
-  String get kb_419d => 'КБ';
+  String get kb_419d => 'KB';
   @override
-  String get mb_b808 => 'МБ';
+  String get mb_b808 => 'MB';
   @override
-  String get gb_e572 => 'ГБ';
+  String get gb_e572 => 'GB';
   @override
-  String get audiozapis_867d => 'Аудиозапись';
+  String get audiozapis_867d => '오디오 녹음';
   @override
-  String get muzykalnyyTrek_b15d => 'Музыкальный трек';
+  String get muzykalnyyTrek_b15d => '음악 트랙';
   @override
-  String get muzykalnyeTrekiOtsutstvuyut_3301 => 'Музыкальные треки отсутствуют';
+  String get muzykalnyeTrekiOtsutstvuyut_3301 => '음악 트랙이 없습니다.';
   @override
   @override
   String get nikneymUzheZanyat_59aa => '이미 사용 중인 사용자 이름입니다';
@@ -773,7 +782,8 @@ class AppLocalizationsKo extends AppLocalizations {
   String get oshibkaOtpravkiKoda_a42a => '인증 코드 전송 오류';
   @override
   @override
-  String get neobhodimoPrinyatUsloviyaISoglasie_e31e => '이용 약관 및 개인정보 처리방침에 동의해야 합니다';
+  String get neobhodimoPrinyatUsloviyaISoglasie_e31e =>
+      '이용 약관 및 개인정보 처리방침에 동의해야 합니다';
   @override
   @override
   String get registratsiyaUspeshna_9d5c => '회원가입이 완료되었습니다!';
@@ -894,7 +904,7 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get dataRozhdeniya_505e => '생년월일';
   @override
-  String get vklyuchitTemnuyuTemuOformleniya_86c4 => 'Включить тёмную тему оформления';
+  String get vklyuchitTemnuyuTemuOformleniya_86c4 => '어두운 테마 활성화';
   @override
   @override
   String get yanvar_ee86 => '1월';
@@ -956,15 +966,20 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get gotovo_34e1 => '완료';
   @override
-  String get oshibkaVosstanovleniyaKlyucheyNeUdalos_fe7b => 'Ошибка восстановления ключей (не удалось перезаписать)';
+  String get oshibkaVosstanovleniyaKlyucheyNeUdalos_fe7b =>
+      '키 복구 오류(덮어쓰지 못했습니다)';
   @override
-  String get kriticheskayaOshibkaPriPeresozdaniiKlyuchey_b6d7 => 'Критическая ошибка при пересоздании ключей шифрования';
+  String get kriticheskayaOshibkaPriPeresozdaniiKlyuchey_b6d7 =>
+      '암호화 키를 다시 생성할 때 심각한 오류가 발생했습니다.';
   @override
-  String get oshibkaZagruzkiKlyucheyNaServer_ff9b => 'Ошибка загрузки ключей на сервер';
+  String get oshibkaZagruzkiKlyucheyNaServer_ff9b =>
+      '서버에 키를 로드하는 중에 오류가 발생했습니다.';
   @override
-  String get oshibkaPriPolucheniiKlyucheyShifrovaniya_9bb4 => 'Ошибка при получении ключей шифрования';
+  String get oshibkaPriPolucheniiKlyucheyShifrovaniya_9bb4 =>
+      '암호화 키를 검색하는 중에 오류가 발생했습니다.';
   @override
-  String get prevyshenLimitV5Akkauntov_a6a9 => 'Превышен лимит в 5 аккаунтов на этом клиенте или ошибка подключения.';
+  String get prevyshenLimitV5Akkauntov_a6a9 =>
+      '이 클라이언트의 계정 한도인 5개를 초과했거나 연결 오류가 있습니다.';
   @override
   @override
   @override
@@ -989,303 +1004,307 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get voyti_63a7 => '로그인';
   @override
-  String get sobesednik_7025 => 'Собеседник';
+  String get sobesednik_7025 => '대담자';
   @override
-  String get vy_0101 => 'Вы';
+  String get vy_0101 => '당신';
   @override
-  String get vyDelitesSvoimEkranom_16b1 => 'Вы делитесь своим экраном';
+  String get vyDelitesSvoimEkranom_16b1 => '화면을 공유합니다';
   @override
-  String get polzovatel_f154 => 'Пользователь';
+  String get polzovatel_f154 => '사용자';
   @override
-  String get ishodyaschiyVyzov_650b => 'Исходящий вызов...';
+  String get ishodyaschiyVyzov_650b => '발신 전화...';
   @override
-  String get vhodyaschiyVyzov_19ff => 'Входящий вызов...';
+  String get vhodyaschiyVyzov_19ff => '전화 수신 중...';
   @override
-  String get podklyucheno_d022 => 'Подключено';
+  String get podklyucheno_d022 => '연결됨';
   @override
-  String get ozhidanieOtveta_a984 => 'Ожидание ответа...';
+  String get ozhidanieOtveta_a984 => '응답을 기다리는 중...';
   @override
-  String get razgovorPoAudiosvyazi_3ed7 => 'Разговор по аудиосвязи';
+  String get razgovorPoAudiosvyazi_3ed7 => '오디오 대화';
   @override
-  String get translyatsiyaVashegoEkranaZapuschena_575a => 'Трансляция вашего экрана запущена';
+  String get translyatsiyaVashegoEkranaZapuschena_575a => '스크린캐스트가 시작되었습니다';
   @override
-  String get sobesednikViditVseChtoProishodit_c759 => 'Собеседник видит всё, что происходит на вашем рабочем столе';
+  String get sobesednikViditVseChtoProishodit_c759 =>
+      '대담자는 데스크탑에서 일어나는 모든 일을 봅니다.';
   @override
-  String get vhodyaschiyVyzov_905e => 'ВХОДЯЩИЙ ВЫЗОВ';
+  String get vhodyaschiyVyzov_905e => '수신 전화';
   @override
-  String get neizvestnyy_be89 => 'Неизвестный';
+  String get neizvestnyy_be89 => '알 수 없음';
   @override
-  String get videozvonok_dd18 => 'Видеозвонок...';
+  String get videozvonok_dd18 => '영상 통화...';
   @override
-  String get golosovoyZvonok_5410 => 'Голосовой звонок...';
+  String get golosovoyZvonok_5410 => '음성 통화...';
   @override
-  String get otklonit_8b0d => 'Отклонить';
+  String get otklonit_8b0d => '거부';
   @override
-  String get otvetit_e568 => 'Ответить';
+  String get otvetit_e568 => '답장하다';
   @override
-  String get gruppovoyZvonok_dac1 => 'Групповой звонок';
+  String get gruppovoyZvonok_dac1 => '그룹통화';
   @override
-  String get podklyuchenieKZvonku_e2cf => 'Подключение к звонку...';
+  String get podklyuchenieKZvonku_e2cf => '통화 연결 중...';
   @override
-  String get podklyuchenieKVeschaniyu_038b => 'Подключение к вещанию...';
+  String get podklyuchenieKVeschaniyu_038b => '브로드캐스트에 연결 중...';
   @override
-  String get uchastnik_cffb => 'Участник';
+  String get uchastnik_cffb => '회원';
   @override
-  String get vy_479c => 'ВЫ';
+  String get vy_479c => '당신';
   @override
-  String get svernut_ca9f => 'Свернуть';
+  String get svernut_ca9f => '접기';
   @override
-  String get vhodyaschiyVyzov_d2f3 => 'Входящий вызов';
+  String get vhodyaschiyVyzov_d2f3 => '전화 수신';
   @override
-  String get novoeSoobschenie_1d49 => 'Новое сообщение';
+  String get novoeSoobschenie_1d49 => '새 메시지';
   @override
-  String get vashOtvet_40c2 => 'Ваш ответ...';
+  String get vashOtvet_40c2 => '당신의 대답은 ...';
   @override
-  String get videovyzov_3353 => 'Видеовызов...';
+  String get videovyzov_3353 => '영상 통화...';
   @override
-  String get audiovyzov_bbb5 => 'Аудиовызов...';
+  String get audiovyzov_bbb5 => '음성통화...';
   @override
-  String get nachatZvonok_3d26 => 'НАЧАТЬ ЗВОНОК';
+  String get nachatZvonok_3d26 => '통화 시작';
   @override
-  String get golosovoyZvonok_b615 => 'Голосовой звонок';
+  String get golosovoyZvonok_b615 => '음성통화';
   @override
-  String get pozvonitPoGolosovoySvyazi_4069 => 'Позвонить по голосовой связи';
+  String get pozvonitPoGolosovoySvyazi_4069 => '음성 통화 걸기';
   @override
-  String get videozvonok_8142 => 'Видеозвонок';
+  String get videozvonok_8142 => '영상통화';
   @override
-  String get pozvonitSVklyuchennoyKameroy_fb05 => 'Позвонить с включенной камерой';
+  String get pozvonitSVklyuchennoyKameroy_fb05 => '카메라를 켜고 통화';
   @override
-  String get zashifrovannoeSoobschenie_ca35 => '[Зашифрованное сообщение]';
+  String get zashifrovannoeSoobschenie_ca35 => '[암호화된 메시지]';
   @override
-  String get golosovoeSoobschenie_4a85 => '🎤 Голосовое сообщение';
+  String get golosovoeSoobschenie_4a85 => '🎤 음성 메시지';
   @override
-  String get videosoobschenie_d687 => '🎬 Видеосообщение';
+  String get videosoobschenie_d687 => '🎬 영상 메시지';
   @override
-  String get fayl_826d => '📎 Файл';
+  String get fayl_826d => '📎 파일';
   @override
-  String get zvonok_e8d5 => '📞 Звонок';
+  String get zvonok_e8d5 => '📞 전화';
   @override
-  String get oshibkaDeshifrovaniya_4146 => '[Ошибка дешифрования]';
+  String get oshibkaDeshifrovaniya_4146 => '[복호화 오류]';
   @override
-  String get zapisyvaetGolosovoe_2a5c => 'записывает голосовое...';
+  String get zapisyvaetGolosovoe_2a5c => '음성 녹음...';
   @override
-  String get pechataet_812c => 'печатает...';
+  String get pechataet_812c => '인쇄...';
   @override
-  String get neUdalosArhivirovatChat_ab89 => 'Не удалось архивировать чат';
+  String get neUdalosArhivirovatChat_ab89 => '채팅을 보관하지 못했습니다.';
   @override
-  String get neUdalosRazarhivirovatChat_f0d7 => 'Не удалось разархивировать чат';
+  String get neUdalosRazarhivirovatChat_f0d7 => '채팅 보관을 취소하지 못했습니다.';
   @override
-  String get arhiv_56aa => 'Архив';
+  String get arhiv_56aa => '아카이브';
   @override
-  String get netUserid_634a => '[Нет userId]';
+  String get netUserid_634a => '[사용자ID 없음]';
   @override
-  String get netKlyucha_337b => '[Нет ключа]';
+  String get netKlyucha_337b => '[열쇠 없음]';
   @override
-  String get neizvestnyyTipChata_2617 => '[Неизвестный тип чата]';
+  String get neizvestnyyTipChata_2617 => '[알 수 없는 채팅 유형]';
   @override
-  String get neUdalosPoluchitKlyuchShifrovaniya_b953 => 'Не удалось получить ключ шифрования для чата';
+  String get neUdalosPoluchitKlyuchShifrovaniya_b953 =>
+      '채팅용 암호화 키를 가져오지 못했습니다.';
   @override
-  String get gruppa_19c2 => 'группа';
+  String get gruppa_19c2 => '그룹';
   @override
-  String get uchastnik_5bce => 'участник';
+  String get uchastnik_5bce => '참가자';
   @override
-  String get uchastnika_92d9 => 'участника';
+  String get uchastnika_92d9 => '참가자';
   @override
-  String get uchastnikov_5d6b => 'участников';
+  String get uchastnikov_5d6b => '참가자';
   @override
-  String get kanal_64ec => 'канал';
+  String get kanal_64ec => '채널';
   @override
-  String get podpischik_695a => 'подписчик';
+  String get podpischik_695a => '가입자';
   @override
-  String get podpischika_b490 => 'подписчика';
+  String get podpischika_b490 => '가입자';
   @override
-  String get podpischikov_ba39 => 'подписчиков';
+  String get podpischikov_ba39 => '가입자';
   @override
-  String get segodnya_9626 => 'Сегодня';
+  String get segodnya_9626 => '오늘';
   @override
-  String get vchera_61d4 => 'Вчера';
+  String get vchera_61d4 => '어제';
   @override
-  String get yanvarya_d861 => 'января';
+  String get yanvarya_d861 => '1월';
   @override
-  String get fevralya_fcf9 => 'февраля';
+  String get fevralya_fcf9 => '2월';
   @override
-  String get marta_bb77 => 'марта';
+  String get marta_bb77 => '3월';
   @override
-  String get aprelya_2b5a => 'апреля';
+  String get aprelya_2b5a => '4월';
   @override
-  String get maya_4dbb => 'мая';
+  String get maya_4dbb => '5월';
   @override
-  String get iyunya_adcb => 'июня';
+  String get iyunya_adcb => '6월';
   @override
-  String get iyulya_3236 => 'июля';
+  String get iyulya_3236 => '7월';
   @override
-  String get avgusta_e3aa => 'августа';
+  String get avgusta_e3aa => '8월';
   @override
-  String get sentyabrya_a146 => 'сентября';
+  String get sentyabrya_a146 => '9월';
   @override
-  String get oktyabrya_7abd => 'октября';
+  String get oktyabrya_7abd => '10월';
   @override
-  String get noyabrya_6e78 => 'ноября';
+  String get noyabrya_6e78 => '11월';
   @override
-  String get dekabrya_29cc => 'декабря';
+  String get dekabrya_29cc => '12월';
   @override
-  String get vyPodpisalisNaKanal_b2b3 => 'Вы подписались на канал';
+  String get vyPodpisalisNaKanal_b2b3 => '채널을 구독했습니다.';
   @override
-  String get vyPrisoedinilisKGruppe_07bd => 'Вы присоединились к группе';
+  String get vyPrisoedinilisKGruppe_07bd => '그룹에 가입하셨습니다.';
   @override
-  String get neUdalosPrisoedinitsya_31e6 => 'Не удалось присоединиться';
+  String get neUdalosPrisoedinitsya_31e6 => '참여하지 못했습니다.';
   @override
-  String get vyOtpisalisOtKanala_7698 => 'Вы отписались от канала';
+  String get vyOtpisalisOtKanala_7698 => '채널 구독을 취소했습니다.';
   @override
-  String get vyPokinuliGruppu_5a52 => 'Вы покинули группу';
+  String get vyPokinuliGruppu_5a52 => '그룹에서 탈퇴하셨습니다.';
   @override
-  String get neUdalosVypolnitDeystvie_3cfd => 'Не удалось выполнить действие';
+  String get neUdalosVypolnitDeystvie_3cfd => '작업 실패';
   @override
-  String get neUdalosPereklyuchitAkkaunt_968b => 'Не удалось переключить аккаунт';
+  String get neUdalosPereklyuchitAkkaunt_968b => '계정을 전환하지 못했습니다.';
   @override
-  String get media_c247 => 'Медиа';
+  String get media_c247 => '미디어';
   @override
-  String get fayly_200c => 'Файлы';
+  String get fayly_200c => '파일';
   @override
-  String get golos_2d89 => 'Голос';
+  String get golos_2d89 => '음성';
   @override
-  String get ssylki_9f58 => 'Ссылки';
+  String get ssylki_9f58 => '링크';
   @override
-  String get profil_c62a => 'ПРОФИЛЬ';
+  String get profil_c62a => '프로필';
   @override
-  String get imyaPolzovatelya_6fd4 => 'Имя пользователя';
+  String get imyaPolzovatelya_6fd4 => '사용자 이름';
   @override
-  String get denRozhdeniya_e41d => 'День рождения';
+  String get denRozhdeniya_e41d => '생일';
   @override
-  String get polzovatelSkrylInformatsiyuOSebe_f416 => 'Пользователь скрыл информацию о себе';
+  String get polzovatelSkrylInformatsiyuOSebe_f416 =>
+      '사용자는 자신에 대한 숨겨진 정보를 가지고 있습니다.';
   @override
-  String get god_6270 => 'год';
+  String get god_6270 => '년';
   @override
-  String get goda_7443 => 'года';
+  String get goda_7443 => '년';
   @override
-  String get let_257a => 'лет';
+  String get let_257a => '년';
   @override
-  String get skopirovano_f70b => 'Скопировано';
+  String get skopirovano_f70b => '복사됨';
   @override
-  String get akkaunty_80b5 => 'АККАУНТЫ';
+  String get akkaunty_80b5 => '계정';
   @override
-  String get dobavitAkkaunt_5253 => 'Добавить аккаунт';
+  String get dobavitAkkaunt_5253 => '계정 추가';
   @override
-  String get limit5Akkauntov_fdb7 => 'Лимит: 5 аккаунтов';
+  String get limit5Akkauntov_fdb7 => '제한: 계정 5개';
   @override
-  String get nazadKChatam_7edb => 'Назад к чатам';
+  String get nazadKChatam_7edb => '채팅으로 돌아가기';
   @override
-  String get chaty_19ad => 'Чаты';
+  String get chaty_19ad => '채팅';
   @override
-  String get globalnyyPoisk_7ff2 => 'Глобальный поиск';
+  String get globalnyyPoisk_7ff2 => '글로벌 검색';
   @override
-  String get arhivPust_3e22 => 'Архив пуст';
+  String get arhivPust_3e22 => '아카이브가 비어 있습니다.';
   @override
-  String get netSoobscheniy_29d4 => 'Нет сообщений';
+  String get netSoobscheniy_29d4 => '메시지 없음';
   @override
-  String get toDoList_27e1 => '📋 To-Do лист';
+  String get toDoList_27e1 => '📋 할 일 시트';
   @override
-  String get opros_6ff1 => '🗳️ Опрос';
+  String get opros_6ff1 => '🗳️ 설문조사';
   @override
-  String get fotografiya_5709 => '📷 Фотография';
+  String get fotografiya_5709 => '📷 사진';
   @override
-  String get razarhivirovat_416b => 'Разархивировать';
+  String get razarhivirovat_416b => '압축을 푼다';
   @override
-  String get vArhiv_ce22 => 'В архив';
+  String get vArhiv_ce22 => '아카이브로';
   @override
-  String get chat_c52b => 'Чат';
+  String get chat_c52b => '채팅';
   @override
-  String get vyberiteChatDlyaNachalaObscheniya_36a5 => 'Выберите чат для начала общения';
+  String get vyberiteChatDlyaNachalaObscheniya_36a5 => '채팅을 시작하려면 채팅을 선택하세요.';
   @override
-  String get bot_2712 => 'бот';
+  String get bot_2712 => '봇';
   @override
-  String get vSeti_d902 => 'в сети';
+  String get vSeti_d902 => '온라인';
   @override
-  String get neVSeti_ee01 => 'не в сети';
+  String get neVSeti_ee01 => '오프라인';
   @override
-  String get nastroykiChata_1e0d => 'Настройки чата';
+  String get nastroykiChata_1e0d => '채팅 설정';
   @override
-  String get pokinutGruppu_e6ce => 'Покинуть группу';
+  String get pokinutGruppu_e6ce => '그룹 탈퇴';
   @override
-  String get prisoedinitsyaKGruppe_eb45 => 'Присоединиться к группе';
+  String get prisoedinitsyaKGruppe_eb45 => '그룹에 가입하세요';
   @override
-  String get otpisatsyaOtKanala_fdbc => 'Отписаться от канала';
+  String get otpisatsyaOtKanala_fdbc => '채널 구독 취소';
   @override
-  String get podpisatsyaNaKanal_2dad => 'Подписаться на канал';
+  String get podpisatsyaNaKanal_2dad => '채널을 구독하세요';
   @override
   String get netSoobscheniyNapishiteChtoNibud_2bf4 => '메시지가 없습니다. 무언가 작성해보세요!';
   @override
-  String get prisoedinilsyaKChatu_f623 => 'присоединился к чату';
+  String get prisoedinilsyaKChatu_f623 => '채팅에 참여했습니다';
   @override
-  String get pokinulChat_d567 => 'покинул чат';
+  String get pokinulChat_d567 => '채팅에서 나갔습니다';
   @override
-  String get podpisalsyaNaKanal_0673 => 'подписался на канал';
+  String get podpisalsyaNaKanal_0673 => '채널을 구독했습니다';
   @override
-  String get otpisalsyaOtKanala_fa13 => 'отписался от канала';
+  String get otpisalsyaOtKanala_fa13 => '채널 구독 취소됨';
   @override
-  String get polzovatelya_1083 => 'пользователя';
+  String get polzovatelya_1083 => '사용자';
   @override
-  String get priglasil_47ae => 'пригласил';
+  String get priglasil_47ae => '초대됨';
   @override
-  String get rasshifrovka_e47f => '[Расшифровка...]';
+  String get rasshifrovka_e47f => '[대본...]';
   @override
-  String get sistemnoeSoobschenie_d2bd => 'Системное сообщение';
+  String get sistemnoeSoobschenie_d2bd => '시스템 메시지';
   @override
-  String get soobschenie_3715 => 'Сообщение';
+  String get soobschenie_3715 => '메시지';
   @override
-  String get videosoobschenie_57f1 => '📹 Видеосообщение';
+  String get videosoobschenie_57f1 => '📹 영상 메시지';
   @override
-  String get spisokZadach_cfa4 => '📋 Список задач';
+  String get spisokZadach_cfa4 => '📋 작업 목록';
   @override
-  String get opros_5902 => '📊 Опрос';
+  String get opros_5902 => '📊 설문조사';
   @override
-  String get vlozhenie_ef44 => 'Вложение';
+  String get vlozhenie_ef44 => '첨부파일';
   @override
-  String get fayl_2d46 => 'Файл';
+  String get fayl_2d46 => '파일';
   @override
-  String get zagruzkaFayla_f817 => 'Загрузка файла...';
+  String get zagruzkaFayla_f817 => '파일 로드 중...';
   @override
-  String get ishodyaschiyZvonok_8381 => 'Исходящий звонок';
+  String get ishodyaschiyZvonok_8381 => '발신전화';
   @override
-  String get razgovorNeSostoyalsya_67fb => 'Разговор не состоялся';
+  String get razgovorNeSostoyalsya_67fb => '대화가 이루어지지 않았습니다';
   @override
-  String get vhodyaschiyZvonok_5ce9 => 'Входящий звонок';
+  String get vhodyaschiyZvonok_5ce9 => '전화 수신';
   @override
-  String get otklonennyyZvonok_d499 => 'Отклонённый звонок';
+  String get otklonennyyZvonok_d499 => '거부된 통화';
   @override
-  String get vyOtkloniliVyzov_8d1d => 'Вы отклонили вызов';
+  String get vyOtkloniliVyzov_8d1d => '전화를 거부하셨습니다.';
   @override
-  String get propuschennyyZvonok_e98d => 'Пропущенный звонок';
+  String get propuschennyyZvonok_e98d => '부재중 전화';
   @override
-  String get vyPropustiliVyzov_f17a => 'Вы пропустили вызов';
+  String get vyPropustiliVyzov_f17a => '전화를 받지 못하셨어요';
   @override
-  String get vlozhenie_2474 => '📎 Вложение';
+  String get vlozhenie_2474 => '📎 첨부';
   @override
-  String get tb_0e05 => 'ТБ';
+  String get tb_0e05 => '결핵';
   @override
-  String get zapisGolosovogo_9c91 => 'Запись голосового...';
+  String get zapisGolosovogo_9c91 => '음성녹음...';
   @override
-  String get zapisVideo_dd2a => 'Запись видео...';
+  String get zapisVideo_dd2a => '영상녹화...';
   @override
-  String get otpustiteDlyaOtpravki_ea7b => 'Отпустите для отправки';
+  String get otpustiteDlyaOtpravki_ea7b => '보내려면 손을 떼세요';
   @override
-  String get emodzi_f822 => 'Эмодзи';
+  String get emodzi_f822 => '이모티콘';
   @override
-  String get panelEmodziVRazrabotke_b6ce => 'Панель эмодзи в разработке';
+  String get panelEmodziVRazrabotke_b6ce => '개발 중인 이모티콘 패널';
   @override
-  String get napisatSoobschenie_62d4 => 'Написать сообщение...';
+  String get napisatSoobschenie_62d4 => '메시지를 작성하세요...';
   @override
-  String get dobavitVlozhenie_769b => 'Добавить вложение';
+  String get dobavitVlozhenie_769b => '첨부파일 추가';
   @override
-  String get spisokZadach_1852 => 'Список задач';
+  String get spisokZadach_1852 => '작업 목록';
   @override
-  String get opros_9f36 => 'Опрос';
+  String get opros_9f36 => '설문조사';
   @override
-  String get zapisGolosovogoGs_db4e => 'Запись голосового (ГС)';
+  String get zapisGolosovogoGs_db4e => '음성녹음(VO)';
   @override
-  String get zapisVideoVs_9676 => 'Запись видео (ВС)';
+  String get zapisVideoVs_9676 => '비디오 녹화(VS)';
   @override
-  String get uderzhivayteKnopkuDlyaZapisinNazhmite_3ab3 => '• Удерживайте кнопку для записи\n• Нажмите для переключения режима';
+  String get uderzhivayteKnopkuDlyaZapisinNazhmite_3ab3 =>
+      '•녹화하려면 버튼을 길게 누르세요.\n• 모드를 전환하려면 누르세요.';
   @override
   @override
   String get novyyChat_f775 => '새 대화';
@@ -1299,569 +1318,590 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get polzovateliNeNaydeny_c01a => '사용자를 찾을 수 없습니다';
   @override
-  String get mnozhestvennyyVybor_9b60 => 'Множественный выбор';
+  String get mnozhestvennyyVybor_9b60 => '객관식';
   @override
-  String get odinochnyyVybor_d920 => 'Одиночный выбор';
+  String get odinochnyyVybor_d920 => '단일 선택';
   @override
-  String get netGolosov_17d0 => 'Нет голосов';
+  String get netGolosov_17d0 => '투표 없음';
   @override
-  String get golos_6b94 => 'голос';
+  String get golos_6b94 => '목소리';
   @override
-  String get golosa_bb8d => 'голоса';
+  String get golosa_bb8d => '목소리';
   @override
-  String get golosov_7f51 => 'голосов';
+  String get golosov_7f51 => '투표';
   @override
-  String get nePoluchenIdFaylaOt_86c8 => 'Не получен ID файла от сервера';
+  String get nePoluchenIdFaylaOt_86c8 => '서버로부터 파일 ID를 받지 못했습니다.';
   @override
-  String get faylZagruzhenIPrikreplen_dc24 => 'Файл загружен и прикреплен';
+  String get faylZagruzhenIPrikreplen_dc24 => '파일 업로드 및 첨부';
   @override
-  String get neizvestnayaOshibkaZagruzki_68cb => 'Неизвестная ошибка загрузки';
+  String get neizvestnayaOshibkaZagruzki_68cb => '알 수 없는 다운로드 오류';
   @override
-  String get oshibkaZagruzkiFayla_86e5 => 'Ошибка загрузки файла';
+  String get oshibkaZagruzkiFayla_86e5 => '파일 다운로드 오류';
   @override
-  String get sohranitFaylKak_0f93 => 'Сохранить файл как';
+  String get sohranitFaylKak_0f93 => '다른 이름으로 파일 저장';
   @override
-  String get oshibkaSkachivaniyaFayla_34ac => 'Ошибка скачивания файла';
+  String get oshibkaSkachivaniyaFayla_34ac => '파일 다운로드 오류';
   @override
-  String get bezNazvaniya_6584 => 'Без названия';
+  String get bezNazvaniya_6584 => '제목 없음';
   @override
-  String get bezVoprosa_d390 => 'Без вопроса';
+  String get bezVoprosa_d390 => '질문 없음';
   @override
-  String get netDostupaKMikrofonu_a4ef => 'Нет доступа к микрофону';
+  String get netDostupaKMikrofonu_a4ef => '마이크 액세스 권한 없음';
   @override
-  String get zapisVideoCherezPlaginCamera_b9dd => '📹 Запись видео через плагин camera запущена';
+  String get zapisVideoCherezPlaginCamera_b9dd =>
+      '📹 카메라 플러그인을 통한 비디오 녹화가 시작되었습니다';
   @override
-  String get kameraNeInitsializirovanaNaEtoy_21e0 => '📹 Камера не инициализирована на этой платформе.';
+  String get kameraNeInitsializirovanaNaEtoy_21e0 =>
+      '📹 이 플랫폼에서는 카메라가 초기화되지 않습니다.';
   @override
-  String get kameraNeGotova_9f09 => 'Камера не готова';
+  String get kameraNeGotova_9f09 => '카메라가 준비되지 않았습니다.';
   @override
-  String get zapisVideosoobscheniyaNaEtoyPlatforme_a561 => '📹 Запись видеосообщения на этой платформе недоступна напрямую.';
+  String get zapisVideosoobscheniyaNaEtoyPlatforme_a561 =>
+      '📹 이 플랫폼에서는 영상 메시지 녹음을 직접 사용할 수 없습니다.';
   @override
-  String get arecordOstanovlen_edf2 => '🎙️ arecord остановлен';
+  String get arecordOstanovlen_edf2 => '🎙️ 기록이 중지되었습니다';
   @override
-  String get ffmpegOstanovlen_63a0 => '📹 ffmpeg остановлен';
+  String get ffmpegOstanovlen_63a0 => '📹 ffmpeg가 중지되었습니다';
   @override
-  String get zapisSlishkomKorotkaya_5cda => 'Запись слишком короткая';
+  String get zapisSlishkomKorotkaya_5cda => '항목이 너무 짧습니다.';
   @override
-  String get oshibkaZapisiFaylPust_106b => 'Ошибка записи: файл пуст';
+  String get oshibkaZapisiFaylPust_106b => '쓰기 오류: 파일이 비어 있습니다.';
   @override
-  String get videosoobschenieOtpravlenoSimulyatsiya_fb29 => 'Видеосообщение отправлено (симуляция)';
+  String get videosoobschenieOtpravlenoSimulyatsiya_fb29 => '전송된 영상 메시지(시뮬레이션)';
   @override
-  String get zapisOtmenena_1609 => 'Запись отменена';
+  String get zapisOtmenena_1609 => '등록이 취소되었습니다.';
   @override
-  String get otpravitGolosovoeSoobschenie_2481 => 'Отправить голосовое сообщение';
+  String get otpravitGolosovoeSoobschenie_2481 => '음성 메시지 보내기';
   @override
-  String get imitatsiyaZapisiGolosovogoSoobscheniya_81e7 => 'Имитация записи голосового сообщения.';
+  String get imitatsiyaZapisiGolosovogoSoobscheniya_81e7 => '음성 메시지 녹음 시뮬레이션.';
   @override
-  String get otpravit_6da0 => 'Отправить';
+  String get otpravit_6da0 => '보내기';
   @override
-  String get sozdatToDo_8c92 => 'СОЗДАТЬ TO-DO';
+  String get sozdatToDo_8c92 => '할 일 만들기';
   @override
-  String get nazvanieSpiska_c3cc => 'Название списка';
+  String get nazvanieSpiska_c3cc => '목록 이름';
   @override
-  String get punkty_0481 => 'Пункты:';
+  String get punkty_0481 => '품목:';
   @override
-  String get dobavitPunkt_930c => 'Добавить пункт';
+  String get dobavitPunkt_930c => '항목 추가';
   @override
-  String get sozdat_b059 => 'Создать';
+  String get sozdat_b059 => '만들기';
   @override
-  String get sozdatOpros_4b9e => 'СОЗДАТЬ ОПРОС';
+  String get sozdatOpros_4b9e => '설문조사 만들기';
   @override
-  String get vopros_0911 => 'Вопрос';
+  String get vopros_0911 => '질문';
   @override
-  String get variantyOtveta_ef4e => 'Варианты ответа:';
+  String get variantyOtveta_ef4e => '답변 옵션:';
   @override
-  String get dobavitVariant_76be => 'Добавить вариант';
+  String get dobavitVariant_76be => '옵션 추가';
   @override
-  String get golosovoeSoobschenie_33d5 => 'Голосовое сообщение';
+  String get golosovoeSoobschenie_33d5 => '음성 메시지';
   @override
-  String get videosoobschenie_2951 => 'Видеосообщение';
+  String get videosoobschenie_2951 => '영상 메시지';
   @override
-  String get video_a095 => 'Видео';
+  String get video_a095 => '비디오';
   @override
-  String get neUdalosZagruzitIzobrazhenie_3fa0 => 'Не удалось загрузить изображение';
+  String get neUdalosZagruzitIzobrazhenie_3fa0 => '이미지를 로드하지 못했습니다.';
   @override
-  String get muzyka_0660 => 'Музыка';
+  String get muzyka_0660 => '음악';
   @override
-  String get netDannyh_dee9 => 'Нет данных';
+  String get netDannyh_dee9 => '데이터 없음';
   @override
-  String get istoriyaSoobscheniyPustaIliChat_2d07 => 'История сообщений пуста или чат еще не сохранен локально';
+  String get istoriyaSoobscheniyPustaIliChat_2d07 =>
+      '메시지 기록이 비어 있거나 채팅이 아직 로컬에 저장되지 않았습니다.';
   @override
-  String get obschieMaterialy_11e4 => 'Общие материалы';
+  String get obschieMaterialy_11e4 => '일반재료';
   @override
-  String get netMediafaylov_08d2 => 'Нет медиафайлов';
+  String get netMediafaylov_08d2 => '미디어 파일 없음';
   @override
-  String get zdesBudutOtobrazhatsyaObschieFoto_9bc7 => 'Здесь будут отображаться общие фото и видео';
+  String get zdesBudutOtobrazhatsyaObschieFoto_9bc7 =>
+      '공유된 사진과 동영상이 여기에 표시됩니다.';
   @override
-  String get netFaylov_e95e => 'Нет файлов';
+  String get netFaylov_e95e => '파일 없음';
   @override
-  String get zdesBudutOtobrazhatsyaOtpravlennyeFayly_f62c => 'Здесь будут отображаться отправленные файлы';
+  String get zdesBudutOtobrazhatsyaOtpravlennyeFayly_f62c =>
+      '업로드된 파일이 여기에 표시됩니다.';
   @override
-  String get netGolosovyhSoobscheniy_2427 => 'Нет голосовых сообщений';
+  String get netGolosovyhSoobscheniy_2427 => '음성 메시지 없음';
   @override
-  String get zdesBudutOtobrazhatsyaGolosovyeI_0a73 => 'Здесь будут отображаться голосовые и видеосообщения';
+  String get zdesBudutOtobrazhatsyaGolosovyeI_0a73 => '음성 및 영상 메시지가 여기에 표시됩니다';
   @override
-  String get netSsylok_b0ec => 'Нет ссылок';
+  String get netSsylok_b0ec => '링크 없음';
   @override
-  String get zdesBudutOtobrazhatsyaObschieSsylki_6b61 => 'Здесь будут отображаться общие ссылки';
+  String get zdesBudutOtobrazhatsyaObschieSsylki_6b61 => '일반 링크가 여기에 표시됩니다.';
   @override
-  String get ssylkaSkopirovanaVBufer_c16e => 'Ссылка скопирована в буфер';
+  String get ssylkaSkopirovanaVBufer_c16e => '링크가 클립보드에 복사되었습니다.';
   @override
-  String get netMuzyki_1ca3 => 'Нет музыки';
+  String get netMuzyki_1ca3 => '음악 없음';
   @override
-  String get zdesBudutOtobrazhatsyaOtpravlennyeTreki_ea23 => 'Здесь будут отображаться отправленные треки';
+  String get zdesBudutOtobrazhatsyaOtpravlennyeTreki_ea23 =>
+      '제출된 트랙이 여기에 표시됩니다.';
   @override
-  String get udalennyyAkkaunt_ce47 => 'удалённый аккаунт';
+  String get udalennyyAkkaunt_ce47 => '삭제된 계정';
   @override
-  String get opisanie_38ca => 'Описание';
+  String get opisanie_38ca => '설명';
   @override
-  String get mobilnyy_5ac7 => 'Мобильный';
+  String get mobilnyy_5ac7 => '모바일';
   @override
-  String get bylANedavno_168d => 'был(-а) недавно';
+  String get bylANedavno_168d => '최근에';
   @override
-  String get minutu_5373 => 'минуту';
+  String get minutu_5373 => '분';
   @override
-  String get minuty_5bc9 => 'минуты';
+  String get minuty_5bc9 => '분';
   @override
-  String get minut_b877 => 'минут';
+  String get minut_b877 => '분';
   @override
-  String get nazhmiteChtobyZagruzitNovuyuVersiyu_8b2a => 'Нажмите, чтобы загрузить новую версию';
+  String get nazhmiteChtobyZagruzitNovuyuVersiyu_8b2a => '새 버전을 다운로드하려면 클릭하세요.';
   @override
-  String get poiskLyudeyBotovGrupp_e84e => 'Поиск людей, ботов, групп...';
+  String get poiskLyudeyBotovGrupp_e84e => '사람, 봇, 그룹 검색...';
   @override
-  String get vveditePoiskovyyZapros_0b8c => 'Введите поисковый запрос';
+  String get vveditePoiskovyyZapros_0b8c => '검색어를 입력하세요';
   @override
-  String get polzovateli_b8c4 => 'Пользователи';
+  String get polzovateli_b8c4 => '사용자';
   @override
-  String get moiLichnyeSoobscheniya_7d3b => 'Мои личные сообщения';
+  String get moiLichnyeSoobscheniya_7d3b => '내 개인 메시지';
   @override
-  String get sozdatNovyyChat_fd41 => 'Создать новый чат';
+  String get sozdatNovyyChat_fd41 => '새 채팅 만들기';
   @override
-  String get lichnyyChat_cbec => 'Личный чат';
+  String get lichnyyChat_cbec => '개인 채팅';
   @override
-  String get nachatObschenieSPolzovatelem_0578 => 'Начать общение с пользователем';
+  String get nachatObschenieSPolzovatelem_0578 => '사용자와 대화 시작';
   @override
-  String get sozdatGruppu_459f => 'Создать группу';
+  String get sozdatGruppu_459f => '그룹 만들기';
   @override
-  String get gruppovoyChatDlyaObscheniyaS_01ba => 'Групповой чат для общения с друзьями';
+  String get gruppovoyChatDlyaObscheniyaS_01ba => '친구들과 소통할 수 있는 그룹채팅';
   @override
-  String get sozdatKanal_9022 => 'Создать канал';
+  String get sozdatKanal_9022 => '채널 만들기';
   @override
-  String get kanalDlyaShirokoyAuditorii_9dba => 'Канал для широкой аудитории';
+  String get kanalDlyaShirokoyAuditorii_9dba => '폭넓은 시청자를 위한 채널';
   @override
-  String get redaktirovanie_1167 => 'Редактирование';
+  String get redaktirovanie_1167 => '편집';
   @override
-  String get vlevo_1af1 => 'Влево';
+  String get vlevo_1af1 => '왼쪽';
   @override
-  String get vpravo_c316 => 'Вправо';
+  String get vpravo_c316 => '오른쪽';
   @override
-  String get poGor_ff50 => 'По гор.';
+  String get poGor_ff50 => '산을 따라';
   @override
-  String get poVert_b4a9 => 'По верт.';
+  String get poVert_b4a9 => '수직';
   @override
-  String get vvediteNazvanieGruppy_0a69 => 'Введите название группы';
+  String get vvediteNazvanieGruppy_0a69 => '그룹 이름을 입력하세요';
   @override
-  String get dlyaPublichnoyGruppyTrebuetsyaNikneym_15d0 => 'Для публичной группы требуется никнейм (@username)';
+  String get dlyaPublichnoyGruppyTrebuetsyaNikneym_15d0 =>
+      '공개 그룹에는 닉네임(@username)이 필요합니다.';
   @override
-  String get gruppaSozdana_6b3b => 'Группа создана';
+  String get gruppaSozdana_6b3b => '그룹이 생성되었습니다.';
   @override
-  String get oshibkaPriSozdaniiGruppy_794e => 'Ошибка при создании группы';
+  String get oshibkaPriSozdaniiGruppy_794e => '그룹을 만드는 중에 오류가 발생했습니다.';
   @override
-  String get nazhmiteNaIkonkuChtobyVybrat_af03 => 'Нажмите на иконку, чтобы выбрать аватарку';
+  String get nazhmiteNaIkonkuChtobyVybrat_af03 => '아바타를 선택하려면 아이콘을 클릭하세요.';
   @override
-  String get nazvanieGruppy_9a39 => 'Название группы';
+  String get nazvanieGruppy_9a39 => '그룹 이름';
   @override
-  String get opisanieNeobyazatelno_7812 => 'Описание (необязательно)';
+  String get opisanieNeobyazatelno_7812 => '설명(선택사항)';
   @override
-  String get privatnayaGruppa_d20e => 'Приватная группа';
+  String get privatnayaGruppa_d20e => '비공개 그룹';
   @override
-  String get publichnayaGruppa_50f8 => 'Публичная группа';
+  String get publichnayaGruppa_50f8 => '공개 그룹';
   @override
-  String get vhodTolkoPoPriglasheniyu_97a1 => 'Вход только по приглашению';
+  String get vhodTolkoPoPriglasheniyu_97a1 => '초대로만 입장 가능';
   @override
-  String get lyuboyMozhetNaytiIVstupit_5e26 => 'Любой может найти и вступить';
+  String get lyuboyMozhetNaytiIVstupit_5e26 => '누구나 찾아 가입할 수 있습니다.';
   @override
-  String get publichnayaSsylkanikneymMyGroup_6640 => 'Публичная ссылка/никнейм (@my_group)';
+  String get publichnayaSsylkanikneymMyGroup_6640 => '공개 링크/닉네임(@my_group)';
   @override
-  String get vvediteNazvanieKanala_5536 => 'Введите название канала';
+  String get vvediteNazvanieKanala_5536 => '채널 이름을 입력하세요';
   @override
-  String get dlyaPublichnogoKanalaTrebuetsyaSsylkanikneym_5f06 => 'Для публичного канала требуется ссылка/никнейм (@mychannel)';
+  String get dlyaPublichnogoKanalaTrebuetsyaSsylkanikneym_5f06 =>
+      '공개 채널에는 링크/닉네임(@mychannel)이 필요합니다.';
   @override
-  String get kanalSozdan_1522 => 'Канал создан';
+  String get kanalSozdan_1522 => '채널이 생성되었습니다';
   @override
-  String get oshibkaPriSozdaniiKanala_7d4b => 'Ошибка при создании канала';
+  String get oshibkaPriSozdaniiKanala_7d4b => '채널을 만드는 중에 오류가 발생했습니다.';
   @override
-  String get nazvanieKanala_c548 => 'Название канала';
+  String get nazvanieKanala_c548 => '채널 이름';
   @override
-  String get privatnyyKanal_3139 => 'Приватный канал';
+  String get privatnyyKanal_3139 => '비공개 채널';
   @override
-  String get publichnyyKanal_0f7c => 'Публичный канал';
+  String get publichnyyKanal_0f7c => '공개 채널';
   @override
-  String get podpiskaTolkoPoPriglasheniyu_99c3 => 'Подписка только по приглашению';
+  String get podpiskaTolkoPoPriglasheniyu_99c3 => '초대로만 구독 가능';
   @override
-  String get lyuboyMozhetNaytiIPodpisatsya_8579 => 'Любой может найти и подписаться';
+  String get lyuboyMozhetNaytiIPodpisatsya_8579 => '누구나 찾아 구독할 수 있습니다.';
   @override
-  String get ssylkanikneymKanalaMychannel_79f6 => 'Ссылка/никнейм канала (@mychannel)';
+  String get ssylkanikneymKanalaMychannel_79f6 => '채널 링크/닉네임(@mychannel)';
   @override
-  String get yazykInterfeysa_b78b => 'Язык интерфейса';
+  String get yazykInterfeysa_b78b => '인터페이스 언어';
   @override
-  String get dannyeUspeshnoSohraneny_2cc5 => 'Данные успешно сохранены';
+  String get dannyeUspeshnoSohraneny_2cc5 => '데이터가 성공적으로 저장되었습니다';
   @override
-  String get oshibkaPriSohranenii_126f => 'Ошибка при сохранении';
+  String get oshibkaPriSohranenii_126f => '저장하는 중 오류가 발생했습니다.';
   @override
-  String get lichnyeDannye_10a7 => 'ЛИЧНЫЕ ДАННЫЕ';
+  String get lichnyeDannye_10a7 => '개인정보';
   @override
-  String get nikneymUsername_8035 => 'Никнейм (@username)';
+  String get nikneymUsername_8035 => '닉네임(@사용자 이름)';
   @override
-  String get nikneymNelzyaIzmenit_0b99 => 'Никнейм нельзя изменить';
+  String get nikneymNelzyaIzmenit_0b99 => '닉네임은 변경할 수 없습니다';
   @override
-  String get oSebeBio_b730 => 'О себе (Bio)';
+  String get oSebeBio_b730 => '나에 대해 (약력)';
   @override
-  String get rasskazhiteNemnogoOSebe_3daa => 'Расскажите немного о себе...';
+  String get rasskazhiteNemnogoOSebe_3daa => '자신에 대해 좀 알려주세요...';
   @override
-  String get nastroykiPrivatnostiSohraneny_447c => 'Настройки приватности сохранены';
+  String get nastroykiPrivatnostiSohraneny_447c => '개인정보 보호 설정이 저장되었습니다.';
   @override
-  String get privatnost_3098 => 'ПРИВАТНОСТЬ';
+  String get privatnost_3098 => '개인정보 보호';
   @override
-  String get kommunikatsii_e9b8 => 'КОММУНИКАЦИИ';
+  String get kommunikatsii_e9b8 => '통신';
   @override
-  String get ktoMozhetPisat_3322 => 'Кто может писать';
+  String get ktoMozhetPisat_3322 => '누가 쓸 수 있나요?';
   @override
-  String get zapisGolosovyh_8073 => 'Запись голосовых';
+  String get zapisGolosovyh_8073 => '음성 녹음';
   @override
-  String get otpravkaFaylov_aaca => 'Отправка файлов';
+  String get otpravkaFaylov_aaca => '파일 보내기';
   @override
-  String get priglashatVGruppy_3631 => 'Приглашать в группы';
+  String get priglashatVGruppy_3631 => '그룹에 초대';
   @override
-  String get vidimostProfilya_448f => 'ВИДИМОСТЬ ПРОФИЛЯ';
+  String get vidimostProfilya_448f => '프로필 가시성';
   @override
-  String get ktoViditAvatar_b5d8 => 'Кто видит аватар';
+  String get ktoViditAvatar_b5d8 => '아바타를 보는 사람';
   @override
-  String get vremyaVSeti_be29 => 'Время в сети';
+  String get vremyaVSeti_be29 => '온라인 시간';
   @override
-  String get vneshniyVid_5a0f => 'ВНЕШНИЙ ВИД';
+  String get vneshniyVid_5a0f => '외관';
   @override
-  String get rezhimOformleniyaInterfeysa_b91d => 'Режим оформления интерфейса';
+  String get rezhimOformleniyaInterfeysa_b91d => '인터페이스 디자인 모드';
   @override
-  String get pokazyvatVizualnyeEffektyIPerehody_3fd7 => 'Показывать визуальные эффекты и переходы';
+  String get pokazyvatVizualnyeEffektyIPerehody_3fd7 => '시각 효과 및 전환 표시';
   @override
-  String get razmerTeksta_3c4f => 'Размер текста';
+  String get razmerTeksta_3c4f => '텍스트 크기';
   @override
-  String get bezopasnost_fcbc => 'БЕЗОПАСНОСТЬ';
+  String get bezopasnost_fcbc => '보안';
   @override
-  String get dvuhfaktornayaAutentifikatsiya_acdc => 'Двухфакторная аутентификация';
+  String get dvuhfaktornayaAutentifikatsiya_acdc => '이중 인증';
   @override
-  String get zaschitaAkkaunta2fa_f1ab => 'Защита аккаунта 2FA';
+  String get zaschitaAkkaunta2fa_f1ab => '2FA 계정 보호';
   @override
-  String get vklyucheno_6b96 => 'Включено';
+  String get vklyucheno_6b96 => '포함됨';
   @override
-  String get xaneoMobileAktivnoSeychas_3345 => 'Xaneo Mobile • Активно сейчас';
+  String get xaneoMobileAktivnoSeychas_3345 => 'Xaneo Mobile • 현재 활성화됨';
   @override
-  String get zaschischennyyMessendzher_2f59 => 'Защищённый мессенджер';
+  String get zaschischennyyMessendzher_2f59 => '보안 메신저';
   @override
-  String get temnayaTema_6018 => 'Темная тема';
+  String get temnayaTema_6018 => '어두운 테마';
   @override
-  String get vklyuchenaPoUmolchaniyu_7610 => 'Включена (по умолчанию)';
+  String get vklyuchenaPoUmolchaniyu_7610 => '활성화됨(기본값)';
   @override
-  String get setevoyFiltr_40c2 => 'Сетевой фильтр';
+  String get setevoyFiltr_40c2 => '서지 필터';
   @override
-  String get vklyuchen_0994 => 'Включен';
+  String get vklyuchen_0994 => '활성화됨';
   @override
-  String get spisokMuzyki_57d0 => 'Список музыки';
+  String get spisokMuzyki_57d0 => '음악 목록';
   @override
-  String get trek_5049 => 'трек';
+  String get trek_5049 => '트랙';
   @override
-  String get trekov_d3f4 => 'треков';
+  String get trekov_d3f4 => '트랙';
   @override
-  String get pozhaluystaZapolniteVoprosIKak_7ad5 => 'Пожалуйста, заполните вопрос и как минимум два варианта ответа';
+  String get pozhaluystaZapolniteVoprosIKak_7ad5 =>
+      '질문을 작성하고 최소 2개의 답변 옵션을 입력하세요.';
   @override
-  String get sozdatOpros_8401 => 'Создать опрос';
+  String get sozdatOpros_8401 => '설문조사 만들기';
   @override
-  String get sozdatSpisokZadach_4018 => 'СОЗДАТЬ СПИСОК ЗАДАЧ';
+  String get sozdatSpisokZadach_4018 => '작업 목록 만들기';
   @override
-  String get pozhaluystaZapolniteNazvanieIKak_3783 => 'Пожалуйста, заполните название и как минимум один пункт';
+  String get pozhaluystaZapolniteNazvanieIKak_3783 => '제목과 항목을 하나 이상 입력하세요.';
   @override
-  String get sozdatSpisokZadach_0416 => 'Создать список задач';
+  String get sozdatSpisokZadach_0416 => '작업 목록 만들기';
   @override
-  String get vhodyaschiyVideozvonok_14d4 => 'Входящий видеозвонок';
+  String get vhodyaschiyVideozvonok_14d4 => '화상 통화 수신';
   @override
-  String get prinyat_5dc5 => 'Принять';
+  String get prinyat_5dc5 => '수락';
   @override
-  String get netObschihFaylov_bf77 => 'Нет общих файлов';
+  String get netObschihFaylov_bf77 => '공유된 파일 없음';
   @override
-  String get neUdalosRazarhivirovatChatNa_b6f6 => 'Не удалось разархивировать чат на сервере';
+  String get neUdalosRazarhivirovatChatNa_b6f6 => '서버에서 채팅을 보관 취소하지 못했습니다.';
   @override
-  String get poiskVArhive_c5d8 => 'Поиск в архиве...';
+  String get poiskVArhive_c5d8 => '아카이브 검색...';
   @override
-  String get poprobuyteIzmenitZapros_52ea => 'Попробуйте изменить запрос';
+  String get poprobuyteIzmenitZapros_52ea => '요청을 변경해 보세요';
   @override
-  String get zdesBudutNahoditsyaVashiArhivirovannye_7359 => 'Здесь будут находиться ваши архивированные чаты';
+  String get zdesBudutNahoditsyaVashiArhivirovannye_7359 =>
+      '보관된 채팅이 여기에 저장됩니다.';
   @override
-  String get vernut_54aa => 'Вернуть';
+  String get vernut_54aa => '반환';
   @override
-  String get zashifrovannoeSoobschenie_c9ab => 'Зашифрованное сообщение';
+  String get zashifrovannoeSoobschenie_c9ab => '암호화된 메시지';
   @override
-  String get soobschenieNahoditsyaVysheVIstorii_dc90 => 'Сообщение находится выше в истории';
+  String get soobschenieNahoditsyaVysheVIstorii_dc90 => '메시지는 이야기에서 더 높습니다.';
   @override
-  String get otpravlyaetFoto_67c1 => 'отправляет фото...';
+  String get otpravlyaetFoto_67c1 => '사진을 보내다...';
   @override
-  String get otpravlyaetVideo_ce80 => 'отправляет видео...';
+  String get otpravlyaetVideo_ce80 => '영상을 보내다...';
   @override
-  String get otpravlyaetFayl_5e88 => 'отправляет файл...';
+  String get otpravlyaetFayl_5e88 => '파일을 보냅니다...';
   @override
-  String get ktoTo_8405 => 'Кто-то';
+  String get ktoTo_8405 => '누군가';
   @override
-  String get trebuetsyaRazreshenieNaKameruI_06fa => 'Требуется разрешение на камеру и микрофон';
+  String get trebuetsyaRazreshenieNaKameruI_06fa => '카메라 및 마이크 권한이 필요합니다.';
   @override
-  String get kameraNeNaydena_208d => 'Камера не найдена';
+  String get kameraNeNaydena_208d => '카메라를 찾을 수 없습니다';
   @override
-  String get zapisVideoOtmenena_1db7 => 'Запись видео отменена';
+  String get zapisVideoOtmenena_1db7 => '영상 녹화가 취소되었습니다';
   @override
-  String get slishkomKorotkoeVideosoobschenie_4676 => 'Слишком короткое видеосообщение';
+  String get slishkomKorotkoeVideosoobschenie_4676 => '영상 메시지가 너무 짧습니다.';
   @override
-  String get pozhaluystaPodozhditeOkonchaniyaZagruzkiFaylov_4c35 => 'Пожалуйста, подождите окончания загрузки файлов';
+  String get pozhaluystaPodozhditeOkonchaniyaZagruzkiFaylov_4c35 =>
+      '파일이 다운로드될 때까지 기다려 주십시오.';
   @override
-  String get audiozvonok_dcf6 => 'Аудиозвонок';
+  String get audiozvonok_dcf6 => '음성통화';
   @override
-  String get otpravitFotoVideoAudioIli_37e9 => 'Отправить фото, видео, аудио или другие файлы';
+  String get otpravitFotoVideoAudioIli_37e9 => '사진, 비디오, 오디오 또는 기타 파일 보내기';
   @override
-  String get provedenieGolosovaniyaVChate_a629 => 'Проведение голосования в чате';
+  String get provedenieGolosovaniyaVChate_a629 => '채팅으로 투표하기';
   @override
-  String get sozdatToDoSpisok_cb50 => 'Создать To-Do список';
+  String get sozdatToDoSpisok_cb50 => '할 일 목록 만들기';
   @override
-  String get spisokZadachSOtmetkamiVypolneniya_c778 => 'Список задач с отметками выполнения';
+  String get spisokZadachSOtmetkamiVypolneniya_c778 => '완료 표시가 있는 작업 목록';
   @override
-  String get trebuetsyaRazreshenieNaZapisAudio_8175 => 'Требуется разрешение на запись аудио';
+  String get trebuetsyaRazreshenieNaZapisAudio_8175 => '오디오를 녹음하려면 권한이 필요합니다';
   @override
-  String get slishkomKorotkoeSoobschenie_c2ee => 'Слишком короткое сообщение';
+  String get slishkomKorotkoeSoobschenie_c2ee => '메시지가 너무 짧습니다.';
   @override
-  String get uderzhivayteKnopkuDlyaZapisi_a762 => 'Удерживайте кнопку для записи';
+  String get uderzhivayteKnopkuDlyaZapisi_a762 => '녹음하려면 버튼을 길게 누르세요.';
   @override
-  String get udalennyy_40c6 => 'удаленный';
+  String get udalennyy_40c6 => '원격';
   @override
-  String get udalennyy_c2c8 => 'удалённый';
+  String get udalennyy_c2c8 => '원격';
   @override
-  String get neobhodimyRazresheniyaNaMikrofonI_224b => 'Необходимы разрешения на микрофон и камеру для совершения звонка';
+  String get neobhodimyRazresheniyaNaMikrofonI_224b =>
+      '전화를 걸기 위해서는 마이크, 카메라 권한이 필요합니다.';
   @override
-  String get bylATolkoChto_9ac0 => 'был(-а) только что';
+  String get bylATolkoChto_9ac0 => '그냥 거기 있었어';
   @override
-  String get chatNeNayden_ba4f => 'Чат не найден';
+  String get chatNeNayden_ba4f => '채팅을 찾을 수 없습니다';
   @override
-  String get napishitePervoeSoobschenie_8260 => 'Напишите первое сообщение';
+  String get napishitePervoeSoobschenie_8260 => '첫 번째 메시지를 작성하세요';
   @override
-  String get prisoedinitsyaKKanalu_f863 => 'Присоединиться к каналу';
+  String get prisoedinitsyaKKanalu_f863 => '채널에 가입하세요';
   @override
-  String get vyPodpisany_5fb9 => 'Вы подписаны';
+  String get vyPodpisany_5fb9 => '구독 중입니다';
   @override
-  String get otpisatsya_ee2d => 'Отписаться';
+  String get otpisatsya_ee2d => '구독 취소';
   @override
-  String get vyUspeshnoPodpisalisNaKanal_9c99 => 'Вы успешно подписались на канал!';
+  String get vyUspeshnoPodpisalisNaKanal_9c99 => '채널을 성공적으로 구독했습니다!';
   @override
-  String get vyUspeshnoVstupiliVGruppu_61a1 => 'Вы успешно вступили в группу!';
+  String get vyUspeshnoVstupiliVGruppu_61a1 => '그룹에 성공적으로 가입했습니다!';
   @override
-  String get neUdalosPrisoedinitsyaPoprobuyteEsche_bce5 => 'Не удалось присоединиться. Попробуйте еще раз.';
+  String get neUdalosPrisoedinitsyaPoprobuyteEsche_bce5 =>
+      '가입하지 못했습니다. 다시 시도해 보세요.';
   @override
-  String get vyrezat_a195 => 'Вырезать';
+  String get vyrezat_a195 => '컷';
   @override
-  String get kopirovat_112b => 'Копировать';
+  String get kopirovat_112b => '복사';
   @override
-  String get vstavit_dcc4 => 'Вставить';
+  String get vstavit_dcc4 => '붙여넣기';
   @override
-  String get vybratVse_4d09 => 'Выбрать все';
+  String get vybratVse_4d09 => '모두 선택';
   @override
-  String get zhirnyy_7774 => 'Жирный';
+  String get zhirnyy_7774 => '굵게';
   @override
-  String get kursiv_e0b1 => 'Курсив';
+  String get kursiv_e0b1 => '이탤릭체';
   @override
-  String get kod_3f34 => 'Код';
+  String get kod_3f34 => '코드';
   @override
-  String get zacherknut_02fc => 'Зачеркнуть';
+  String get zacherknut_02fc => '줄을 그어 지우세요';
   @override
-  String get soobschenie_8b9b => 'Сообщение...';
+  String get soobschenie_8b9b => '메시지...';
   @override
-  String get smahniteDlyaOtmeny_e976 => 'Смахните для отмены';
+  String get smahniteDlyaOtmeny_e976 => '취소하려면 스와이프하세요.';
   @override
-  String get poisk_bfc9 => 'Поиск';
+  String get poisk_bfc9 => '검색';
   @override
-  String get udalitChat_4b2b => 'Удалить чат';
+  String get udalitChat_4b2b => '채팅 삭제';
   @override
-  String get udalitKanal_482f => 'Удалить канал';
+  String get udalitKanal_482f => '채널 삭제';
   @override
-  String get pozhalovatsya_a7d9 => 'Пожаловаться';
+  String get pozhalovatsya_a7d9 => '불평하다';
   @override
-  String get redaktirovatGruppu_e40a => 'Редактировать группу';
+  String get redaktirovatGruppu_e40a => '그룹 수정';
   @override
-  String get udalitGruppu_dff8 => 'Удалить группу';
+  String get udalitGruppu_dff8 => '그룹 삭제';
   @override
-  String get poiskSoobscheniyVremennoNedostupenV_4443 => 'Поиск сообщений временно недоступен в мобильной версии';
+  String get poiskSoobscheniyVremennoNedostupenV_4443 =>
+      '모바일 버전에서는 일시적으로 메시지 검색을 사용할 수 없습니다.';
   @override
-  String get zhalobaOtpravlenaModeratoram_4547 => 'Жалоба отправлена модераторам';
+  String get zhalobaOtpravlenaModeratoram_4547 => '불만사항이 조정자에게 전송되었습니다.';
   @override
-  String get redaktirovanieGruppyVremennoNedostupnoV_05d0 => 'Редактирование группы временно недоступно в мобильной версии';
+  String get redaktirovanieGruppyVremennoNedostupnoV_05d0 =>
+      '모바일 버전에서는 일시적으로 그룹 수정이 불가능합니다.';
   @override
-  String get vyUverenyChtoHotiteOchistit_7c3a => 'Вы уверены, что хотите очистить историю сообщений в этом чате? Это действие нельзя отменить.';
+  String get vyUverenyChtoHotiteOchistit_7c3a =>
+      '이 채팅의 메시지 기록을 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.';
   @override
-  String get ochistit_7074 => 'Очистить';
+  String get ochistit_7074 => '지우기';
   @override
-  String get udalit_ed2b => 'Удалить';
+  String get udalit_ed2b => '삭제';
   @override
-  String get vyyti_0f05 => 'Выйти';
+  String get vyyti_0f05 => '로그아웃';
   @override
-  String get oshibkaVosproizvedeniya_ac8a => 'Ошибка воспроизведения';
+  String get oshibkaVosproizvedeniya_ac8a => '재생 오류';
   @override
-  String get novoeZashifrovannoeSoobschenie_4d30 => 'Новое зашифрованное сообщение';
+  String get novoeZashifrovannoeSoobschenie_4d30 => '새로운 암호화된 메시지';
   @override
-  String get poiskChatov_779c => 'Поиск чатов...';
+  String get poiskChatov_779c => '채팅 검색...';
   @override
-  String get obnovlenie_53e2 => 'Обновление...';
+  String get obnovlenie_53e2 => '업데이트...';
   @override
-  String get soedinenie_5a58 => 'Соединение...';
+  String get soedinenie_5a58 => '연결...';
   @override
-  String get lichnye_4cb3 => 'Личные';
+  String get lichnye_4cb3 => '개인';
   @override
-  String get neUdalosArhivirovatChatNa_36aa => 'Не удалось архивировать чат на сервере';
+  String get neUdalosArhivirovatChatNa_36aa => '서버에 채팅을 보관하지 못했습니다.';
   @override
-  String get oshibkaZagruzkiChatov_902f => 'Ошибка загрузки чатов';
+  String get oshibkaZagruzkiChatov_902f => '채팅을 로드하는 중에 오류가 발생했습니다.';
   @override
-  String get povtorit_b914 => 'Повторить';
+  String get povtorit_b914 => '반복';
   @override
-  String get netChatov_85e3 => 'Нет чатов';
+  String get netChatov_85e3 => '채팅 없음';
   @override
-  String get nachniteNovyyRazgovor_8290 => 'Начните новый разговор';
+  String get nachniteNovyyRazgovor_8290 => '새로운 대화를 시작하세요';
   @override
-  String get neUdalosZagruzitAkkaunty_8570 => 'Не удалось загрузить аккаунты';
+  String get neUdalosZagruzitAkkaunty_8570 => '계정을 로드하지 못했습니다.';
   @override
-  String get vyberiteAkkaunt_79e7 => 'Выберите аккаунт';
+  String get vyberiteAkkaunt_79e7 => '계정을 선택하세요';
   @override
-  String get bystryyVhodNaEtomUstroystve_3f30 => 'Быстрый вход на этом устройстве';
+  String get bystryyVhodNaEtomUstroystve_3f30 => '이 기기에 빠른 로그인';
   @override
-  String get voytiSParolem_9277 => 'Войти с паролем';
+  String get voytiSParolem_9277 => '비밀번호로 로그인';
   @override
-  String get sozdatXaneoId_4033 => 'Создать Xaneo ID';
+  String get sozdatXaneoId_4033 => 'Xaneo ID 생성';
   @override
-  String get netSohranennyhAkkauntov_b669 => 'Нет сохранённых аккаунтов';
+  String get netSohranennyhAkkauntov_b669 => '저장된 계정 없음';
   @override
-  String get tolkoChto_4493 => 'Только что';
+  String get tolkoChto_4493 => '지금 막';
   @override
-  String get emailNedostupen_fc3e => 'Email недоступен';
+  String get emailNedostupen_fc3e => '이메일을 사용할 수 없습니다.';
   @override
-  String get nevernyyKod_50f9 => 'Неверный код';
+  String get nevernyyKod_50f9 => '잘못된 코드';
   @override
-  String get oshibkaProverkiKoda_9018 => 'Ошибка проверки кода';
+  String get oshibkaProverkiKoda_9018 => '코드 확인 오류';
   @override
-  String get neobhodimoRazreshenieNaDostupK_5f5c => 'Необходимо разрешение на доступ к фотографиям';
+  String get neobhodimoRazreshenieNaDostupK_5f5c => '사진에 접근하려면 권한이 필요합니다';
   @override
-  String get oVyboreEmail_2609 => 'О выборе Email';
+  String get oVyboreEmail_2609 => '이메일 선택 정보';
   @override
-  String get podderzhivayutsyaVseDomenyElektronnoyPochty_a4e0 => 'Поддерживаются все домены электронной почты, кроме ';
+  String get podderzhivayutsyaVseDomenyElektronnoyPochty_a4e0 =>
+      '다음을 제외한 모든 이메일 도메인이 지원됩니다.';
   @override
-  String get zapreschennyh_1f49 => 'запрещённых';
+  String get zapreschennyh_1f49 => '금지된';
   @override
-  String get sozdatAkkaunt_19ed => 'Создать аккаунт';
+  String get sozdatAkkaunt_19ed => '계정 만들기';
   @override
-  String get naprimerIvan_d7cb => 'Например, Иван';
+  String get naprimerIvan_d7cb => '예를 들어 이반';
   @override
-  String get zadayteParol_53d2 => 'Задайте пароль';
+  String get zadayteParol_53d2 => '비밀번호를 설정하세요';
   @override
-  String get minimum8Simvolov_4ccd => 'Минимум 8 символов';
+  String get minimum8Simvolov_4ccd => '최소 8자';
   @override
-  String get unikalnoeImyaDlyaVashegoProfilya_a0ea => 'Уникальное имя для вашего профиля';
+  String get unikalnoeImyaDlyaVashegoProfilya_a0ea => '프로필의 고유한 이름';
   @override
-  String get vashEmail_879d => 'Ваш Email';
+  String get vashEmail_879d => '귀하의 이메일';
   @override
-  String get dlyaSvyaziIVosstanovleniyaDostupa_c770 => 'Для связи и восстановления доступа';
+  String get dlyaSvyaziIVosstanovleniyaDostupa_c770 => '통신 및 접속 복구를 위해';
   @override
-  String get emailAdres_9130 => 'Email адрес';
+  String get emailAdres_9130 => '이메일 주소';
   @override
-  String get vvediteParolEscheRaz_7383 => 'Введите пароль ещё раз';
+  String get vvediteParolEscheRaz_7383 => '비밀번호를 다시 입력하세요.';
   @override
-  String get parolEscheRaz_6daf => 'Пароль ещё раз';
+  String get parolEscheRaz_6daf => '비밀번호를 다시 입력하세요';
   @override
-  String get paroliNeSovpadayut_d82f => 'Пароли не совпадают';
+  String get paroliNeSovpadayut_d82f => '비밀번호가 일치하지 않습니다.';
   @override
-  String get ukazhiteVashuRealnuyuDatuRozhdeniya_d9ed => 'Укажите вашу реальную дату рождения';
+  String get ukazhiteVashuRealnuyuDatuRozhdeniya_d9ed => '실제 생년월일을 알려주세요';
   @override
-  String get ddmmgggg_3524 => 'ДД.ММ.ГГГГ';
+  String get ddmmgggg_3524 => 'DD.MM.YYYY';
   @override
-  String get sdelayteProfilUznavaemym_f2c5 => 'Сделайте профиль узнаваемым';
+  String get sdelayteProfilUznavaemym_f2c5 => '프로필을 알아볼 수 있게 만드세요';
   @override
-  String get profilGotov_b57d => 'Профиль готов';
+  String get profilGotov_b57d => '프로필 준비됨';
   @override
-  String get ostalosVsegoParaShagov_37e3 => 'Осталось всего пара шагов';
+  String get ostalosVsegoParaShagov_37e3 => '이제 몇 걸음밖에 안 남았어';
   @override
-  String get yaPrinimayuPolzovatelskoeSoglashenie_c431 => 'Я принимаю Пользовательское соглашение';
+  String get yaPrinimayuPolzovatelskoeSoglashenie_c431 => '사용자 계약에 동의합니다.';
   @override
-  String get yaDayuSoglasieNaObrabotku_0d03 => 'Я даю согласие на обработку персональных данных';
+  String get yaDayuSoglasieNaObrabotku_0d03 => '개인정보 처리에 동의합니다.';
   @override
-  String get sVozvrascheniem_77ee => 'С возвращением';
+  String get sVozvrascheniem_77ee => '돌아온 것을 환영합니다';
   @override
-  String get zagruzka_43e4 => 'Загрузка...';
+  String get zagruzka_43e4 => '로드 중...';
   @override
-  String get vyberiteAkkauntDlyaVhoda_d3a6 => 'Выберите аккаунт для входа';
+  String get vyberiteAkkauntDlyaVhoda_d3a6 => '로그인할 계정을 선택하세요';
   @override
-  String get vvediteVashNikneym_51a6 => 'Введите ваш никнейм';
+  String get vvediteVashNikneym_51a6 => '닉네임을 입력하세요';
   @override
-  String get voytiVDrugoyAkkaunt_d10f => 'Войти в другой аккаунт';
+  String get voytiVDrugoyAkkaunt_d10f => '다른 계정으로 로그인';
   @override
-  String get nedavnieAkkaunty_953d => 'Недавние аккаунты';
+  String get nedavnieAkkaunty_953d => '최근 계정';
   @override
-  String get dobroPozhalovatVXaneo_66d0 => 'Добро пожаловать в Xaneo';
+  String get dobroPozhalovatVXaneo_66d0 => 'Xaneo에 오신 것을 환영합니다';
   @override
-  String get xaneoTeperIVMobilnom_e918 => 'Xaneo — теперь и в мобильном приложении! Данный мессенджер еще никогда не был таким удобным и быстрым.';
+  String get xaneoTeperIVMobilnom_e918 =>
+      '이제 Xaneo를 모바일 앱에서 사용할 수 있습니다! 이 메신저가 이렇게 편리하고 빠른 적은 없었습니다.';
   @override
-  String get mneUzheInteresno_5365 => 'Мне уже интересно';
+  String get mneUzheInteresno_5365 => '나는 이미 관심이 있습니다';
   @override
-  String get vseVashiDannyePodZaschitoy_b7d9 => 'Все ваши данные под защитой';
+  String get vseVashiDannyePodZaschitoy_b7d9 => '귀하의 모든 데이터는 보호됩니다';
   @override
-  String get vseSoobscheniyaZaschischenySkvoznymShifrovaniem_443e => 'Все сообщения защищены сквозным шифрованием. Ни на одном из этапов Xaneo не знает их содержимого.';
+  String get vseSoobscheniyaZaschischenySkvoznymShifrovaniem_443e =>
+      '모든 메시지는 종단 간 암호화로 보호됩니다. 어떤 단계에서도 Xaneo는 그 내용을 알지 못합니다.';
   @override
-  String get prodolzhit_e9c3 => 'Продолжить';
+  String get prodolzhit_e9c3 => '계속';
   @override
-  String get lokalnyeDataTsentry_f089 => 'Локальные дата центры';
+  String get lokalnyeDataTsentry_f089 => '로컬 데이터 센터';
   @override
-  String get vashiDannyeNikogdaNePokidayut_f871 => 'Ваши данные никогда не покидают пределы страны и хранятся в защищенных дата центрах.';
+  String get vashiDannyeNikogdaNePokidayut_f871 =>
+      '귀하의 데이터는 절대로 국가 밖으로 유출되지 않으며 안전한 데이터 센터에 저장됩니다.';
   @override
-  String get kodOtpravlenPovtorno_e109 => 'Код отправлен повторно';
+  String get kodOtpravlenPovtorno_e109 => '코드 재전송';
   @override
-  String get dvuhfaktornayanautentifikatsiya_bacc => 'Двухфакторная\nаутентификация';
+  String get dvuhfaktornayanautentifikatsiya_bacc => '2요소\n인증';
   @override
-  String get naVashEmailOtpravlen6_b457 => 'На ваш email отправлен 6-значный код';
+  String get naVashEmailOtpravlen6_b457 => '6자리 코드가 이메일로 전송되었습니다';
   @override
-  String get podtverdit_e260 => 'Подтвердить';
+  String get podtverdit_e260 => '확인';
   @override
-  String get nePoluchiliKodOtpravitPovtorno_c1d2 => 'Не получили код? Отправить повторно';
+  String get nePoluchiliKodOtpravitPovtorno_c1d2 => '코드를 받지 못하셨나요? 재전송';
   @override
-  String get imyaNikneymOSebe_7a8d => 'Имя, никнейм, о себе';
+  String get imyaNikneymOSebe_7a8d => '이름, 별명, 자기 소개';
   @override
-  String get zvonkiSoobscheniyaVidimostProfilya_f905 => 'Звонки, сообщения, видимость профиля';
+  String get zvonkiSoobscheniyaVidimostProfilya_f905 => '통화, 메시지, 프로필 공개';
   @override
-  String get parolSessii2fa_de9e => 'Пароль, сессии, 2FA';
+  String get parolSessii2fa_de9e => '비밀번호, 세션, 2FA';
   @override
-  String get prilozhenie_38aa => 'ПРИЛОЖЕНИЕ';
+  String get prilozhenie_38aa => '부록';
   @override
-  String get temaRazmerTekstaAnimatsii_f0a8 => 'Тема, размер текста, анимации';
+  String get temaRazmerTekstaAnimatsii_f0a8 => '테마, 텍스트 크기, 애니메이션';
   @override
-  String get pushUvedomleniyaZvuki_9cc2 => 'Push-уведомления, звуки';
+  String get pushUvedomleniyaZvuki_9cc2 => '푸시 알림, 소리';
   @override
-  String get oPrilozhenii_77b2 => 'О ПРИЛОЖЕНИИ';
+  String get oPrilozhenii_77b2 => '응용 프로그램 정보';
   @override
-  String get versiya200Build200_0e7b => 'Версия 2.0.loc_0 (Build 200)';
+  String get versiya200Build200_0e7b => '버전 2.0.loc_0(빌드 200)';
   @override
-  String get redaktirovatProfil_56ad => 'Редактировать профиль';
+  String get redaktirovatProfil_56ad => '프로필 수정';
   @override
-  String get dobavitKontakt_2903 => 'ДОБАВИТЬ КОНТАКТ';
+  String get dobavitKontakt_2903 => '연락처 추가';
   @override
-  String get nikneymPolzovatelyaUsername_a6ff => 'Никнейм пользователя (@username)';
+  String get nikneymPolzovatelyaUsername_a6ff => '사용자 닉네임(@username)';
   @override
-  String get otobrazhaemoeImyaNeobyazatelno_340a => 'Отображаемое имя (необязательно)';
+  String get otobrazhaemoeImyaNeobyazatelno_340a => '표시 이름(선택사항)';
   @override
-  String get neUdalosNaytiIliDobavit_649f => 'Не удалось найти или добавить пользователя';
+  String get neUdalosNaytiIliDobavit_649f => '사용자를 찾거나 추가할 수 없습니다.';
   @override
-  String get ya_feef => 'Я';
+  String get ya_feef => '나';
   @override
-  String get poiskKontaktov_9a71 => 'Поиск контактов...';
+  String get poiskKontaktov_9a71 => '연락처 검색...';
   @override
-  String get spisokKontaktovPust_58c6 => 'Список контактов пуст';
+  String get spisokKontaktovPust_58c6 => '연락처 목록이 비어 있습니다.';
   @override
   String get kontaktyNeNaydeny_1b08 => '연락처를 찾을 수 없습니다';
   @override
@@ -1962,7 +2002,6 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get whoSeesOnlineTime => '내 활동 시간을 볼 수 있는 사람';
 
-
   @override
   String get downloadVersion => '다운로드';
   @override
@@ -1991,12 +2030,10 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String subscribersCount(int count) => '$count명의 구독자';
 
-
   @override
   String get group => '그룹';
   @override
   String get channel => '채널';
-
 
   @override
   String get profile => '프로필';
@@ -2038,7 +2075,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get audioCallDesc => '음성으로 통화 연결';
   @override
   String get videoCall => '영상 통화';
-
 
   @override
   String get copied => '복사됨';

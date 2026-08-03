@@ -8,9 +8,10 @@ import '../../styles/app_styles.dart';
 import '../../widgets/common/avatar_widget.dart';
 import 'login_screen.dart';
 import 'tfa_screen.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Экран выбора недавнего аккаунта для быстрого входа
-/// 
+///
 /// Отображает список аккаунтов, в которые ранее входили на этом устройстве.
 /// Позволяет быстро войти в аккаунт без ввода пароля.
 class RecentAccountsScreen extends StatefulWidget {
@@ -47,7 +48,9 @@ class _RecentAccountsScreenState extends State<RecentAccountsScreen> {
           if (response.success) {
             _accounts = response.recentAccounts;
           } else {
-            _error = response.error ?? 'Не удалось загрузить аккаунты';
+            _error = response.error ??
+                (AppLocalizations.of(context)?.neUdalosZagruzitAkkaunty_8570 ??
+                    'Fallback');
           }
           _isLoading = false;
         });
@@ -123,7 +126,8 @@ class _RecentAccountsScreenState extends State<RecentAccountsScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const FaIcon(FontAwesomeIcons.gear, color: Colors.white70, size: 18),
+            icon:
+                FaIcon(FontAwesomeIcons.gear, color: Colors.white70, size: 18),
             onPressed: () {
               // TODO: Открыть настройки
             },
@@ -152,13 +156,16 @@ class _RecentAccountsScreenState extends State<RecentAccountsScreen> {
                 ),
               ),
               const Spacer(flex: 1),
-              const Text(
-                'Выберите аккаунт',
+              Text(
+                (AppLocalizations.of(context)?.vyberiteAkkaunt_79e7 ??
+                    'Fallback'),
                 style: AppStyles.titleGiant,
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Быстрый вход на этом устройстве',
+              Text(
+                (AppLocalizations.of(context)
+                        ?.bystryyVhodNaEtomUstroystve_3f30 ??
+                    'Fallback'),
                 style: AppStyles.bodyMuted,
               ),
               const SizedBox(height: 32),
@@ -178,7 +185,10 @@ class _RecentAccountsScreenState extends State<RecentAccountsScreen> {
                     ),
                     elevation: 0,
                   ),
-                  child: const Text('Войти с паролем', style: AppStyles.buttonText),
+                  child: Text(
+                      (AppLocalizations.of(context)?.voytiSParolem_9277 ??
+                          'Fallback'),
+                      style: AppStyles.buttonText),
                 ),
               ),
               const SizedBox(height: 16),
@@ -195,7 +205,8 @@ class _RecentAccountsScreenState extends State<RecentAccountsScreen> {
                           );
                         },
                   child: Text(
-                    'Создать Xaneo ID',
+                    (AppLocalizations.of(context)?.sozdatXaneoId_4033 ??
+                        'Fallback'),
                     style: AppStyles.bodyMedium.copyWith(color: Colors.white),
                   ),
                 ),
@@ -225,13 +236,15 @@ class _RecentAccountsScreenState extends State<RecentAccountsScreen> {
           child: Column(
             children: [
               Text(
-                'Не удалось загрузить аккаунты',
+                (AppLocalizations.of(context)?.neUdalosZagruzitAkkaunty_8570 ??
+                    'Fallback'),
                 style: AppStyles.bodyMedium,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               TextButton(
                 onPressed: _loadRecentAccounts,
-                child: const Text('Повторить'),
+                child: Text((AppLocalizations.of(context)?.povtorit_b914 ??
+                    'Fallback')),
               ),
             ],
           ),
@@ -244,7 +257,8 @@ class _RecentAccountsScreenState extends State<RecentAccountsScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Text(
-            'Нет сохранённых аккаунтов',
+            (AppLocalizations.of(context)?.netSohranennyhAkkauntov_b669 ??
+                'Fallback'),
             style: AppStyles.bodyMuted,
           ),
         ),
@@ -257,7 +271,8 @@ class _RecentAccountsScreenState extends State<RecentAccountsScreen> {
         itemBuilder: (context, index) {
           final account = _accounts[index];
           final isSelected = _selectedAccountId == account.id;
-          final isLoading = isSelected && context.watch<AuthProvider>().isLoading;
+          final isLoading =
+              isSelected && context.watch<AuthProvider>().isLoading;
 
           return _AccountCard(
             account: account,
@@ -326,7 +341,7 @@ class _AccountCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _formatLastLogin(account.lastLogin),
+                        _formatLastLogin(context, account.lastLogin),
                         style: AppStyles.bodyMuted.copyWith(
                           fontSize: 12,
                         ),
@@ -358,22 +373,22 @@ class _AccountCard extends StatelessWidget {
     );
   }
 
-  String _formatLastLogin(DateTime lastLogin) {
+  String _formatLastLogin(BuildContext context, DateTime lastLogin) {
     final now = DateTime.now();
     final difference = now.difference(lastLogin);
 
     if (difference.inDays == 0) {
       if (difference.inHours == 0) {
         if (difference.inMinutes == 0) {
-          return 'Только что';
+          return AppLocalizations.of(context)?.activeNow ?? 'Active now';
         }
-        return '${difference.inMinutes} мин. назад';
+        return AppLocalizations.of(context)?.lastSeenRecently ?? 'Recently';
       }
-      return '${difference.inHours} ч. назад';
+      return AppLocalizations.of(context)?.lastSeenRecently ?? 'Recently';
     } else if (difference.inDays == 1) {
-      return 'Вчера';
+      return AppLocalizations.of(context)?.yesterday ?? 'Yesterday';
     } else if (difference.inDays < 7) {
-      return '${difference.inDays} дн. назад';
+      return AppLocalizations.of(context)?.lastSeenRecently ?? 'Recently';
     } else {
       return '${lastLogin.day}.${lastLogin.month}.${lastLogin.year}';
     }

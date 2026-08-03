@@ -41,7 +41,7 @@ class AppVersionInfo {
     }
 
     return AppVersionInfo(
-      version: versionClean.isEmpty ? '2.0.0' : versionClean,
+      version: versionClean.isEmpty ? '2.0.loc_0' : versionClean,
       releaseNotes: json['body'] as String? ?? '',
       htmlUrl: json['html_url'] as String? ?? 'https://github.com/xaneorepos/xaneo_mobile/releases/latest',
       publishedAt: pubDate,

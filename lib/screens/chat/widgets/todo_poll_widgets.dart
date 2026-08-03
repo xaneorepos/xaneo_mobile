@@ -6,6 +6,7 @@ import '../../../services/database/app_database.dart';
 import '../../../services/chat/chat_local_repository.dart';
 import '../../../services/chat/chat_websocket_service.dart';
 import '../../../styles/app_styles.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 class TodoListWidget extends StatelessWidget {
   final Message message;
@@ -23,14 +24,14 @@ class TodoListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String title = 'Список задач';
+    String title = (AppLocalizations.of(context)?.spisokZadach_1852 ?? 'Fallback');
     List<dynamic> items = [];
 
     // Parse todo list structure from decrypted textContent
     try {
       final parsed = jsonDecode(message.textContent);
       if (parsed is Map) {
-        title = parsed['title']?.toString() ?? 'Список задач';
+        title = parsed['title']?.toString() ?? (AppLocalizations.of(context)?.spisokZadach_1852 ?? 'Fallback');
         items = parsed['items'] as List<dynamic>? ?? [];
       }
     } catch (_) {}
@@ -188,7 +189,7 @@ class PollWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String question = 'Опрос';
+    String question = (AppLocalizations.of(context)?.opros_9f36 ?? 'Fallback');
     List<dynamic> options = [];
     bool isMultipleChoice = false;
 
@@ -196,7 +197,7 @@ class PollWidget extends StatelessWidget {
     try {
       final parsed = jsonDecode(message.textContent);
       if (parsed is Map) {
-        question = parsed['question']?.toString() ?? 'Опрос';
+        question = parsed['question']?.toString() ?? (AppLocalizations.of(context)?.opros_9f36 ?? 'Fallback');
         options = parsed['options'] as List<dynamic>? ?? [];
         isMultipleChoice = parsed['is_multiple_choice'] == true;
       }
@@ -240,7 +241,7 @@ class PollWidget extends StatelessWidget {
           // Poll question
           Text(
             question,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
               fontSize: 15.5,
               fontWeight: FontWeight.w600,
@@ -249,7 +250,7 @@ class PollWidget extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            isMultipleChoice ? 'Множественный выбор' : 'Одиночный выбор',
+            isMultipleChoice ? (AppLocalizations.of(context)?.mnozhestvennyyVybor_9b60 ?? 'Fallback') : (AppLocalizations.of(context)?.odinochnyyVybor_d920 ?? 'Fallback'),
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.4),
               fontSize: 10.5,
@@ -368,11 +369,11 @@ class PollWidget extends StatelessWidget {
               ),
             );
           }),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           // Footer vote count
           Text(
             totalVotes == 0
-                ? 'Нет голосов'
+                ? (AppLocalizations.of(context)?.netGolosov_17d0 ?? 'Fallback')
                 : '$totalVotes ${_formatVotesCountText(totalVotes)}',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.4),
@@ -387,11 +388,11 @@ class PollWidget extends StatelessWidget {
 
   String _formatVotesCountText(int count) {
     if (count % 10 == 1 && count % 100 != 11) {
-      return 'голос';
+      return 'Fallback';
     } else if ((count % 10 >= 2 && count % 10 <= 4) && (count % 100 < 10 || count % 100 >= 20)) {
-      return 'голоса';
+      return 'Fallback';
     } else {
-      return 'голосов';
+      return 'Fallback';
     }
   }
 

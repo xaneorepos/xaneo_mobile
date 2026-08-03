@@ -8,13 +8,23 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import '../services/auth/token_storage.dart';
 
+class PlaybackItem {
+  final String url;
+  final String title;
+  final String subtitle;
+  final String? mimeType;
+  final Duration? duration;
+
+  PlaybackItem({
+    required this.url,
+    required this.title,
+    required this.subtitle,
+    this.mimeType,
+    this.duration,
+  });
+}
+
 /// Глобальный провайдер воспроизведения голосовых сообщений.
-///
-/// Аудио проигрывается через [just_audio].
-/// Временный файл скачивается с авторизацией (JWT) и кэшируется.
-///
-/// Seek реализован через пересоздание AudioSource из кэшированного файла,
-/// так как ExoPlayer (Android) игнорирует _player.seek() для WebM/Opus файлов.
 class PlaybackProvider extends ChangeNotifier {
   final AudioPlayer _player = AudioPlayer();
   StreamSubscription? _playerStateSub;
@@ -22,7 +32,7 @@ class PlaybackProvider extends ChangeNotifier {
   StreamSubscription? _durationSub;
 
   String? _currentAudioUrl;
-  String? _currentFilePath; // Локальный путь к файлу (для пересоздания при seek)
+  String? _currentFilePath;
   String _title = '';
   String _subtitle = '';
   bool _isPlaying = false;
@@ -30,14 +40,9 @@ class PlaybackProvider extends ChangeNotifier {
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   bool _isLoading = false;
-  bool _isSeeking = false; // Guard от конкурентных seek
+  bool _isSeeking = false;
   bool _isVideo = false;
 
-  // После seek() некоторое время positionStream может присылать "хвостовые"
-  // события от старого/пересоздаваемого AudioSource с позицией около нуля,
-  // даже после того как _isSeeking уже сброшен в false. Запоминаем целевую
-  // позицию и игнорируем явно более ранние события короткое время после сика,
-  // чтобы UI не дёргался назад.
   Duration? _seekTargetPosition;
   DateTime? _seekCompletedAt;
   static const _seekSettleWindow = Duration(milliseconds: 600);
@@ -52,8 +57,16 @@ class PlaybackProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isVideo => _isVideo;
 
+  List<PlaybackItem> _playlist = [];
+  int _currentIndex = -1;
+
   List<String> _queue = [];
   int _queueIndex = -1;
+
+  List<PlaybackItem> get playlist => List.unmodifiable(_playlist);
+  int get currentIndex => _currentIndex;
+  bool get hasNext => _playlist.isNotEmpty && _currentIndex >= 0 && _currentIndex < _playlist.length - 1;
+  bool get hasPrevious => _playlist.isNotEmpty && _currentIndex > 0;
 
   PlaybackProvider() {
     _playerStateSub = _player.playerStateStream.listen((state) {
@@ -62,6 +75,9 @@ class PlaybackProvider extends ChangeNotifier {
       if (state.processingState == ProcessingState.completed) {
         _isPlaying = false;
         _position = Duration.zero;
+        if (hasNext) {
+          playNext();
+        }
       }
       notifyListeners();
     });
@@ -395,6 +411,49 @@ class PlaybackProvider extends ChangeNotifier {
       await _player.play();
     } catch (e) {
       debugPrint('❌ _restartFrom error: $e');
+    }
+  }
+
+  void setPlaylist(List<PlaybackItem> items, {String? initialUrl}) {
+    _playlist = List.from(items);
+    if (initialUrl != null) {
+      _currentIndex = _playlist.indexWhere((item) => item.url == initialUrl);
+    } else if (_playlist.isNotEmpty) {
+      _currentIndex = 0;
+    } else {
+      _currentIndex = -1;
+    }
+    notifyListeners();
+  }
+
+  Future<void> playItemAtIndex(int index) async {
+    if (index < 0 || index >= _playlist.length) return;
+    _currentIndex = index;
+    final item = _playlist[index];
+    await play(
+      item.url,
+      item.title,
+      item.subtitle,
+      mimeType: item.mimeType,
+      duration: item.duration,
+    );
+  }
+
+  Future<void> playNext() async {
+    if (_playlist.isNotEmpty && _currentIndex < _playlist.length - 1) {
+      await playItemAtIndex(_currentIndex + 1);
+    }
+  }
+
+  Future<void> playPrevious() async {
+    if (_position.inSeconds > 3) {
+      await seek(Duration.zero);
+      return;
+    }
+    if (_playlist.isNotEmpty && _currentIndex > 0) {
+      await playItemAtIndex(_currentIndex - 1);
+    } else {
+      await seek(Duration.zero);
     }
   }
 

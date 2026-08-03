@@ -10,6 +10,7 @@ import '../../services/chat/group_channel_service.dart';
 import '../../styles/app_styles.dart';
 import 'avatar_cropper.dart';
 import 'base_custom_modal.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Модальное окно создания канала
 class CreateChannelModal extends BaseCustomModal {
@@ -90,14 +91,14 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
 
     if (name.isEmpty) {
       setState(() {
-        _errorMessage = 'Введите название канала';
+        _errorMessage = (AppLocalizations.of(context)?.vvediteNazvanieKanala_5536 ?? 'Fallback');
       });
       return;
     }
 
     if (!_isPrivate && username.isEmpty) {
       setState(() {
-        _errorMessage = 'Для публичного канала требуется ссылка/никнейм (@mychannel)';
+        _errorMessage = (AppLocalizations.of(context)?.dlyaPublichnogoKanalaTrebuetsyaSsylkanikneym_5f06 ?? 'Fallback');
       });
       return;
     }
@@ -133,7 +134,7 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
         isGroup: false,
         isPersonal: false,
         isFavorites: false,
-        lastMessage: 'Канал создан',
+        lastMessage: (AppLocalizations.of(context)?.kanalSozdan_1522 ?? 'Fallback'),
         lastMessageTime: DateTime.now(),
         otherUser: {
           'subscribers_count': 1,
@@ -156,7 +157,7 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
     } else {
       setState(() {
         _isLoading = false;
-        _errorMessage = result?['error']?.toString() ?? result?['message']?.toString() ?? 'Ошибка при создании канала';
+        _errorMessage = result?['error']?.toString() ?? result?['message']?.toString() ?? (AppLocalizations.of(context)?.oshibkaPriSozdaniiKanala_7d4b ?? 'Fallback');
       });
     }
   }
@@ -192,7 +193,7 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
                       ),
                     ),
                     child: _avatarFile == null
-                        ? const Center(
+                        ? Center(
                             child: FaIcon(
                               FontAwesomeIcons.bullhorn,
                               color: Colors.white70,
@@ -224,12 +225,12 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
               ),
             ),
             const SizedBox(width: 16),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Создать канал',
+                    (AppLocalizations.of(context)?.sozdatKanal_9022 ?? 'Fallback'),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 19,
@@ -240,7 +241,7 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
                   ),
                   SizedBox(height: 2),
                   Text(
-                    'Нажмите на иконку, чтобы выбрать аватарку',
+                    (AppLocalizations.of(context)?.nazhmiteNaIkonkuChtobyVybrat_af03 ?? 'Fallback'),
                     style: TextStyle(
                       color: Color(0xFF999999),
                       fontSize: 12.5,
@@ -261,7 +262,7 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
           controller: _nameController,
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: InputDecoration(
-            hintText: 'Название канала',
+            hintText: (AppLocalizations.of(context)?.nazvanieKanala_c548 ?? 'Fallback'),
             hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 15),
             filled: true,
             fillColor: Colors.white.withOpacity(0.05),
@@ -285,7 +286,7 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
           maxLines: 2,
           style: const TextStyle(color: Colors.white, fontSize: 15),
           decoration: InputDecoration(
-            hintText: 'Описание (необязательно)',
+            hintText: (AppLocalizations.of(context)?.opisanieNeobyazatelno_7812 ?? 'Fallback'),
             hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 15),
             filled: true,
             fillColor: Colors.white.withOpacity(0.05),
@@ -324,7 +325,7 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _isPrivate ? 'Приватный канал' : 'Публичный канал',
+                      _isPrivate ? (AppLocalizations.of(context)?.privatnyyKanal_3139 ?? 'Fallback') : (AppLocalizations.of(context)?.publichnyyKanal_0f7c ?? 'Fallback'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
@@ -334,8 +335,8 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
                     ),
                     Text(
                       _isPrivate
-                          ? 'Подписка только по приглашению'
-                          : 'Любой может найти и подписаться',
+                          ? (AppLocalizations.of(context)?.podpiskaTolkoPoPriglasheniyu_99c3 ?? 'Fallback')
+                          : (AppLocalizations.of(context)?.lyuboyMozhetNaytiIPodpisatsya_8579 ?? 'Fallback'),
                       style: const TextStyle(
                         color: Color(0xFF888888),
                         fontSize: 12,
@@ -360,12 +361,12 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
 
         // Если канал публичный — поле ввода юзернейма
         if (!_isPrivate) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           TextField(
             controller: _usernameController,
             style: const TextStyle(color: Colors.white, fontSize: 16),
             decoration: InputDecoration(
-              hintText: 'Ссылка/никнейм канала (@mychannel)',
+              hintText: (AppLocalizations.of(context)?.ssylkanikneymKanalaMychannel_79f6 ?? 'Fallback'),
               hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 14.5),
               prefixText: '@ ',
               prefixStyle: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
@@ -422,8 +423,8 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
                       color: Colors.black,
                     ),
                   )
-                : const Text(
-                    'Создать канал',
+                : Text(
+                    (AppLocalizations.of(context)?.sozdatKanal_9022 ?? 'Fallback'),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

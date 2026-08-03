@@ -14,6 +14,7 @@ import '../utils/local_proxy.dart';
 import '../services/chat/chat_local_repository.dart';
 import '../services/database/app_database.dart';
 import '../services/auth/token_storage.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 class VideoMessagePlayer extends StatefulWidget {
   final String videoUrl;
@@ -386,8 +387,8 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticK
     final playbackProvider = Provider.of<PlaybackProvider>(context, listen: false);
     playbackProvider.playVideo(
       widget.videoUrl,
-      'Видеосообщение',
-      widget.senderName ?? 'Видеосообщение',
+      (AppLocalizations.of(context)?.videosoobschenie_2951 ?? 'Fallback'),
+      widget.senderName ?? (AppLocalizations.of(context)?.videosoobschenie_2951 ?? 'Fallback'),
       duration: Duration(milliseconds: (widget.duration * 1000).toInt()),
     );
   }

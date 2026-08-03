@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
@@ -12,11 +11,14 @@ import '../chat/chat_list_screen.dart';
 import '../contacts/contacts_screen.dart';
 import '../../services/webrtc/call_manager.dart';
 import '../../widgets/common/incoming_call_modal.dart';
+import '../../providers/locale_provider.dart';
 import '../../widgets/common/mobile_settings_modals.dart';
+import '../../widgets/common/mobile_language_modal.dart';
 import '../../widgets/common/avatar_widget.dart';
 import '../../services/notifications/notification_service.dart';
 import '../../services/update/update_service.dart';
 import '../../widgets/common/custom_update_toast.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Главный экран приложения (после авторизации)
 class MainScreen extends StatefulWidget {
@@ -34,12 +36,12 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentIndex);
-    
+
     // Подписываемся на CallManager для отслеживания входящих вызовов
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<CallManager>().addListener(_handleCallStateChanged);
-        
+
         // Помечаем, что приложение готово, и проверяем наличие отложенных звонков
         NotificationService.isAppReady = true;
         NotificationService.checkPendingCallPayload();
@@ -55,7 +57,6 @@ class _MainScreenState extends State<MainScreen> {
       CustomUpdateToast.show(context, update);
     }
   }
-
 
   @override
   void dispose() {
@@ -77,9 +78,6 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    final user = auth.user;
-
     return Scaffold(
       backgroundColor: AppStyles.backgroundColor,
       body: Stack(
@@ -87,11 +85,12 @@ class _MainScreenState extends State<MainScreen> {
           // Анимация скольжения экранов
           PageView(
             controller: _pageController,
-            physics: const NeverScrollableScrollPhysics(), // Блокируем свайп руками для точной синхронизации с панелью
-            children: [
-              const ChatListScreen(key: ValueKey('chats')),
-              const ContactsScreen(key: ValueKey('contacts')),
-              _SettingsScreen(user: user, key: const ValueKey('settings')),
+            physics:
+                const NeverScrollableScrollPhysics(), // Блокируем свайп руками для точной синхронизации с панелью
+            children: const [
+              ChatListScreen(key: ValueKey('chats')),
+              ContactsScreen(key: ValueKey('contacts')),
+              _SettingsScreen(key: ValueKey('settings')),
             ],
           ),
           Positioned(
@@ -139,7 +138,7 @@ class _MainScreenState extends State<MainScreen> {
           transitionBuilder: (widget, animation) {
             return SizeTransition(
               sizeFactor: animation,
-              axisAlignment: -1.0,
+              alignment: Alignment.topCenter,
               child: FadeTransition(opacity: animation, child: widget),
             );
           },
@@ -147,23 +146,19 @@ class _MainScreenState extends State<MainScreen> {
           // когда плеер появляется/исчезает. Пока виден — один и тот же ключ,
           // и контент обновляется на месте без пересоздания.
           child: isVisible
-              ? _MediaBarContent(key: const ValueKey('media_bar_visible'))
+              ? const _MediaBarContent(key: ValueKey('media_bar_visible'))
               : const SizedBox.shrink(key: ValueKey('media_bar_hidden')),
         );
       },
     );
   }
-
-
-
 }
 
 /// Экран настроек вынесен в отдельный StatelessWidget, чтобы:
 /// 1. Изолировать ребилды от _MainScreenState (AuthProvider, etc.).
 /// 2. Позволить PageView кешировать виджет между переключениями вкладок.
 class _SettingsScreen extends StatelessWidget {
-  final UserModel? user;
-  const _SettingsScreen({this.user, super.key});
+  const _SettingsScreen({super.key});
 
   // ─── Кешированные декорации (создаются один раз) ───────────────────────────
 
@@ -179,7 +174,6 @@ class _SettingsScreen extends StatelessWidget {
       ),
     ],
   );
-
 
   static final _editButtonDecoration = BoxDecoration(
     color: const Color(0x12FFFFFF),
@@ -204,71 +198,78 @@ class _SettingsScreen extends StatelessWidget {
     border: Border.all(color: const Color(0x14FFFFFF)),
   );
 
-
   // ─── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
+    final user = context.select<AuthProvider, UserModel?>((auth) => auth.user);
+    final l10n = AppLocalizations.of(context);
+
     return SafeArea(
       child: ListView(
         physics: const ClampingScrollPhysics(),
         padding: const EdgeInsets.only(top: 24, bottom: 100),
         children: [
           if (user != null) ...[
-            _buildProfileCard(context, user!),
+            _buildProfileCard(context, user),
             const SizedBox(height: 24),
           ],
-          _buildSection('АККАУНТ', [
+          _buildSection((l10n?.akkaunt_38ac ?? 'Fallback'), [
             _buildItem(
               icon: FontAwesomeIcons.userPen,
-              title: 'Личные данные',
-              subtitle: 'Имя, никнейм, о себе',
+              title: (l10n?.lichnyeDannye_be85 ?? 'Fallback'),
+              subtitle: (l10n?.imyaNikneymOSebe_7a8d ?? 'Fallback'),
               onTap: () => MobilePersonalModal.show(context),
             ),
             _buildItem(
               icon: FontAwesomeIcons.shieldHalved,
-              title: 'Приватность',
-              subtitle: 'Звонки, сообщения, видимость профиля',
+              title: (l10n?.privatnost_0899 ?? 'Fallback'),
+              subtitle:
+                  (l10n?.zvonkiSoobscheniyaVidimostProfilya_f905 ?? 'Fallback'),
               onTap: () => MobilePrivacyModal.show(context),
             ),
             _buildItem(
               icon: FontAwesomeIcons.lock,
-              title: 'Безопасность',
-              subtitle: 'Пароль, сессии, 2FA',
+              title: (l10n?.bezopasnost_3677 ?? 'Fallback'),
+              subtitle: (l10n?.parolSessii2fa_de9e ?? 'Fallback'),
               isLast: true,
               onTap: () => MobileSecurityModal.show(context),
             ),
           ]),
           const SizedBox(height: 20),
-          _buildSection('ПРИЛОЖЕНИЕ', [
+          _buildSection((l10n?.prilozhenie_38aa ?? 'Fallback'), [
             _buildItem(
               icon: FontAwesomeIcons.palette,
-              title: 'Внешний вид',
-              subtitle: 'Тема, размер текста, анимации',
+              title: (l10n?.vneshniyVid_6873 ?? 'Fallback'),
+              subtitle: (l10n?.temaRazmerTekstaAnimatsii_f0a8 ?? 'Fallback'),
               onTap: () => MobileAppearanceModal.show(context),
             ),
             _buildItem(
               icon: FontAwesomeIcons.bell,
-              title: 'Уведомления',
-              subtitle: 'Push-уведомления, звуки',
+              title: (l10n?.uvedomleniya_d2ed ?? 'Fallback'),
+              subtitle: (l10n?.pushUvedomleniyaZvuki_9cc2 ?? 'Fallback'),
               onTap: () => MobileAppearanceModal.show(context),
             ),
-            _buildItem(
-              icon: FontAwesomeIcons.language,
-              title: 'Язык интерфейса',
-              subtitle: 'Русский',
-              isLast: true,
-              onTap: () => MobileAppearanceModal.show(context),
+            Consumer<LocaleProvider>(
+              builder: (context, localeProvider, _) {
+                return _buildItem(
+                  icon: FontAwesomeIcons.language,
+                  title: (l10n?.yazykInterfeysa_b78b ?? 'Fallback'),
+                  subtitle: localeProvider.currentLanguageName,
+                  isLast: true,
+                  onTap: () => MobileLanguageModal.show(context),
+                );
+              },
             ),
           ]),
           const SizedBox(height: 20),
-          _buildSection('О ПРИЛОЖЕНИИ', [
+          _buildSection((l10n?.oPrilozhenii_77b2 ?? 'Fallback'), [
             _buildItem(
               icon: FontAwesomeIcons.circleInfo,
               title: 'Xaneo Mobile',
-              subtitle: 'Версия 2.0.0 (Build 200)',
+              subtitle: (l10n?.versiya200Build200_0e7b ?? 'Fallback'),
               isLast: true,
-              onTap: () {},
+              onTap: () => MobileAboutModal.show(context),
             ),
           ]),
           const SizedBox(height: 28),
@@ -350,7 +351,8 @@ class _SettingsScreen extends StatelessWidget {
               const SizedBox(height: 14),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: _bioDecoration,
                 child: Text(
                   user.bio!.trim(),
@@ -371,18 +373,19 @@ class _SettingsScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: _editButtonDecoration,
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    FaIcon(
+                    const FaIcon(
                       FontAwesomeIcons.penToSquare,
                       size: 13,
                       color: Colors.white70,
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
-                      'Редактировать профиль',
-                      style: TextStyle(
+                      (AppLocalizations.of(context)?.redaktirovatProfil_56ad ??
+                          'Fallback'),
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
@@ -507,13 +510,14 @@ class _SettingsScreen extends StatelessWidget {
             );
           }
         },
-        child: const SizedBox(
+        child: SizedBox(
           width: double.infinity,
           height: 48,
           child: Center(
             child: Text(
-              'Выйти из аккаунта',
-              style: TextStyle(
+              (AppLocalizations.of(context)?.vyytiIzAkkaunta_6d41 ??
+                  'Fallback'),
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: Color(0xFF888888),
@@ -617,7 +621,8 @@ class _MediaBarContent extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 22),
+                icon: const Icon(Icons.skip_previous_rounded,
+                    color: Colors.white, size: 22),
                 onPressed: () => playbackProvider.previous(),
               ),
               GestureDetector(
@@ -643,7 +648,8 @@ class _MediaBarContent extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 22),
+                icon: const Icon(Icons.skip_next_rounded,
+                    color: Colors.white, size: 22),
                 onPressed: () => playbackProvider.next(),
               ),
               Container(
@@ -652,7 +658,8 @@ class _MediaBarContent extends StatelessWidget {
                 color: Colors.white.withOpacity(0.08),
               ),
               IconButton(
-                icon: Icon(Icons.close_rounded, color: Colors.white.withOpacity(0.4), size: 20),
+                icon: Icon(Icons.close_rounded,
+                    color: Colors.white.withOpacity(0.4), size: 20),
                 onPressed: () => playbackProvider.stop(),
               ),
               const SizedBox(width: 4),

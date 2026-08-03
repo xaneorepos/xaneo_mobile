@@ -23,7 +23,7 @@ class ApiClient {
   final TokenStorage _tokenStorage;
   late final CookieJar _cookieJar;
   final String deviceId;
-  
+
   /// Callback upon session expiration
   VoidCallback? onSessionExpired;
 
@@ -47,8 +47,10 @@ class ApiClient {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         'X-Device-ID': deviceId,
-        'X-Platform': Platform.isAndroid ? 'android' : (Platform.isIOS ? 'ios' : 'unknown'),
-        'X-App-Version': '2.0.0+1',
+        'X-Platform': Platform.isAndroid
+            ? 'android'
+            : (Platform.isIOS ? 'ios' : 'unknown'),
+        'X-App-Version': '2.0.loc_0+1',
       },
     ));
 
@@ -57,14 +59,15 @@ class ApiClient {
     _dio.httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: () {
         final client = HttpClient();
-        client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+        client.badCertificateCallback =
+            (X509Certificate cert, String host, int port) => true;
         return client;
       },
     );
 
     // Инициализируем CookieJar для хранения cookies (Django-сессии)
     _cookieJar = CookieJar();
-    
+
     // Добавляем интерцепторы
     _dio.interceptors.addAll([
       CookieManager(_cookieJar), // Управление cookies
@@ -79,7 +82,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return await _dio.get(path, queryParameters: queryParameters, options: options);
+    return await _dio.get(path,
+        queryParameters: queryParameters, options: options);
   }
 
   /// POST запрос
@@ -89,7 +93,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return await _dio.post(path, data: data, queryParameters: queryParameters, options: options);
+    return await _dio.post(path,
+        data: data, queryParameters: queryParameters, options: options);
   }
 
   /// PUT запрос
@@ -99,7 +104,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return await _dio.put(path, data: data, queryParameters: queryParameters, options: options);
+    return await _dio.put(path,
+        data: data, queryParameters: queryParameters, options: options);
   }
 
   /// DELETE запрос
@@ -109,7 +115,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return await _dio.delete(path, data: data, queryParameters: queryParameters, options: options);
+    return await _dio.delete(path,
+        data: data, queryParameters: queryParameters, options: options);
   }
 
   /// Обновление access токена
@@ -138,16 +145,17 @@ class ApiClient {
       if (response.statusCode == 200 && response.data['access'] != null) {
         final newAccessToken = response.data['access'] as String;
         await _tokenStorage.saveAccessToken(newAccessToken);
-        
+
         // Если есть новый refresh токен, сохраняем его тоже
         if (response.data['refresh'] != null) {
-          await _tokenStorage.saveRefreshToken(response.data['refresh'] as String);
+          await _tokenStorage
+              .saveRefreshToken(response.data['refresh'] as String);
         }
-        
+
         _resolvePendingRequests(newAccessToken);
         return newAccessToken;
       }
-      
+
       _resolvePendingRequests(null);
       return null;
     } catch (e) {
@@ -185,9 +193,11 @@ class _AuthInterceptor extends Interceptor {
   _AuthInterceptor(this._apiClient, this._tokenStorage);
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+  void onRequest(
+      RequestOptions options, RequestInterceptorHandler handler) async {
     // Пропускаем запросы без авторизации
-    if (_shouldSkipAuth(options)) {
+    final skipAuth = _shouldSkipAuth(options);
+    if (skipAuth) {
       return handler.next(options);
     }
 
@@ -195,16 +205,15 @@ class _AuthInterceptor extends Interceptor {
     if (accessToken != null) {
       options.headers['Authorization'] = 'Bearer $accessToken';
     }
-    
+
     handler.next(options);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     // Если 401 и это не запрос на обновление токена
-    if (err.response?.statusCode == 401 && 
+    if (err.response?.statusCode == 401 &&
         !_isRefreshRequest(err.requestOptions.path)) {
-      
       final newToken = await _apiClient.refreshToken();
       if (newToken != null) {
         // Повторяем запрос с новым токеном
@@ -220,7 +229,7 @@ class _AuthInterceptor extends Interceptor {
         _apiClient.onSessionExpired?.call();
       }
     }
-    
+
     handler.next(err);
   }
 
@@ -249,10 +258,13 @@ class _LoggingInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     if (kDebugMode) {
-      debugPrint('🌐 API Request: ${options.method} ${options.baseUrl}${options.path}');
+      debugPrint(
+          '🌐 API Request: ${options.method} ${options.baseUrl}${options.path}');
       if (options.data != null) {
         // Sanitize sensitive data in logs
-        final data = options.data is Map ? Map<String, dynamic>.from(options.data) : options.data;
+        final data = options.data is Map
+            ? Map<String, dynamic>.from(options.data)
+            : options.data;
         if (data is Map<String, dynamic>) {
           if (data.containsKey('password')) data['password'] = '***';
           if (data.containsKey('token')) data['token'] = '***';
@@ -269,9 +281,12 @@ class _LoggingInterceptor extends Interceptor {
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
     if (kDebugMode) {
-      debugPrint('✅ API Response: ${response.statusCode} ${response.requestOptions.path}');
+      debugPrint(
+          '✅ API Response: ${response.statusCode} ${response.requestOptions.path}');
       if (response.data != null) {
-        final data = response.data is Map ? Map<String, dynamic>.from(response.data) : response.data;
+        final data = response.data is Map
+            ? Map<String, dynamic>.from(response.data)
+            : response.data;
         if (data is Map<String, dynamic>) {
           if (data.containsKey('access')) data['access'] = '***';
           if (data.containsKey('refresh')) data['refresh'] = '***';
@@ -280,7 +295,8 @@ class _LoggingInterceptor extends Interceptor {
         } else {
           final text = data.toString();
           if (text.length > 600 || text.startsWith('<!DOCTYPE html>')) {
-            debugPrint(' Response data: <omitted large/non-json payload, len=${text.length}>');
+            debugPrint(
+                ' Response data: <omitted large/non-json payload, len=${text.length}>');
           } else {
             debugPrint(' Response data: $text');
           }
@@ -293,13 +309,15 @@ class _LoggingInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (kDebugMode) {
-      debugPrint('❌ API Error: ${err.response?.statusCode} ${err.requestOptions.path}');
+      debugPrint(
+          '❌ API Error: ${err.response?.statusCode} ${err.requestOptions.path}');
       debugPrint(' Error type: ${err.type}');
       debugPrint(' Error message: ${err.message}');
       if (err.response?.data != null) {
         final errorText = err.response?.data.toString() ?? '';
         if (errorText.length > 600 || errorText.startsWith('<!DOCTYPE html>')) {
-          debugPrint(' Error data: <omitted large/non-json payload, len=${errorText.length}>');
+          debugPrint(
+              ' Error data: <omitted large/non-json payload, len=${errorText.length}>');
         } else {
           debugPrint(' Error data: $errorText');
         }
@@ -315,8 +333,9 @@ class Completer<T> {
   T? _value;
   bool _isCompleted = false;
 
-  Future<T> get future => _future.isEmpty ? Future.value(_value as T) : _future.first;
-  
+  Future<T> get future =>
+      _future.isEmpty ? Future.value(_value as T) : _future.first;
+
   void complete([T? value]) {
     _value = value;
     _isCompleted = true;

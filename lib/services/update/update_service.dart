@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../config/app_config.dart';
 import '../../models/update/app_version_info.dart';
 
 class UpdateService {
@@ -20,7 +21,7 @@ class UpdateService {
         Uri.parse(_repoUrl),
         headers: {
           'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'XaneoMobile-App-UpdateChecker',
+          'User-Agent': AppConfig.userAgent,
         },
       ).timeout(const Duration(seconds: 10));
 
@@ -38,9 +39,12 @@ class UpdateService {
   Future<String> getCurrentVersion() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
-      return packageInfo.version;
+      if (packageInfo.version.isNotEmpty && packageInfo.version != '0.0.0') {
+        return packageInfo.version;
+      }
+      return AppConfig.appVersion;
     } catch (_) {
-      return '2.0.0';
+      return AppConfig.appVersion;
     }
   }
 
@@ -63,14 +67,9 @@ class UpdateService {
     await prefs.setInt(_lastCheckedKey, DateTime.now().millisecondsSinceEpoch);
 
     if (isVersionNewer(currentVersion, latestRelease.version)) {
-      if (!force) {
-        final ignoredVersion = prefs.getString(_ignoredVersionKey);
-        if (ignoredVersion == latestRelease.version) {
-          return null;
-        }
-      }
       return latestRelease;
     }
+
 
     return null;
   }
@@ -81,7 +80,7 @@ class UpdateService {
     await prefs.setString(_ignoredVersionKey, version);
   }
 
-  /// Сравнение версий SemVer (например 2.0.0 < 2.1.0)
+  /// Сравнение версий SemVer (например 2.0.loc_0 < 2.1.loc_0)
   static bool isVersionNewer(String current, String remote) {
     try {
       final currentParts = current.split('+')[0].split('.').map((e) => int.tryParse(e) ?? 0).toList();

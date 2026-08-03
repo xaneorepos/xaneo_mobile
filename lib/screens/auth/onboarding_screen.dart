@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../styles/app_styles.dart';
 import 'login_screen.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -13,24 +14,24 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentStep = 0;
 
-  final List<Map<String, String>> _steps = [
+  late final List<Map<String, String>> _steps = [
     {
-      'title': 'Добро пожаловать в Xaneo',
-      'description': 'Xaneo — теперь и в мобильном приложении! Данный мессенджер еще никогда не был таким удобным и быстрым.',
+      'title': (AppLocalizations.of(context)?.dobroPozhalovatVXaneo_66d0 ?? 'Fallback'),
+      'description': (AppLocalizations.of(context)?.xaneoTeperIVMobilnom_e918 ?? 'Fallback'),
       'image': 'assets/images/medved.png',
-      'button': 'Мне уже интересно',
+      'button': (AppLocalizations.of(context)?.mneUzheInteresno_5365 ?? 'Fallback'),
     },
     {
-      'title': 'Все ваши данные под защитой',
-      'description': 'Все сообщения защищены сквозным шифрованием. Ни на одном из этапов Xaneo не знает их содержимого.',
+      'title': (AppLocalizations.of(context)?.vseVashiDannyePodZaschitoy_b7d9 ?? 'Fallback'),
+      'description': (AppLocalizations.of(context)?.vseSoobscheniyaZaschischenySkvoznymShifrovaniem_443e ?? 'Fallback'),
       'image': 'assets/images/medvedprivate.png',
-      'button': 'Продолжить',
+      'button': (AppLocalizations.of(context)?.prodolzhit_e9c3 ?? 'Fallback'),
     },
     {
-      'title': 'Локальные дата центры',
-      'description': 'Ваши данные никогда не покидают пределы страны и хранятся в защищенных дата центрах.',
+      'title': (AppLocalizations.of(context)?.lokalnyeDataTsentry_f089 ?? 'Fallback'),
+      'description': (AppLocalizations.of(context)?.vashiDannyeNikogdaNePokidayut_f871 ?? 'Fallback'),
       'image': 'assets/images/medved_database.png',
-      'button': 'Завершить',
+      'button': (AppLocalizations.of(context)?.zavershit_b0e3 ?? 'Fallback'),
     },
   ];
 

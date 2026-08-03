@@ -18,7 +18,7 @@ class XaneoGrpcService {
 
   bool _isInitialized = false;
 
-  void init({String host = '127.0.0.1', int chatPort = 50051, int presencePort = 50053}) {
+  void init({String host = '127.0.loc_0.1', int chatPort = 50051, int presencePort = 50053}) {
     if (_isInitialized) return;
 
     _chatChannel = ClientChannel(

@@ -1,5 +1,73 @@
 import 'dart:convert';
 
+/// Восстанавливает тип preview, когда WebSocket/API присылает файл
+/// без message_type, но с file_id/images/MIME-метаданными.
+String? inferChatMessageType(
+  Map<String, dynamic> payload, {
+  String? fallback,
+}) {
+  String? normalize(dynamic value) {
+    final normalized = value?.toString().trim().toLowerCase();
+    return normalized == null || normalized.isEmpty ? null : normalized;
+  }
+
+  String? normalizeFileType(dynamic value) {
+    final type = normalize(value);
+    if (type == null) return null;
+    if (type == 'voice' || type == 'voice_message') return 'voice';
+    if (type == 'video_message') return 'video_message';
+    if (type == 'video' || type.startsWith('video/')) return 'video';
+    if (type == 'image' || type == 'photo' || type.startsWith('image/')) {
+      return 'image';
+    }
+    if (type == 'document' || type == 'attachment') return 'file';
+    return type;
+  }
+
+  var result = normalize(payload['message_type']) ??
+      normalize(payload['last_message_type']) ??
+      normalize(fallback);
+  result = normalizeFileType(result);
+  if (result != null && result != 'file') return result;
+
+  final images = payload['images'];
+  if (images is List && images.isNotEmpty) {
+    if (images.length > 1) return 'collage';
+    final first = images.first;
+    if (first is Map) {
+      result = normalizeFileType(
+        first['file_type'] ?? first['type'] ?? first['mime_type'],
+      );
+      if (result != null) return result;
+    }
+    return 'image';
+  }
+
+  final files = payload['files'];
+  if (files is List && files.isNotEmpty) {
+    final first = files.first;
+    if (first is Map) {
+      result = normalizeFileType(
+        first['file_type'] ?? first['type'] ?? first['mime_type'],
+      );
+      if (result != null) return result;
+    }
+    return 'file';
+  }
+
+  if (payload['image'] != null) return 'image';
+  if (payload['file_id'] != null ||
+      payload['attached_file_id'] != null ||
+      payload['file_url'] != null) {
+    return normalizeFileType(
+          payload['file_type'] ?? payload['mime_type'],
+        ) ??
+        'file';
+  }
+
+  return result;
+}
+
 /// Модель чата
 class ChatModel {
   final String id;
@@ -20,6 +88,9 @@ class ChatModel {
   final String? lastMessageType;
   final bool groupCallsEnabled;
   final Map<String, dynamic> raw;
+
+  bool get isPinned => raw['is_pinned'] == true;
+  bool get isMuted => raw['is_muted'] == true;
 
   ChatModel({
     required this.id,
@@ -46,7 +117,8 @@ class ChatModel {
     // Обрабатываем разные форматы ответа API
     final chatId = json['chat_id']?.toString() ?? json['id']?.toString() ?? '';
     final chatType = json['chat_type']?.toString() ?? '';
-    final displayName = json['chat_display_name'] ?? json['name'] ?? json['title'] ?? 'Unknown';
+    final displayName =
+        json['chat_display_name'] ?? json['name'] ?? json['title'] ?? 'Unknown';
 
     // Для личных чатов используем other_user
     String chatName = displayName;
@@ -54,7 +126,9 @@ class ChatModel {
     String? avatarGrad;
     if (json['other_user'] != null && json['other_user'] is Map) {
       final otherUser = json['other_user'] as Map<String, dynamic>;
-      chatName = otherUser['first_name']?.toString() ?? otherUser['username']?.toString() ?? displayName;
+      chatName = otherUser['first_name']?.toString() ??
+          otherUser['username']?.toString() ??
+          displayName;
       // Безопасная проверка типа для avatar_url
       if (otherUser['avatar_url'] is String) {
         avatarUrl = otherUser['avatar_url'] as String;
@@ -65,17 +139,17 @@ class ChatModel {
       }
     }
 
-  // Безопасная проверка для avatar
-  String? avatar;
-  if (avatarUrl != null) {
-    avatar = avatarUrl;
-  } else if (json['avatar_url'] is String) {
-    avatar = json['avatar_url'] as String;
-  } else if (json['avatar'] is String) {
-    avatar = json['avatar'] as String;
-  } else if (json['image'] is String) {
-    avatar = json['image'] as String;
-  }
+    // Безопасная проверка для avatar
+    String? avatar;
+    if (avatarUrl != null) {
+      avatar = avatarUrl;
+    } else if (json['avatar_url'] is String) {
+      avatar = json['avatar_url'] as String;
+    } else if (json['avatar'] is String) {
+      avatar = json['avatar'] as String;
+    } else if (json['image'] is String) {
+      avatar = json['image'] as String;
+    }
 
     // Градиент аватара для групп/каналов (из корня JSON)
     if (avatarGrad == null && json['avatar_gradient'] is String) {
@@ -113,29 +187,48 @@ class ChatModel {
     } else if (json['lastMessage'] is Map) {
       messageType = json['lastMessage']['message_type']?.toString();
     }
-    
-    messageType ??= json['last_message_type']?.toString() ?? json['message_type']?.toString();
 
-    final lastMsgMap = json['last_message'] is Map ? json['last_message'] as Map<String, dynamic> :
-                       json['lastMessage'] is Map ? json['lastMessage'] as Map<String, dynamic> : null;
+    messageType ??= json['last_message_type']?.toString() ??
+        json['message_type']?.toString();
+
+    final lastMsgMap = json['last_message'] is Map
+        ? json['last_message'] as Map<String, dynamic>
+        : json['lastMessage'] is Map
+            ? json['lastMessage'] as Map<String, dynamic>
+            : null;
     if (lastMsgMap != null) {
+      messageType = inferChatMessageType(lastMsgMap, fallback: messageType);
       final filesList = lastMsgMap['files'] as List<dynamic>? ?? [];
       final hasServerFile = filesList.isNotEmpty ||
-          (lastMsgMap['attached_file_id'] != null && lastMsgMap['attached_file_id'].toString().isNotEmpty) ||
-          (lastMsgMap['image'] != null && lastMsgMap['image'].toString().isNotEmpty) ||
-          (lastMsgMap['images'] is List && (lastMsgMap['images'] as List).isNotEmpty);
-      
+          (lastMsgMap['attached_file_id'] != null &&
+              lastMsgMap['attached_file_id'].toString().isNotEmpty) ||
+          (lastMsgMap['file_id'] != null &&
+              lastMsgMap['file_id'].toString().isNotEmpty) ||
+          (lastMsgMap['file_url'] != null &&
+              lastMsgMap['file_url'].toString().isNotEmpty) ||
+          (lastMsgMap['image'] != null &&
+              lastMsgMap['image'].toString().isNotEmpty) ||
+          (lastMsgMap['images'] is List &&
+              (lastMsgMap['images'] as List).isNotEmpty);
+
       if (hasServerFile) {
         if (messageType != 'todo_list' && messageType != 'poll') {
           String detectedType = 'file';
           if (filesList.isNotEmpty) {
             final firstFile = filesList[0];
             if (firstFile is Map) {
-              final fType = firstFile['file_type']?.toString() ?? '';
+              final fType = (firstFile['file_type'] ??
+                          firstFile['type'] ??
+                          firstFile['mime_type'])
+                      ?.toString()
+                      .toLowerCase() ??
+                  '';
               if (fType == 'voice' || fType == 'voice_message') {
                 detectedType = 'voice';
               } else if (fType == 'video' || fType == 'video_message') {
                 detectedType = 'video_message';
+              } else if (fType == 'image' || fType.startsWith('image/')) {
+                detectedType = 'image';
               }
             }
           }
@@ -208,7 +301,7 @@ class ChatModel {
       }
     }
 
-    final Map<String, dynamic> otherUserMap = json['other_user'] is Map 
+    final Map<String, dynamic> otherUserMap = json['other_user'] is Map
         ? Map<String, dynamic>.from(json['other_user'] as Map)
         : <String, dynamic>{};
 
@@ -219,17 +312,27 @@ class ChatModel {
       return null;
     }
 
-    final rawMem = _parseInt(json['members_count']) ?? _parseInt(json['membersCount']) ?? _parseInt(json['member_count']) ?? _parseInt(otherUserMap['members_count']);
+    final rawMem = _parseInt(json['members_count']) ??
+        _parseInt(json['membersCount']) ??
+        _parseInt(json['member_count']) ??
+        _parseInt(otherUserMap['members_count']);
     if (rawMem != null) {
       otherUserMap['members_count'] = rawMem;
     }
 
-    final rawOnline = _parseInt(json['online_count']) ?? _parseInt(json['onlineCount']) ?? _parseInt(json['online_members_count']) ?? _parseInt(otherUserMap['online_count']);
+    final rawOnline = _parseInt(json['online_count']) ??
+        _parseInt(json['onlineCount']) ??
+        _parseInt(json['online_members_count']) ??
+        _parseInt(otherUserMap['online_count']);
     if (rawOnline != null) {
       otherUserMap['online_count'] = rawOnline;
     }
 
-    final rawSub = _parseInt(json['subscribers_count']) ?? _parseInt(json['subscribersCount']) ?? _parseInt(json['subscriber_count']) ?? _parseInt(json['members_count']) ?? _parseInt(otherUserMap['subscribers_count']);
+    final rawSub = _parseInt(json['subscribers_count']) ??
+        _parseInt(json['subscribersCount']) ??
+        _parseInt(json['subscriber_count']) ??
+        _parseInt(json['members_count']) ??
+        _parseInt(otherUserMap['subscribers_count']);
     if (rawSub != null) {
       otherUserMap['subscribers_count'] = rawSub;
     }
@@ -237,9 +340,13 @@ class ChatModel {
     final isArchived = json['is_archived'] == true;
     final archivedAt = _parseApiDateTime(json['archived_at']);
     final rawCallsEnabled = json['group_calls_enabled'] ??
-        (json['other_user'] is Map ? json['other_user']['group_calls_enabled'] : null);
+        (json['other_user'] is Map
+            ? json['other_user']['group_calls_enabled']
+            : null);
     final groupCallsEnabled = rawCallsEnabled != null
-        ? (rawCallsEnabled == true || rawCallsEnabled == 1 || rawCallsEnabled == 'true')
+        ? (rawCallsEnabled == true ||
+            rawCallsEnabled == 1 ||
+            rawCallsEnabled == 'true')
         : true;
 
     return ChatModel(
@@ -396,31 +503,32 @@ class ChatModel {
 
   static bool _looksLikeStructuredPayload(String text) {
     final trimmed = text.trim();
-    
+
     // Проверяем на явные признаки зашифрованного payload
     final hasNonce = RegExp(r'nonce\s*[:=]').hasMatch(trimmed);
-    final hasCipher = RegExp(r'ciphertext\s*[:=]|encrypted_data\s*[:=]').hasMatch(trimmed);
-    
+    final hasCipher =
+        RegExp(r'ciphertext\s*[:=]|encrypted_data\s*[:=]').hasMatch(trimmed);
+
     if (hasNonce && hasCipher) {
       return true;
     }
-    
+
     // Если это JSON объект, проверяем что это НЕ обычное сообщение
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
       try {
         final parsed = jsonDecode(trimmed);
         if (parsed is Map) {
-          // Если есть поля обычного сообщения (id, creator_id, message_type), 
+          // Если есть поля обычного сообщения (id, creator_id, message_type),
           // это НЕ зашифрованный payload
-          if (parsed.containsKey('id') || 
-              parsed.containsKey('creator_id') || 
+          if (parsed.containsKey('id') ||
+              parsed.containsKey('creator_id') ||
               parsed.containsKey('message_type') ||
               parsed.containsKey('created_at')) {
             return false;
           }
           // Если есть поля зашифрованного сообщения
-          if (parsed.containsKey('nonce') || 
-              parsed.containsKey('ciphertext') || 
+          if (parsed.containsKey('nonce') ||
+              parsed.containsKey('ciphertext') ||
               parsed.containsKey('encrypted_data')) {
             return true;
           }
@@ -430,7 +538,7 @@ class ChatModel {
         return true;
       }
     }
-    
+
     return false;
   }
 
@@ -445,7 +553,7 @@ class ChatModel {
     }
 
     final trimmed = lastMessage!.trim();
-    
+
     // Проверяем если lastMessage - это JSON объект сообщения
     // И тип сообщения от сервера — один из известных медиа/структурированных типов
     final isStructuredType = lastMessageType == 'voice' ||
@@ -462,16 +570,16 @@ class ChatModel {
         if (parsed is Map) {
           // Сначала проверяем message_type в корне объекта (для poll/todo)
           final messageType = parsed['message_type']?.toString();
-          
+
           if (messageType == 'poll') {
             return '📊 Опрос';
           } else if (messageType == 'todo_list') {
             return '✅ Список задач';
           }
-          
+
           // Затем проверяем type для файлов/голосовых
           final fileType = parsed['type']?.toString();
-          
+
           if (fileType == 'voice' || fileType == 'voice_message') {
             return '🎙 Голосовое сообщение';
           } else if (fileType == 'video' || fileType == 'video_message') {
@@ -502,7 +610,7 @@ class ChatModel {
               fileName.endsWith('.flv') ||
               fileName.endsWith('.webm') ||
               fileName.endsWith('.mkv') ||
-              fileName.endsWith('.3gp') ||
+              fileName.endsWith('.loc_3gp') ||
               fileName.endsWith('.ogv') ||
               fileName.endsWith('.m4v');
 
@@ -589,7 +697,9 @@ class ChatModel {
 
       final parsedStringDate = DateTime.tryParse(trimmed);
       if (parsedStringDate != null) {
-        return parsedStringDate.isUtc ? parsedStringDate.toLocal() : parsedStringDate;
+        return parsedStringDate.isUtc
+            ? parsedStringDate.toLocal()
+            : parsedStringDate;
       }
 
       final numericValue = int.tryParse(trimmed);

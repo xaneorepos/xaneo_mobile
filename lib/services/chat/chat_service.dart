@@ -13,7 +13,7 @@ class ChatService {
   Future<List<ChatModel>> getChats() async {
     try {
       final response = await _apiClient.get(AppConfig.chatsList);
-      
+
       if (response.statusCode == 200 && response.data != null) {
         // API возвращает {chats: [...], archived_chats: [...]} или [...]
         List<dynamic> data = [];
@@ -25,15 +25,18 @@ class ChatService {
           final archivedChats = mapData['archived_chats'] as List? ?? [];
           data = [...activeChats, ...archivedChats];
         }
-        
-        return data.map((json) => ChatModel.fromJson(json as Map<String, dynamic>)).toList();
+
+        return data
+            .map((json) => ChatModel.fromJson(json as Map<String, dynamic>))
+            .toList();
       }
-      
-      return [];
+
+      throw StateError(
+        'Failed to fetch chats: HTTP ${response.statusCode}',
+      );
     } catch (e) {
-      // Логируем ошибку
       debugPrint('Error fetching chats: $e');
-      return [];
+      rethrow;
     }
   }
 
@@ -47,7 +50,7 @@ class ChatService {
           'is_archived': isArchived,
         },
       );
-      
+
       if (response.statusCode == 200 && response.data != null) {
         if (response.data is Map) {
           final data = response.data as Map<String, dynamic>;
@@ -57,6 +60,74 @@ class ChatService {
       return false;
     } catch (e) {
       debugPrint('Error archiving chat $chatId: $e');
+      return false;
+    }
+  }
+
+  Future<bool> pinChat(String chatId, bool isPinned) {
+    return _updateChatSetting(
+      endpoint: '/chats/pin/',
+      chatId: chatId,
+      field: 'is_pinned',
+      value: isPinned,
+    );
+  }
+
+  Future<bool> muteChat(String chatId, bool isMuted) {
+    return _updateChatSetting(
+      endpoint: '/chats/mute/',
+      chatId: chatId,
+      field: 'is_muted',
+      value: isMuted,
+    );
+  }
+
+  Future<bool> _updateChatSetting({
+    required String endpoint,
+    required String chatId,
+    required String field,
+    required bool value,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        endpoint,
+        data: {'chat_id': chatId, field: value},
+      );
+      return response.statusCode == 200 &&
+          response.data is Map &&
+          response.data['success'] == true;
+    } catch (e) {
+      debugPrint('Error updating $field for chat $chatId: $e');
+      return false;
+    }
+  }
+
+  Future<bool> clearChatHistory(String chatId, String chatType) async {
+    try {
+      final response = await _apiClient.post(
+        '/../clear-chat-history/',
+        data: {'chat_id': chatId, 'chat_type': chatType},
+      );
+      return response.statusCode == 200 &&
+          response.data is Map &&
+          response.data['success'] == true;
+    } catch (e) {
+      debugPrint('Error clearing history for chat $chatId: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteChat(String chatId) async {
+    try {
+      final response = await _apiClient.post(
+        '/../delete-chat/',
+        data: {'chat_id': chatId},
+      );
+      return response.statusCode == 200 &&
+          response.data is Map &&
+          response.data['success'] == true;
+    } catch (e) {
+      debugPrint('Error deleting chat $chatId: $e');
       return false;
     }
   }
@@ -76,7 +147,7 @@ class ChatService {
           'offset': offset,
         },
       );
-      
+
       if (response.statusCode == 200 && response.data != null) {
         if (response.data is Map) {
           return response.data as Map<String, dynamic>;
@@ -95,7 +166,7 @@ class ChatService {
       final response = await _apiClient.post(
         '/mark-messages-as-read/$chatId/',
       );
-      
+
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('Error marking messages as read for chat $chatId: $e');
@@ -110,7 +181,7 @@ class ChatService {
         '/user/search/',
         queryParameters: {'q': query},
       );
-      
+
       if (response.statusCode == 200 && response.data != null) {
         if (response.data is Map) {
           return response.data as Map<String, dynamic>;

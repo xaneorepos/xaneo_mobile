@@ -18,6 +18,7 @@ import 'package:lottie/lottie.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/theme_provider.dart';
 import '../providers/scale_provider.dart';
+import '../config/app_config.dart';
 import '../providers/playback_provider.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/advanced_background.dart';
@@ -1449,7 +1450,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
         (avatar.startsWith('http') || avatar.startsWith('/'));
 
     if (hasRealAvatar) {
-      final url = avatar.startsWith('http') ? avatar : 'https://xaneo.ru$avatar';
+      final url = AppConfig.formatImageUrl(avatar) ?? avatar;
       return ClipOval(
         child: Image.network(
           url,
@@ -10172,6 +10173,5 @@ class _CircleProgressPainter extends CustomPainter {
         oldDelegate.strokeWidth != strokeWidth;
   }
 }
-
 
 

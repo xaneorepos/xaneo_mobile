@@ -10,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'config/app_config.dart';
 import 'providers/auth_provider.dart';
 import 'providers/playback_provider.dart';
+import 'providers/locale_provider.dart';
+import 'l10n/app_localizations.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/auth/onboarding_screen.dart';
@@ -43,7 +45,8 @@ class _DevHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     return super.createHttpClient(context)
-      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+      ..badCertificateCallback =
+          (X509Certificate cert, String host, int port) => true;
   }
 }
 
@@ -54,18 +57,19 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final hasRunBefore = prefs.getBool('has_run_before') ?? false;
   if (!hasRunBefore) {
-    debugPrint('First run detected (or app data was cleared). Clearing secure storage...');
+    debugPrint(
+        'First run detected (or app data was cleared). Clearing secure storage...');
     final tokenStorage = TokenStorage();
     await tokenStorage.clearAll();
-    
+
     // Сбрасываем ID устройства, чтобы сгенерировать новый fingerprint на сервере
     await prefs.remove('xaneo_device_id');
-    
+
     final recentAccountsService = RecentAccountsService(
       apiClient: ApiClient(tokenStorage: tokenStorage, deviceId: ''),
     );
     await recentAccountsService.clearLocalAccounts();
-    
+
     await prefs.setBool('has_run_before', true);
   }
 
@@ -80,22 +84,23 @@ void main() async {
 
   // Инициализируем пуш-уведомления
   await NotificationService().initialize();
-  
+
   // Включаем подробное логирование для LiveKit в режиме отладки
   if (kDebugMode) {
     dart_logging.Logger.root.level = dart_logging.Level.ALL;
     dart_logging.Logger.root.onRecord.listen((record) {
-      print('[LiveKit] ${record.level.name}: ${record.time}: ${record.message}');
+      print(
+          '[LiveKit] ${record.level.name}: ${record.time}: ${record.message}');
     });
   }
-  
+
   HttpOverrides.global = _DevHttpOverrides();
   LocalProxy.start();
-  
+
   // Получаем путь к документам и ключ шифрования БД один раз при запуске
   final dbFolder = await getApplicationDocumentsDirectory();
   final dbKey = await DatabaseKeyService().getEncryptionKey();
-  
+
   // Устанавливаем чёрный статус-бар
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -105,7 +110,7 @@ void main() async {
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
-  
+
   runApp(XaneoApp(dbFolder: dbFolder, dbKey: dbKey, deviceId: deviceId));
 }
 
@@ -115,7 +120,7 @@ class XaneoApp extends StatelessWidget {
   final String dbKey;
   final String deviceId;
   final LocalChatRepository? localChatRepoOverride;
-  
+
   const XaneoApp({
     super.key,
     required this.dbFolder,
@@ -134,7 +139,7 @@ class XaneoApp extends StatelessWidget {
     final cryptoService = CryptoService(
       apiClient: apiClient,
     );
-    
+
     // Создаём Xsec2Service для работы с ключами
     final xsec2Service = Xsec2Service(
       apiClient: apiClient,
@@ -150,7 +155,9 @@ class XaneoApp extends StatelessWidget {
 
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<PlaybackProvider>(create: (_) => PlaybackProvider()),
+        ChangeNotifierProvider<PlaybackProvider>(
+            create: (_) => PlaybackProvider()),
+        ChangeNotifierProvider<LocaleProvider>(create: (_) => LocaleProvider()),
         // ApiClient для всех экранов
         Provider<ApiClient>.value(value: apiClient),
         // CryptoService для расшифровки сообщений
@@ -162,8 +169,9 @@ class XaneoApp extends StatelessWidget {
           create: (context) {
             final apiClient = context.read<ApiClient>();
             final cryptoService = context.read<CryptoService>();
-            final authProvider = AuthProviderFactory.createWithCryptoService(apiClient, cryptoService);
-            
+            final authProvider = AuthProviderFactory.createWithCryptoService(
+                apiClient, cryptoService);
+
             // Register callback to log out the user on session expiry
             apiClient.onSessionExpired = () {
               authProvider.logout();
@@ -176,22 +184,30 @@ class XaneoApp extends StatelessWidget {
             return authProvider;
           },
         ),
-        // Локальная зашифрованная БД чатов с разделением по пользователям (поддержка override для тестов)
+        // Локальная зашифрованная БД с разделением по серверу и пользователю.
         localChatRepoOverride != null
             ? Provider<LocalChatRepository>.value(value: localChatRepoOverride!)
             : ProxyProvider<AuthProvider, LocalChatRepository>(
                 update: (context, auth, previousRepo) {
                   final currentUserId = auth.user?.id.toString();
-                  if (previousRepo != null && previousRepo.userId == currentUserId) {
+                  final currentStorageScope =
+                      '${AppDatabase.normalizeServerScope(AppConfig.apiBaseUrl)}::${currentUserId ?? 'anonymous'}';
+                  if (previousRepo != null &&
+                      previousRepo.storageScope == currentStorageScope) {
                     return previousRepo;
                   }
-                  
+
                   final db = AppDatabase.createForUser(
                     dbFolder: dbFolder,
                     dbKey: dbKey,
+                    serverScope: AppConfig.apiBaseUrl,
                     userId: currentUserId,
                   );
-                  return LocalChatRepository(db, userId: currentUserId);
+                  return LocalChatRepository(
+                    db,
+                    userId: currentUserId,
+                    storageScope: currentStorageScope,
+                  );
                 },
                 dispose: (context, repo) {
                   repo.dispose();
@@ -243,122 +259,124 @@ class XaneoApp extends StatelessWidget {
           },
         ),
       ],
-      child: MaterialApp(
-        title: 'Xaneo',
-        navigatorKey: NotificationService.navigatorKey,
-        debugShowCheckedModeBanner: false,
-        
-        // Чёрно-белая тема
-        theme: ThemeData(
-          useMaterial3: true,
-          brightness: Brightness.dark,
-          scaffoldBackgroundColor: AppStyles.backgroundColor,
-          fontFamily: AppStyles.fontFamily,
-          
-          textTheme: const TextTheme(
-            displayLarge: TextStyle(letterSpacing: -0.8),
-            displayMedium: TextStyle(letterSpacing: -0.6),
-            displaySmall: TextStyle(letterSpacing: -0.5),
-            headlineLarge: TextStyle(letterSpacing: -0.6),
-            headlineMedium: TextStyle(letterSpacing: -0.5),
-            headlineSmall: TextStyle(letterSpacing: -0.4),
-            titleLarge: TextStyle(letterSpacing: -0.5),
-            titleMedium: TextStyle(letterSpacing: -0.4),
-            titleSmall: TextStyle(letterSpacing: -0.3),
-            bodyLarge: TextStyle(letterSpacing: -0.3),
-            bodyMedium: TextStyle(letterSpacing: -0.3),
-            bodySmall: TextStyle(letterSpacing: -0.3),
-            labelLarge: TextStyle(letterSpacing: -0.3),
-            labelMedium: TextStyle(letterSpacing: -0.3),
-            labelSmall: TextStyle(letterSpacing: -0.3),
-          ),
+      child: Consumer<LocaleProvider>(
+        builder: (context, localeProvider, child) {
+          return MaterialApp(
+            title: 'Xaneo',
+            locale: localeProvider.locale,
+            supportedLocales: LocaleProvider.supportedLocales,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            navigatorKey: NotificationService.navigatorKey,
+            debugShowCheckedModeBanner: false,
 
-          colorScheme: const ColorScheme.dark(
-            primary: AppStyles.textPrimaryColor,
-            secondary: AppStyles.textSecondaryColor,
-            surface: AppStyles.backgroundColor,
-            error: AppStyles.errorColor,
-          ),
-          
-          appBarTheme: const AppBarTheme(
-            backgroundColor: AppStyles.backgroundColor,
-            elevation: 0,
-            centerTitle: true,
-            iconTheme: IconThemeData(color: AppStyles.textPrimaryColor),
-            titleTextStyle: TextStyle(
-              color: AppStyles.textPrimaryColor,
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.4,
-            ),
-          ),
-          
-          inputDecorationTheme: InputDecorationTheme(
-            filled: true,
-            fillColor: AppStyles.inputBackgroundColor,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppStyles.borderColor, width: 1),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppStyles.borderColor, width: 1),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppStyles.borderActiveColor, width: 1),
-            ),
-            hintStyle: AppStyles.inputHint,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          ),
-          
-          elevatedButtonTheme: ElevatedButtonThemeData(
-            style: AppStyles.primaryButton,
-          ),
-          
-          textButtonTheme: TextButtonThemeData(
-            style: AppStyles.textButton,
-          ),
-          
-          outlinedButtonTheme: OutlinedButtonThemeData(
-            style: AppStyles.secondaryButton,
-          ),
-          
-          navigationBarTheme: NavigationBarThemeData(
-            backgroundColor: AppStyles.backgroundColor,
-            indicatorColor: AppStyles.inputBackgroundColor,
-            labelTextStyle: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.selected)) {
-                return AppStyles.inputText.copyWith(
+            // Чёрно-белая тема
+            theme: ThemeData(
+              useMaterial3: true,
+              brightness: Brightness.dark,
+              scaffoldBackgroundColor: AppStyles.backgroundColor,
+              fontFamily: AppStyles.fontFamily,
+              textTheme: const TextTheme(
+                displayLarge: TextStyle(letterSpacing: -0.8),
+                displayMedium: TextStyle(letterSpacing: -0.6),
+                displaySmall: TextStyle(letterSpacing: -0.5),
+                headlineLarge: TextStyle(letterSpacing: -0.6),
+                headlineMedium: TextStyle(letterSpacing: -0.5),
+                headlineSmall: TextStyle(letterSpacing: -0.4),
+                titleLarge: TextStyle(letterSpacing: -0.5),
+                titleMedium: TextStyle(letterSpacing: -0.4),
+                titleSmall: TextStyle(letterSpacing: -0.3),
+                bodyLarge: TextStyle(letterSpacing: -0.3),
+                bodyMedium: TextStyle(letterSpacing: -0.3),
+                bodySmall: TextStyle(letterSpacing: -0.3),
+                labelLarge: TextStyle(letterSpacing: -0.3),
+                labelMedium: TextStyle(letterSpacing: -0.3),
+                labelSmall: TextStyle(letterSpacing: -0.3),
+              ),
+              colorScheme: const ColorScheme.dark(
+                primary: AppStyles.textPrimaryColor,
+                secondary: AppStyles.textSecondaryColor,
+                surface: AppStyles.backgroundColor,
+                error: AppStyles.errorColor,
+              ),
+              appBarTheme: const AppBarTheme(
+                backgroundColor: AppStyles.backgroundColor,
+                elevation: 0,
+                centerTitle: true,
+                iconTheme: IconThemeData(color: AppStyles.textPrimaryColor),
+                titleTextStyle: TextStyle(
                   color: AppStyles.textPrimaryColor,
-                  fontSize: 12,
-                );
-              }
-              return AppStyles.inputText.copyWith(
-                color: AppStyles.textMutedColor,
-                fontSize: 12,
-              );
-            }),
-          ),
-          
-          pageTransitionsTheme: const PageTransitionsTheme(
-            builders: <TargetPlatform, PageTransitionsBuilder>{
-              TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-              TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-              TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              inputDecorationTheme: InputDecorationTheme(
+                filled: true,
+                fillColor: AppStyles.inputBackgroundColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: AppStyles.borderColor, width: 1),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: AppStyles.borderColor, width: 1),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                      color: AppStyles.borderActiveColor, width: 1),
+                ),
+                hintStyle: AppStyles.inputHint,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              ),
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                style: AppStyles.primaryButton,
+              ),
+              textButtonTheme: TextButtonThemeData(
+                style: AppStyles.textButton,
+              ),
+              outlinedButtonTheme: OutlinedButtonThemeData(
+                style: AppStyles.secondaryButton,
+              ),
+              navigationBarTheme: NavigationBarThemeData(
+                backgroundColor: AppStyles.backgroundColor,
+                indicatorColor: AppStyles.inputBackgroundColor,
+                labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return AppStyles.inputText.copyWith(
+                      color: AppStyles.textPrimaryColor,
+                      fontSize: 12,
+                    );
+                  }
+                  return AppStyles.inputText.copyWith(
+                    color: AppStyles.textMutedColor,
+                    fontSize: 12,
+                  );
+                }),
+              ),
+              pageTransitionsTheme: const PageTransitionsTheme(
+                builders: <TargetPlatform, PageTransitionsBuilder>{
+                  TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+                  TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                  TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+                },
+              ),
+            ),
+
+            // Начальный экран
+            home: const AuthWrapper(),
+
+            // Роуты
+            routes: {
+              '/login': (_) => const LoginScreen(),
+              '/register': (_) => const RegisterScreen(),
+              '/tfa': (_) => const TfaScreen(),
+              '/main': (_) => const MainScreen(),
             },
-          ),
-        ),
-        
-        // Начальный экран
-        home: const AuthWrapper(),
-        
-        // Роуты
-        routes: {
-          '/login': (_) => const LoginScreen(),
-          '/register': (_) => const RegisterScreen(),
-          '/tfa': (_) => const TfaScreen(),
-          '/main': (_) => const MainScreen(),
+          );
         },
       ),
     );
@@ -399,19 +417,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
         if (auth.status == AuthStatus.checking) {
           return const SplashScreen();
         }
-        
+
         if (auth.status == AuthStatus.authenticated) {
           return const MainScreen();
         }
-        
-        if (auth.status == AuthStatus.tfaRequired) {
-          return const TfaScreen();
-        }
-        
+
         if (_hasSeenOnboarding == false) {
           return const OnboardingScreen();
         }
-        
+
         return const LoginScreen();
       },
     );
@@ -447,7 +461,7 @@ class SplashScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-            
+
             // Название
             const Text(
               'Xaneo',
@@ -459,10 +473,11 @@ class SplashScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 48),
-            
+
             // Индикатор загрузки
             const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AppStyles.textPrimaryColor),
+              valueColor:
+                  AlwaysStoppedAnimation<Color>(AppStyles.textPrimaryColor),
             ),
           ],
         ),

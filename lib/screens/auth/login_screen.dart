@@ -8,9 +8,11 @@ import '../../screens/main/main_screen.dart';
 import '../../styles/app_styles.dart';
 import '../../widgets/common/auth_settings_modal.dart';
 import '../../widgets/common/avatar_widget.dart';
+import '../../widgets/common/tfa_verification_dialog.dart';
 import 'recent_accounts_screen.dart';
 import 'register_screen.dart';
 import 'tfa_screen.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,7 +21,8 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   int _currentStep = 0; // 0: Username, 1: Password
 
   final _usernameController = TextEditingController();
@@ -30,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   bool _isUsernameValid = false;
   bool _isPasswordValid = false;
   bool _obscurePassword = true;
-  
+
   // Недавние аккаунты
   List<RecentAccount> _recentAccounts = [];
   bool _isLoadingRecentAccounts = true;
@@ -41,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     super.initState();
     _usernameController.addListener(_onUsernameChanged);
     _passwordController.addListener(_onPasswordChanged);
-    
+
     // Загружаем недавние аккаунты
     _loadRecentAccounts();
 
@@ -51,12 +54,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       });
     });
   }
-  
+
   Future<void> _loadRecentAccounts() async {
     try {
       final auth = context.read<AuthProvider>();
       final response = await auth.getRecentAccounts();
-      
+
       if (mounted) {
         setState(() {
           if (response.success) {
@@ -109,7 +112,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       _usernameFocusNode.requestFocus();
     }
   }
-  
+
   /// Быстрый вход по недавнему аккаунту
   Future<void> _handleQuickLogin(RecentAccount account) async {
     final auth = context.read<AuthProvider>();
@@ -148,50 +151,58 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       username: _usernameController.text.trim(),
       password: _passwordController.text,
     );
-    
+
     if (!mounted) return;
-    
+
     if (auth.requiresTfa) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const TfaScreen()),
-      );
+      final verified = await TfaVerificationDialog.show(context);
+
+      if (!mounted) return;
+      if (verified == true && auth.isAuthenticated) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+        );
+      }
     } else if (success) {
-    // Переходим на главный экран
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainScreen()),
-      );
-    }
-  } else if (auth.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(auth.error!.message, style: AppStyles.bodyMedium.copyWith(color: Colors.white)),
-          backgroundColor: AppStyles.errorColor,
-          behavior: SnackBarBehavior.floating,
-        )
-      );
+      // Переходим на главный экран
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+        );
+      }
+    } else if (auth.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(auth.error!.message,
+            style: AppStyles.bodyMedium.copyWith(color: Colors.white)),
+        backgroundColor: AppStyles.errorColor,
+        behavior: SnackBarBehavior.floating,
+      ));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isLoading = context.watch<AuthProvider>().isLoading;
-    final showRecentOnly = _currentStep == 0 && _showRecentAccounts && (_isLoadingRecentAccounts || _recentAccounts.isNotEmpty);
-    
+    final showRecentOnly = _currentStep == 0 &&
+        _showRecentAccounts &&
+        (_isLoadingRecentAccounts || _recentAccounts.isNotEmpty);
+
     return Scaffold(
       backgroundColor: AppStyles.backgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: _currentStep == 1 
-          ? IconButton(
-              icon: const FaIcon(FontAwesomeIcons.chevronLeft, color: Colors.white, size: 18),
-              onPressed: isLoading ? null : _goBack,
-            )
-          : null,
+        leading: _currentStep == 1
+            ? IconButton(
+                icon: const FaIcon(FontAwesomeIcons.chevronLeft,
+                    color: Colors.white, size: 18),
+                onPressed: isLoading ? null : _goBack,
+              )
+            : null,
         actions: [
           IconButton(
-            icon: const FaIcon(FontAwesomeIcons.gear, color: Colors.white70, size: 18),
+            icon: const FaIcon(FontAwesomeIcons.gear,
+                color: Colors.white70, size: 18),
             onPressed: () => AuthSettingsModal.show(context),
           ),
         ],
@@ -208,7 +219,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   'assets/images/logo.png',
                   height: 60,
                   width: 60,
-                  errorBuilder: (context, error, stackTrace) => const Center(child: FaIcon(FontAwesomeIcons.comments, color: Colors.white, size: 50)),
+                  errorBuilder: (context, error, stackTrace) => const Center(
+                      child: FaIcon(FontAwesomeIcons.comments,
+                          color: Colors.white, size: 50)),
                 ),
               ),
               const Spacer(flex: 1),
@@ -228,52 +241,67 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     ),
                   );
                 },
-                child: _currentStep == 0 
-                  ? _buildUsernameStep(key: const ValueKey('step0'), showRecentOnly: showRecentOnly)
-                  : _buildPasswordStep(key: const ValueKey('step1')),
+                child: _currentStep == 0
+                    ? _buildUsernameStep(
+                        key: ValueKey('step0'), showRecentOnly: showRecentOnly)
+                    : _buildPasswordStep(key: const ValueKey('step1')),
               ),
               const SizedBox(height: 32),
               if (!showRecentOnly) _buildProgressIndicator(),
               const Spacer(flex: 2),
-              
               if (!showRecentOnly) ...[
                 SizedBox(
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: isLoading 
-                      ? null 
-                      : ((_currentStep == 0 && _isUsernameValid) || (_currentStep == 1 && _isPasswordValid))
-                          ? _goToNextStep
-                          : null,
+                    onPressed: isLoading
+                        ? null
+                        : ((_currentStep == 0 && _isUsernameValid) ||
+                                (_currentStep == 1 && _isPasswordValid))
+                            ? _goToNextStep
+                            : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppStyles.buttonBackgroundColor,
                       disabledBackgroundColor: Colors.white24,
                       foregroundColor: AppStyles.buttonTextColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                       elevation: 0,
                     ),
-                    child: isLoading 
-                      ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                      : Text(_currentStep == 0 ? 'Далее' : 'Войти', style: AppStyles.buttonText),
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                                color: Colors.black, strokeWidth: 2))
+                        : Text(
+                            _currentStep == 0
+                                ? (AppLocalizations.of(context)?.dalee_c453 ??
+                                    'Fallback')
+                                : (AppLocalizations.of(context)?.voyti_63a7 ??
+                                    'Fallback'),
+                            style: AppStyles.buttonText),
                   ),
                 ),
                 const SizedBox(height: 16),
               ],
-              
               if (_currentStep == 0)
                 Center(
                   child: TextButton(
                     onPressed: () {
-                      Navigator.of(context).push(
-                        PageRouteBuilder(
-                          pageBuilder: (context, anim, secAnim) => const RegisterScreen(),
-                          transitionsBuilder: (c, anim, secAnim, child) => FadeTransition(opacity: anim, child: child),
-                          transitionDuration: AppStyles.animationMedium,
-                        )
-                      );
+                      Navigator.of(context).push(PageRouteBuilder(
+                        pageBuilder: (context, anim, secAnim) =>
+                            const RegisterScreen(),
+                        transitionsBuilder: (c, anim, secAnim, child) =>
+                            FadeTransition(opacity: anim, child: child),
+                        transitionDuration: AppStyles.animationMedium,
+                      ));
                     },
-                    child: Text('Создать Xaneo ID', style: AppStyles.bodyMedium.copyWith(color: Colors.white)),
+                    child: Text(
+                        (AppLocalizations.of(context)?.sozdatXaneoId_4033 ??
+                            'Fallback'),
+                        style:
+                            AppStyles.bodyMedium.copyWith(color: Colors.white)),
                   ),
                 ),
               const SizedBox(height: 32),
@@ -289,16 +317,21 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('С возвращением', style: AppStyles.titleGiant),
+        Text((AppLocalizations.of(context)?.sVozvrascheniem_77ee ?? 'Fallback'),
+            style: AppStyles.titleGiant),
         const SizedBox(height: 8),
         Text(
-          showRecentOnly 
-            ? (_isLoadingRecentAccounts ? 'Загрузка...' : 'Выберите аккаунт для входа') 
-            : 'Введите ваш никнейм', 
-          style: AppStyles.bodyMuted
-        ),
+            showRecentOnly
+                ? (_isLoadingRecentAccounts
+                    ? (AppLocalizations.of(context)?.zagruzka_43e4 ??
+                        'Fallback')
+                    : (AppLocalizations.of(context)
+                            ?.vyberiteAkkauntDlyaVhoda_d3a6 ??
+                        'Fallback'))
+                : (AppLocalizations.of(context)?.vvediteVashNikneym_51a6 ??
+                    'Fallback'),
+            style: AppStyles.bodyMuted),
         const SizedBox(height: 32),
-        
         if (showRecentOnly) ...[
           _buildRecentAccounts(),
           if (!_isLoadingRecentAccounts) ...[
@@ -313,7 +346,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     if (mounted) _usernameFocusNode.requestFocus();
                   });
                 },
-                child: Text('Войти в другой аккаунт', style: AppStyles.bodyMedium.copyWith(color: Colors.white)),
+                child: Text(
+                    (AppLocalizations.of(context)?.voytiVDrugoyAkkaunt_d10f ??
+                        'Fallback'),
+                    style: AppStyles.bodyMedium.copyWith(color: Colors.white)),
               ),
             ),
           ],
@@ -323,12 +359,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             focusNode: _usernameFocusNode,
             style: AppStyles.inputText,
             cursorColor: Colors.white,
-            decoration: const InputDecoration(
-              hintText: 'Никнейм',
+            decoration: InputDecoration(
+              hintText:
+                  (AppLocalizations.of(context)?.nikneym_3fea ?? 'Fallback'),
               hintStyle: AppStyles.inputHint,
-              border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+              border: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24)),
+              enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24)),
+              focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white)),
               contentPadding: EdgeInsets.symmetric(vertical: 16),
             ),
             onSubmitted: (_) => _goToNextStep(),
@@ -337,7 +377,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       ],
     );
   }
-  
+
   /// Виджет для отображения недавних аккаунтов
   Widget _buildRecentAccounts() {
     if (_isLoadingRecentAccounts) {
@@ -355,18 +395,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         ),
       );
     }
-    
+
     if (_recentAccounts.isEmpty) {
       return const SizedBox.shrink();
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Text(
-              'Недавние аккаунты',
+              (AppLocalizations.of(context)?.nedavnieAkkaunty_953d ??
+                  'Fallback'),
               style: AppStyles.bodyMuted.copyWith(fontSize: 12),
             ),
             const Spacer(),
@@ -379,7 +420,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 );
               },
               child: Text(
-                'Все',
+                (AppLocalizations.of(context)?.vse_984b ?? 'Fallback'),
                 style: AppStyles.bodyMuted.copyWith(
                   fontSize: 12,
                   color: Colors.white54,
@@ -390,12 +431,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         ),
         const SizedBox(height: 16),
         Column(
-          children: _recentAccounts.take(4).map((account) => _buildRecentAccountItem(account)).toList(),
+          children: _recentAccounts
+              .take(4)
+              .map((account) => _buildRecentAccountItem(account))
+              .toList(),
         ),
       ],
     );
   }
-  
+
   /// Виджет для одного недавнего аккаунта
   Widget _buildRecentAccountItem(RecentAccount account) {
     return GestureDetector(
@@ -444,7 +488,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 ],
               ),
             ),
-            const FaIcon(FontAwesomeIcons.chevronRight, color: Colors.white24, size: 14),
+            const FaIcon(FontAwesomeIcons.chevronRight,
+                color: Colors.white24, size: 14),
           ],
         ),
       ),
@@ -456,9 +501,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Введите пароль', style: AppStyles.titleGiant),
+        Text((AppLocalizations.of(context)?.vvediteParol_1370 ?? 'Fallback'),
+            style: AppStyles.titleGiant),
         const SizedBox(height: 8),
-        Text('Для аккаунта @${_usernameController.text}', style: AppStyles.bodyMuted),
+        Text(
+            '${AppLocalizations.of(context)?.account ?? 'Account'} @${_usernameController.text}',
+            style: AppStyles.bodyMuted),
         const SizedBox(height: 32),
         TextField(
           controller: _passwordController,
@@ -467,17 +515,22 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           cursorColor: Colors.white,
           obscureText: _obscurePassword,
           decoration: InputDecoration(
-            hintText: 'Пароль',
+            hintText: (AppLocalizations.of(context)?.parol_5ebe ?? 'Fallback'),
             hintStyle: AppStyles.inputHint,
-            border: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+            border: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white24)),
+            enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white24)),
+            focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white)),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             suffixIcon: IconButton(
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               icon: FaIcon(
-                _obscurePassword ? FontAwesomeIcons.eyeSlash : FontAwesomeIcons.eye,
+                _obscurePassword
+                    ? FontAwesomeIcons.eyeSlash
+                    : FontAwesomeIcons.eye,
                 color: Colors.white70,
                 size: 16,
               ),

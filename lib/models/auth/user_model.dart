@@ -71,7 +71,8 @@ class UserModel {
         json['name']?.toString() ??
         json['real_name']?.toString();
     return UserModel(
-      id: json['id'] as int,
+      // В 2FA challenge сервер намеренно не раскрывает id до проверки кода.
+      id: (json['id'] as num?)?.toInt() ?? 0,
       username: json['username'] as String,
       email: json['email'] as String,
       firstName: (fName != null && fName.isNotEmpty) ? fName : null,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/chat/chat_model.dart';
 import '../../widgets/common/avatar_widget.dart';
+import '../../utils/chat_name_localizer.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Экран подробной информации о чате (собеседник, группа, канал, бот, избранное).
 /// Открывается из модалки ChatInfoModal с использованием Hero-анимации.
@@ -20,11 +22,27 @@ class ChatInfoScreen extends StatefulWidget {
 class _ChatInfoScreenState extends State<ChatInfoScreen> {
   int _selectedTabIndex = 0;
 
-  final List<Map<String, dynamic>> _tabs = [
-    {'title': 'Медиа', 'count': '14', 'icon': Icons.image_rounded},
-    {'title': 'Файлы', 'count': '3', 'icon': Icons.description_rounded},
-    {'title': 'Голос', 'count': '8', 'icon': Icons.mic_rounded},
-    {'title': 'Ссылки', 'count': '11', 'icon': Icons.link_rounded},
+  late final List<Map<String, dynamic>> _tabs = [
+    {
+      'title': (AppLocalizations.of(context)?.media_c247 ?? 'Fallback'),
+      'count': '14',
+      'icon': Icons.image_rounded
+    },
+    {
+      'title': (AppLocalizations.of(context)?.fayly_200c ?? 'Fallback'),
+      'count': '3',
+      'icon': Icons.description_rounded
+    },
+    {
+      'title': (AppLocalizations.of(context)?.golos_2d89 ?? 'Fallback'),
+      'count': '8',
+      'icon': Icons.mic_rounded
+    },
+    {
+      'title': (AppLocalizations.of(context)?.ssylki_9f58 ?? 'Fallback'),
+      'count': '11',
+      'icon': Icons.link_rounded
+    },
   ];
 
   @override
@@ -33,17 +51,19 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
     final otherUser = chat.otherUser;
 
     // Свойства пользователя/чата
-    final String? username = chat.isFavorites ? null : otherUser?['username']?.toString();
-    final String? phone = chat.isFavorites ? null : otherUser?['phone']?.toString();
-    
+    final String? username =
+        chat.isFavorites ? null : otherUser?['username']?.toString();
+    final String? phone =
+        chat.isFavorites ? null : otherUser?['phone']?.toString();
+
     // Получение описания
     String? bio;
     if (chat.isFavorites) {
       bio = null;
     } else {
-      bio = otherUser?['bio']?.toString() ?? 
-            otherUser?['description']?.toString() ?? 
-            otherUser?['about']?.toString();
+      bio = otherUser?['bio']?.toString() ??
+          otherUser?['description']?.toString() ??
+          otherUser?['about']?.toString();
     }
 
     final colors = _parseGradientColors(chat.avatarGradient);
@@ -61,7 +81,8 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
             stretch: true,
             backgroundColor: const Color(0xFF141416),
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+              icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white, size: 20),
               onPressed: () => Navigator.of(context).pop(),
             ),
             flexibleSpace: FlexibleSpaceBar(
@@ -108,8 +129,9 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
                             child: AvatarWidget(
                               avatar: chat.avatar,
                               avatarGradient: chat.avatarGradient,
-                              hasAvatar: chat.avatar != null && chat.avatar!.isNotEmpty,
-                              username: chat.name,
+                              hasAvatar: chat.avatar != null &&
+                                  chat.avatar!.isNotEmpty,
+                              username: localizedChatName(context, chat),
                               size: 120, // Больший размер для экрана
                             ),
                           ),
@@ -121,7 +143,7 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
                           child: Material(
                             color: Colors.transparent,
                             child: Text(
-                              chat.name,
+                              localizedChatName(context, chat),
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 fontSize: 24,
@@ -142,10 +164,11 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
               ),
             ),
           ),
-          
+
           // Контентная часть
           SliverPadding(
-            padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 40),
+            padding:
+                const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 40),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // 1. Блок детальной информации
@@ -203,33 +226,47 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
     if (chat.isFavorites) {
       // Статус для "Избранного" не отображается
     } else if (_isDeleted()) {
-      text = 'удалённый аккаунт';
+      text =
+          (AppLocalizations.of(context)?.udalennyyAkkaunt_ce47 ?? 'Fallback');
       textColor = Colors.white38;
     } else if (chat.isPersonal) {
       if (_isBot()) {
-        text = 'бот';
+        text = (AppLocalizations.of(context)?.bot_2712 ?? 'Fallback');
         textColor = const Color(0xFF60A5FA);
         icon = Icons.android_rounded;
       } else {
         text = _formatUserStatus(chat.otherUser);
-        if (text == 'в сети') {
+        if (text == (AppLocalizations.of(context)?.vSeti_d902 ?? 'Fallback')) {
           textColor = const Color(0xFF4ADE80);
         }
       }
     } else if (chat.isGroup) {
       final rawMem = chat.otherUser?['members_count'];
-      final membersCount = rawMem is int ? rawMem : (rawMem is num ? rawMem.toInt() : int.tryParse(rawMem?.toString() ?? '') ?? 0);
+      final membersCount = rawMem is int
+          ? rawMem
+          : (rawMem is num
+              ? rawMem.toInt()
+              : int.tryParse(rawMem?.toString() ?? '') ?? 0);
       final rawOnline = chat.otherUser?['online_count'];
-      final onlineCount = rawOnline is int ? rawOnline : (rawOnline is num ? rawOnline.toInt() : int.tryParse(rawOnline?.toString() ?? '') ?? 0);
+      final onlineCount = rawOnline is int
+          ? rawOnline
+          : (rawOnline is num
+              ? rawOnline.toInt()
+              : int.tryParse(rawOnline?.toString() ?? '') ?? 0);
       text = _pluralizeParticipants(membersCount);
       if (onlineCount > 0) {
-        text += ', $onlineCount в сети';
+        text +=
+            ' • $onlineCount ${AppLocalizations.of(context)?.online ?? 'online'}';
       }
       textColor = Colors.white54;
       icon = Icons.people_alt_rounded;
     } else if (chat.isChannel) {
       final rawSub = chat.otherUser?['subscribers_count'];
-      final subscribersCount = rawSub is int ? rawSub : (rawSub is num ? rawSub.toInt() : int.tryParse(rawSub?.toString() ?? '') ?? 0);
+      final subscribersCount = rawSub is int
+          ? rawSub
+          : (rawSub is num
+              ? rawSub.toInt()
+              : int.tryParse(rawSub?.toString() ?? '') ?? 0);
       text = _formatSubscribers(subscribersCount);
       textColor = Colors.white54;
       icon = Icons.campaign_rounded;
@@ -252,8 +289,9 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
         children: [
           if (icon != null) ...[
             Icon(icon, size: 13, color: textColor),
-            const SizedBox(width: 6),
-          ] else if (text == 'в сети') ...[
+            SizedBox(width: 6),
+          ] else if (text ==
+              (AppLocalizations.of(context)?.vSeti_d902 ?? 'Fallback')) ...[
             Container(
               width: 6,
               height: 6,
@@ -310,7 +348,9 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
             _buildInfoTile(
               icon: Icons.info_outline_rounded,
               value: bio,
-              label: widget.chat.isGroup || widget.chat.isChannel ? 'Описание' : 'О себе',
+              label: widget.chat.isGroup || widget.chat.isChannel
+                  ? (AppLocalizations.of(context)?.opisanie_38ca ?? 'Fallback')
+                  : (AppLocalizations.of(context)?.oSebe_0b3b ?? 'Fallback'),
             ),
             if (hasPhone || hasUsername) _buildDivider(),
           ],
@@ -318,7 +358,8 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
             _buildInfoTile(
               icon: Icons.phone_outlined,
               value: phone,
-              label: 'Мобильный',
+              label:
+                  (AppLocalizations.of(context)?.mobilnyy_5ac7 ?? 'Fallback'),
             ),
             if (hasUsername) _buildDivider(),
           ],
@@ -326,7 +367,8 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
             _buildInfoTile(
               icon: Icons.alternate_email_rounded,
               value: username.startsWith('@') ? username : '@$username',
-              label: 'Имя пользователя',
+              label: (AppLocalizations.of(context)?.imyaPolzovatelya_6fd4 ??
+                  'Fallback'),
             ),
           ],
         ],
@@ -354,11 +396,13 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
           Clipboard.setData(ClipboardData(text: value));
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('"$value" скопировано в буфер'),
+              content: Text(
+                  '${AppLocalizations.of(context)?.copied ?? 'Copied'}: "$value"'),
               duration: const Duration(seconds: 1),
               backgroundColor: const Color(0xFF1E1E22),
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           );
         },
@@ -422,10 +466,10 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(left: 4, bottom: 12),
           child: Text(
-            'Общие материалы',
+            (AppLocalizations.of(context)?.obschieMaterialy_11e4 ?? 'Fallback'),
             style: TextStyle(
               color: Colors.white70,
               fontSize: 12,
@@ -460,7 +504,9 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutCubic,
                     decoration: BoxDecoration(
-                      color: isSelected ? Colors.white.withOpacity(0.06) : Colors.transparent,
+                      color: isSelected
+                          ? Colors.white.withOpacity(0.06)
+                          : Colors.transparent,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     alignment: Alignment.center,
@@ -470,22 +516,30 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
                         Text(
                           tab['title'].toString(),
                           style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.white.withOpacity(0.4),
+                            color: isSelected
+                                ? Colors.white
+                                : Colors.white.withOpacity(0.4),
                             fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w500,
                           ),
                         ),
                         const SizedBox(width: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1.5),
                           decoration: BoxDecoration(
-                            color: isSelected ? Colors.white.withOpacity(0.12) : Colors.white.withOpacity(0.04),
+                            color: isSelected
+                                ? Colors.white.withOpacity(0.12)
+                                : Colors.white.withOpacity(0.04),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             tab['count'].toString(),
                             style: TextStyle(
-                              color: isSelected ? Colors.white70 : Colors.white.withOpacity(0.3),
+                              color: isSelected
+                                  ? Colors.white70
+                                  : Colors.white.withOpacity(0.3),
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
                             ),
@@ -539,9 +593,9 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
               size: 24,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text(
-            'Нет общих файлов',
+            (AppLocalizations.of(context)?.netObschihFaylov_bf77 ?? 'Fallback'),
             style: TextStyle(
               color: Colors.white.withOpacity(0.6),
               fontSize: 13.5,
@@ -550,7 +604,7 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
           ),
           const SizedBox(height: 3),
           Text(
-            'Здесь будут отображаться ваши ${tab['title'].toString().toLowerCase()}',
+            AppLocalizations.of(context)?.noSharedMedia ?? 'No shared media',
             style: TextStyle(
               color: Colors.white.withOpacity(0.35),
               fontSize: 11.5,
@@ -582,16 +636,21 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
   }
 
   String _formatUserStatus(Map<String, dynamic>? otherUser) {
-    if (otherUser == null) return 'был(-а) недавно';
-    
+    if (otherUser == null)
+      return (AppLocalizations.of(context)?.bylANedavno_168d ?? 'Fallback');
+
     final isOnlineVal = otherUser['is_online'] ?? otherUser['online'];
-    if (isOnlineVal == true || isOnlineVal?.toString().toLowerCase() == 'true') {
-      return 'в сети';
+    if (isOnlineVal == true ||
+        isOnlineVal?.toString().toLowerCase() == 'true') {
+      return (AppLocalizations.of(context)?.vSeti_d902 ?? 'Fallback');
     }
-    
-    final lastSeenVal = otherUser['last_seen'] ?? otherUser['last_login'] ?? otherUser['last_activity'];
-    if (lastSeenVal == null) return 'был(-а) недавно';
-    
+
+    final lastSeenVal = otherUser['last_seen'] ??
+        otherUser['last_login'] ??
+        otherUser['last_activity'];
+    if (lastSeenVal == null)
+      return (AppLocalizations.of(context)?.bylANedavno_168d ?? 'Fallback');
+
     DateTime? lastSeen;
     if (lastSeenVal is String) {
       lastSeen = DateTime.tryParse(lastSeenVal);
@@ -600,77 +659,49 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
     } else if (lastSeenVal is DateTime) {
       lastSeen = lastSeenVal;
     }
-    
-    if (lastSeen == null) return 'был(-а) недавно';
-    
+
+    if (lastSeen == null)
+      return (AppLocalizations.of(context)?.bylANedavno_168d ?? 'Fallback');
+
     final now = DateTime.now();
     final difference = now.difference(lastSeen);
-    
+
     if (difference.inMinutes < 5) {
-      return 'в сети';
+      return (AppLocalizations.of(context)?.vSeti_d902 ?? 'Fallback');
     }
-    
+
     if (difference.inMinutes < 60) {
-      final mins = difference.inMinutes;
-      String minStr;
-      if (mins % 10 == 1 && mins % 100 != 11) {
-        minStr = 'минуту';
-      } else if ([2, 3, 4].contains(mins % 10) && ![12, 13, 14].contains(mins % 100)) {
-        minStr = 'минуты';
-      } else {
-        minStr = 'минут';
-      }
-      return 'был(-а) в сети $mins $minStr назад';
+      return AppLocalizations.of(context)?.lastSeenRecently ??
+          'last seen recently';
     }
-    
+
     final today = DateTime(now.year, now.month, now.day);
     final lastSeenDay = DateTime(lastSeen.year, lastSeen.month, lastSeen.day);
-    
+
     final hour = lastSeen.hour.toString().padLeft(2, '0');
     final minute = lastSeen.minute.toString().padLeft(2, '0');
-    
+
     if (lastSeenDay == today) {
-      return 'был(-а) в сети сегодня в $hour:$minute';
+      return '${AppLocalizations.of(context)?.today ?? 'Today'} • $hour:$minute';
     }
-    
+
     final yesterday = today.subtract(const Duration(days: 1));
     if (lastSeenDay == yesterday) {
-      return 'был(-а) в сети вчера в $hour:$minute';
+      return '${AppLocalizations.of(context)?.yesterday ?? 'Yesterday'} • $hour:$minute';
     }
-    
+
     final day = lastSeen.day.toString().padLeft(2, '0');
     final month = lastSeen.month.toString().padLeft(2, '0');
-    return 'был(-а) в сети $day.$month.${lastSeen.year} в $hour:$minute';
+    return '$day.$month.${lastSeen.year} • $hour:$minute';
   }
 
   String _pluralizeParticipants(int count) {
-    if (count % 10 == 1 && count % 100 != 11) {
-      return '$count участник';
-    } else if ([2, 3, 4].contains(count % 10) && ![12, 13, 14].contains(count % 100)) {
-      return '$count участника';
-    } else {
-      return '$count участников';
-    }
+    return AppLocalizations.of(context)?.membersCount(count) ??
+        '$count members';
   }
 
   String _formatSubscribers(int count) {
-    String countStr;
-    if (count >= 1000000000) {
-      countStr = '${(count / 1000000000.0).toStringAsFixed(1).replaceAll('.0', '')}B';
-    } else if (count >= 1000000) {
-      countStr = '${(count / 1000000.0).toStringAsFixed(1).replaceAll('.0', '')}M';
-    } else if (count >= 1000) {
-      countStr = '${(count / 1000.0).toStringAsFixed(1).replaceAll('.0', '')}K';
-    } else {
-      countStr = count.toString();
-    }
-
-    if (count % 10 == 1 && count % 100 != 11) {
-      return '$countStr подписчик';
-    } else if ([2, 3, 4].contains(count % 10) && ![12, 13, 14].contains(count % 100)) {
-      return '$countStr подписчика';
-    } else {
-      return '$countStr подписчиков';
-    }
+    return AppLocalizations.of(context)?.subscribersCount(count) ??
+        '$count subscribers';
   }
 }

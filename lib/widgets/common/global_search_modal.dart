@@ -10,6 +10,7 @@ import '../../screens/chat/chat_screen.dart';
 import '../../services/chat/chat_local_repository.dart';
 import '../../services/chat/chat_service.dart';
 import '../../styles/app_styles.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Модалка глобального поиска
 class GlobalSearchModal extends BaseCustomModal {
@@ -50,7 +51,7 @@ class GlobalSearchModal extends BaseCustomModal {
 class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  
+
   bool _isLoading = false;
   String _query = '';
   Timer? _debounceTimer;
@@ -138,7 +139,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
             // Парсим Избранное
             final favData = results['favorites'];
             _favorites = favData != null ? [favData] : [];
-            
+
             _bots = results['bots'] as List? ?? [];
             _users = results['users'] as List? ?? [];
             _groups = results['groups'] as List? ?? [];
@@ -180,7 +181,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
       serverChatId = 'favorites_user_$myId';
       chatModel = ChatModel(
         id: serverChatId,
-        name: 'Избранное',
+        name: (AppLocalizations.of(context)?.izbrannoe_2fc4 ?? 'Fallback'),
         isFavorites: true,
         isEncrypted: true,
         avatarGradient: '8B5CF6,6366F1',
@@ -195,7 +196,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
         serverChatId = 'favorites_user_$myId';
         chatModel = ChatModel(
           id: serverChatId,
-          name: 'Избранное',
+          name: (AppLocalizations.of(context)?.izbrannoe_2fc4 ?? 'Fallback'),
           isFavorites: true,
           isEncrypted: true,
           avatarGradient: '8B5CF6,6366F1',
@@ -204,13 +205,16 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
         // Ищем существующий личный чат с этим пользователем в локальной базе напрямую
         final sortedIds = [myId, targetId]..sort();
         final standardId = 'personal_${sortedIds[0]}_${sortedIds[1]}';
-        
-        ChatModel? existingPersonalChat = await widget.localChatRepo.getChatByServerId(standardId);
+
+        ChatModel? existingPersonalChat =
+            await widget.localChatRepo.getChatByServerId(standardId);
         if (existingPersonalChat == null && sortedIds[0] != sortedIds[1]) {
-          existingPersonalChat = await widget.localChatRepo.getChatByServerId('personal_${sortedIds[1]}_${sortedIds[0]}');
+          existingPersonalChat = await widget.localChatRepo
+              .getChatByServerId('personal_${sortedIds[1]}_${sortedIds[0]}');
         }
         if (existingPersonalChat == null) {
-          existingPersonalChat = await widget.localChatRepo.getChatByServerId('personal_$targetId');
+          existingPersonalChat = await widget.localChatRepo
+              .getChatByServerId('personal_$targetId');
         }
 
         if (existingPersonalChat != null) {
@@ -236,8 +240,8 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
 
           chatModel = ChatModel(
             id: serverChatId,
-            name: customName.isNotEmpty 
-                ? customName 
+            name: customName.isNotEmpty
+                ? customName
                 : (firstName.isNotEmpty ? firstName : '@$username'),
             avatar: otherUser['avatar_url'] as String?,
             avatarGradient: otherUser['avatar_gradient'] as String?,
@@ -264,7 +268,8 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
     } else if (type == 'channel') {
       final channelId = item['id'] as int;
       serverChatId = 'channel_$channelId';
-      final isMember = item['is_member'] == true || item['is_subscribed'] == true;
+      final isMember =
+          item['is_member'] == true || item['is_subscribed'] == true;
       chatModel = ChatModel(
         id: serverChatId,
         name: item['name']?.toString() ?? 'Channel',
@@ -285,7 +290,8 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
     }
 
     // Проверяем, существует ли чат локально
-    final existingChat = await widget.localChatRepo.getChatByServerId(serverChatId);
+    final existingChat =
+        await widget.localChatRepo.getChatByServerId(serverChatId);
     final ChatModel finalChat = existingChat ?? chatModel;
 
     // Переходим в чат
@@ -361,8 +367,11 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
                   );
                 },
               ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-              hintText: 'Поиск людей, ботов, групп...',
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+              hintText:
+                  (AppLocalizations.of(context)?.poiskLyudeyBotovGrupp_e84e ??
+                      'Fallback'),
               hintStyle: AppStyles.bodyMuted.copyWith(
                 color: Colors.white.withOpacity(0.3),
                 fontSize: 14,
@@ -385,8 +394,8 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        
+        SizedBox(height: 12),
+
         // Результаты поиска
         Expanded(
           child: _isLoading
@@ -396,27 +405,49 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
                   ),
                 )
               : _query.isEmpty
-                  ? _buildEmptyState('Введите поисковый запрос')
+                  ? _buildEmptyState((AppLocalizations.of(context)
+                          ?.vveditePoiskovyyZapros_0b8c ??
+                      'Fallback'))
                   : _hasNoResults()
-                      ? _buildEmptyState('Ничего не найдено')
+                      ? _buildEmptyState((AppLocalizations.of(context)
+                              ?.nichegoNeNaydeno_8767 ??
+                          'Fallback'))
                       : ListView(
                           controller: scrollController,
                           physics: const BouncingScrollPhysics(),
                           children: [
                             if (_favorites.isNotEmpty)
                               _buildSection(
-                                'Избранное',
+                                (AppLocalizations.of(context)?.izbrannoe_2fc4 ??
+                                    'Fallback'),
                                 _favorites,
                                 'favorites',
                               ),
                             if (_bots.isNotEmpty)
-                              _buildSection('Боты', _bots, 'bot'),
+                              _buildSection(
+                                  (AppLocalizations.of(context)?.boty_d6e4 ??
+                                      'Fallback'),
+                                  _bots,
+                                  'bot'),
                             if (_users.isNotEmpty)
-                              _buildSection('Пользователи', _users, 'user'),
+                              _buildSection(
+                                  (AppLocalizations.of(context)
+                                          ?.polzovateli_b8c4 ??
+                                      'Fallback'),
+                                  _users,
+                                  'user'),
                             if (_groups.isNotEmpty)
-                              _buildSection('Группы', _groups, 'group'),
+                              _buildSection(
+                                  (AppLocalizations.of(context)?.gruppy_ebc4 ??
+                                      'Fallback'),
+                                  _groups,
+                                  'group'),
                             if (_channels.isNotEmpty)
-                              _buildSection('Каналы', _channels, 'channel'),
+                              _buildSection(
+                                  (AppLocalizations.of(context)?.kanaly_0c11 ??
+                                      'Fallback'),
+                                  _channels,
+                                  'channel'),
                           ],
                         ),
         ),
@@ -509,29 +540,44 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
     final String? avatarGradient = item['avatar_gradient'] as String?;
 
     if (type == 'favorites') {
-      displayName = 'Избранное';
-      subtitle = 'Мои личные сообщения';
+      displayName =
+          (AppLocalizations.of(context)?.izbrannoe_2fc4 ?? 'Fallback');
+      subtitle = (AppLocalizations.of(context)?.moiLichnyeSoobscheniya_7d3b ??
+          'Fallback');
     } else if (type == 'user' || type == 'bot') {
       final customName = item['custom_name']?.toString() ?? '';
       final firstName = item['first_name']?.toString() ?? '';
       final username = item['username']?.toString() ?? '';
       if (customName.isNotEmpty) {
         displayName = customName;
-        subtitle = firstName.isNotEmpty ? '$firstName (@$username)' : '@$username';
+        subtitle =
+            firstName.isNotEmpty ? '$firstName (@$username)' : '@$username';
       } else {
         displayName = firstName.isNotEmpty ? firstName : '@$username';
         subtitle = firstName.isNotEmpty ? '@$username' : '';
       }
     } else if (type == 'group') {
-      displayName = item['name']?.toString() ?? 'Группа';
+      displayName = item['name']?.toString() ??
+          (AppLocalizations.of(context)?.gruppa_99d9 ?? 'Fallback');
       final rawCount = item['members_count'];
-      final count = rawCount is int ? rawCount : (rawCount is num ? rawCount.toInt() : int.tryParse(rawCount?.toString() ?? '') ?? 0);
-      subtitle = '$count участников';
+      final count = rawCount is int
+          ? rawCount
+          : (rawCount is num
+              ? rawCount.toInt()
+              : int.tryParse(rawCount?.toString() ?? '') ?? 0);
+      subtitle =
+          AppLocalizations.of(context)?.membersCount(count) ?? '$count members';
     } else if (type == 'channel') {
-      displayName = item['name']?.toString() ?? 'Канал';
+      displayName = item['name']?.toString() ??
+          (AppLocalizations.of(context)?.kanal_2710 ?? 'Fallback');
       final rawCount = item['subscribers_count'];
-      final count = rawCount is int ? rawCount : (rawCount is num ? rawCount.toInt() : int.tryParse(rawCount?.toString() ?? '') ?? 0);
-      subtitle = '$count подписчиков';
+      final count = rawCount is int
+          ? rawCount
+          : (rawCount is num
+              ? rawCount.toInt()
+              : int.tryParse(rawCount?.toString() ?? '') ?? 0);
+      subtitle = AppLocalizations.of(context)?.subscribersCount(count) ??
+          '$count subscribers';
     } else {
       displayName = '';
       subtitle = '';

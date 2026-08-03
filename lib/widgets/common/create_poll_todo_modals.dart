@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import '../../styles/app_styles.dart';
 import 'base_custom_modal.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 class CreatePollModal extends BaseCustomModal {
-  final Function(String question, List<String> options, bool isMultipleChoice) onCreate;
+  final Function(String question, List<String> options, bool isMultipleChoice)
+      onCreate;
 
   const CreatePollModal({
     super.key,
     required this.onCreate,
   });
 
-  static void show(BuildContext context, Function(String question, List<String> options, bool isMultipleChoice) onCreate) {
+  static void show(
+      BuildContext context,
+      Function(String question, List<String> options, bool isMultipleChoice)
+          onCreate) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -50,11 +55,11 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
   Widget buildContent(BuildContext context, ScrollController scrollController) {
     return ListView(
       controller: scrollController,
-      physics: const BouncingScrollPhysics(),
+      physics: BouncingScrollPhysics(),
       children: [
         const SizedBox(height: 10),
-        const Text(
-          'СОЗДАТЬ ОПРОС',
+        Text(
+          (AppLocalizations.of(context)?.sozdatOpros_4b9e ?? 'Fallback'),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,
@@ -65,14 +70,16 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
           ),
         ),
         const SizedBox(height: 24),
-        
+
         // Question Input
         TextField(
           controller: _questionController,
           style: const TextStyle(color: Colors.white, fontSize: 15),
           decoration: InputDecoration(
-            labelText: 'Вопрос',
-            labelStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
+            labelText:
+                (AppLocalizations.of(context)?.vopros_0911 ?? 'Fallback'),
+            labelStyle:
+                TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
@@ -86,13 +93,13 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
           ),
         ),
         const SizedBox(height: 20),
-        
+
         // Options Header
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Варианты ответа:',
+              (AppLocalizations.of(context)?.variantyOtveta_ef4e ?? 'Fallback'),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -107,19 +114,20 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
                     _optionsControllers.add(TextEditingController());
                   });
                 },
-                icon: const Icon(Icons.add, size: 16, color: Colors.white),
-                label: const Text(
-                  'Добавить',
+                icon: Icon(Icons.add, size: 16, color: Colors.white),
+                label: Text(
+                  (AppLocalizations.of(context)?.dobavit_5eba ?? 'Fallback'),
                   style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 ),
               ),
           ],
         ),
         const SizedBox(height: 10),
-        
+
         // Options List
         ...List.generate(_optionsControllers.length, (index) {
           return Padding(
@@ -131,12 +139,16 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
                     controller: _optionsControllers[index],
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                     decoration: InputDecoration(
-                      hintText: 'Вариант ${index + 1}',
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      hintText:
+                          '${AppLocalizations.of(context)?.optionHintPrefix ?? 'Option'} ${index + 1}',
+                      hintStyle: TextStyle(
+                          color: Colors.white.withOpacity(0.3), fontSize: 13),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+                        borderSide:
+                            BorderSide(color: Colors.white.withOpacity(0.08)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -150,7 +162,8 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
                 if (_optionsControllers.length > 2) ...[
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white38, size: 20),
+                    icon: const Icon(Icons.close,
+                        color: Colors.white38, size: 20),
                     onPressed: () {
                       setState(() {
                         final controller = _optionsControllers.removeAt(index);
@@ -163,17 +176,21 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
             ),
           );
         }),
-        const SizedBox(height: 10),
-        
+        SizedBox(height: 10),
+
         // Multiple Choice Setting
         Theme(
           data: ThemeData(
             unselectedWidgetColor: Colors.white38,
           ),
           child: CheckboxListTile(
-            title: const Text(
-              'Множественный выбор',
-              style: TextStyle(color: Colors.white, fontSize: 14, fontFamily: AppStyles.fontFamily),
+            title: Text(
+              (AppLocalizations.of(context)?.mnozhestvennyyVybor_9b60 ??
+                  'Fallback'),
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontFamily: AppStyles.fontFamily),
             ),
             value: _isMultipleChoice,
             activeColor: Colors.white,
@@ -188,7 +205,7 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
           ),
         ),
         const SizedBox(height: 24),
-        
+
         // Submit Button
         ElevatedButton(
           onPressed: () {
@@ -199,7 +216,10 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
                 .toList();
             if (question.isEmpty || options.length < 2) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Пожалуйста, заполните вопрос и как минимум два варианта ответа')),
+                SnackBar(
+                    content: Text((AppLocalizations.of(context)
+                            ?.pozhaluystaZapolniteVoprosIKak_7ad5 ??
+                        'Fallback'))),
               );
               return;
             }
@@ -207,7 +227,8 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
             widget.onCreate(question, options, _isMultipleChoice);
           },
           style: AppStyles.primaryButton,
-          child: const Text('Создать опрос'),
+          child: Text(
+              (AppLocalizations.of(context)?.sozdatOpros_8401 ?? 'Fallback')),
         ),
         const SizedBox(height: 40),
       ],
@@ -223,7 +244,8 @@ class CreateTodoModal extends BaseCustomModal {
     required this.onCreate,
   });
 
-  static void show(BuildContext context, Function(String title, List<String> items) onCreate) {
+  static void show(BuildContext context,
+      Function(String title, List<String> items) onCreate) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -261,11 +283,11 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
   Widget buildContent(BuildContext context, ScrollController scrollController) {
     return ListView(
       controller: scrollController,
-      physics: const BouncingScrollPhysics(),
+      physics: BouncingScrollPhysics(),
       children: [
         const SizedBox(height: 10),
-        const Text(
-          'СОЗДАТЬ СПИСОК ЗАДАЧ',
+        Text(
+          (AppLocalizations.of(context)?.sozdatSpisokZadach_4018 ?? 'Fallback'),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,
@@ -276,14 +298,16 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
           ),
         ),
         const SizedBox(height: 24),
-        
+
         // Title Input
         TextField(
           controller: _titleController,
           style: const TextStyle(color: Colors.white, fontSize: 15),
           decoration: InputDecoration(
-            labelText: 'Название списка',
-            labelStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
+            labelText: (AppLocalizations.of(context)?.nazvanieSpiska_c3cc ??
+                'Fallback'),
+            labelStyle:
+                TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
@@ -297,13 +321,13 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
           ),
         ),
         const SizedBox(height: 20),
-        
+
         // Items Header
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Пункты:',
+              (AppLocalizations.of(context)?.punkty_0481 ?? 'Fallback'),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -318,19 +342,20 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
                     _itemsControllers.add(TextEditingController());
                   });
                 },
-                icon: const Icon(Icons.add, size: 16, color: Colors.white),
-                label: const Text(
-                  'Добавить',
+                icon: Icon(Icons.add, size: 16, color: Colors.white),
+                label: Text(
+                  (AppLocalizations.of(context)?.dobavit_5eba ?? 'Fallback'),
                   style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 ),
               ),
           ],
         ),
         const SizedBox(height: 10),
-        
+
         // Items List
         ...List.generate(_itemsControllers.length, (index) {
           return Padding(
@@ -342,12 +367,16 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
                     controller: _itemsControllers[index],
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                     decoration: InputDecoration(
-                      hintText: 'Пункт ${index + 1}',
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      hintText:
+                          '${AppLocalizations.of(context)?.itemHintPrefix ?? 'Item'} ${index + 1}',
+                      hintStyle: TextStyle(
+                          color: Colors.white.withOpacity(0.3), fontSize: 13),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+                        borderSide:
+                            BorderSide(color: Colors.white.withOpacity(0.08)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -361,7 +390,8 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
                 if (_itemsControllers.length > 1) ...[
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white38, size: 20),
+                    icon: const Icon(Icons.close,
+                        color: Colors.white38, size: 20),
                     onPressed: () {
                       setState(() {
                         final controller = _itemsControllers.removeAt(index);
@@ -375,7 +405,7 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
           );
         }),
         const SizedBox(height: 24),
-        
+
         // Submit Button
         ElevatedButton(
           onPressed: () {
@@ -386,7 +416,10 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
                 .toList();
             if (title.isEmpty || items.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Пожалуйста, заполните название и как минимум один пункт')),
+                SnackBar(
+                    content: Text((AppLocalizations.of(context)
+                            ?.pozhaluystaZapolniteNazvanieIKak_3783 ??
+                        'Fallback'))),
               );
               return;
             }
@@ -394,7 +427,8 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
             widget.onCreate(title, items);
           },
           style: AppStyles.primaryButton,
-          child: const Text('Создать список задач'),
+          child: Text((AppLocalizations.of(context)?.sozdatSpisokZadach_0416 ??
+              'Fallback')),
         ),
         const SizedBox(height: 40),
       ],

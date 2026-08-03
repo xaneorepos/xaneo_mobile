@@ -1,15 +1,9 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../styles/app_styles.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
-/// Навигационная панель с эффектом "Liquid Glass"
-///
-/// Особенности:
-/// - Закруглённый прямоугольник с blur эффектом
-/// - Иконки Font Awesome
-/// - Плавная анимация индикатора при переключении
-/// - Glassmorphism эффект
+/// Плавающая навигационная панель без дорогого backdrop blur.
 class LiquidGlassNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
@@ -29,79 +23,69 @@ class LiquidGlassNavBar extends StatelessWidget {
         child: Container(
           height: 56,
           decoration: BoxDecoration(
+            color: const Color(0xF2141416),
             borderRadius: BorderRadius.circular(32),
             border: Border.all(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               width: 1,
             ),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(32),
-                ),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final itemWidth = (constraints.maxWidth - 16) / 3;
-                    return Stack(
-                      children: [
-                        // Анимированный индикатор (прозрачная "штуковина" - pill)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: AnimatedAlign(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOutCubic,
-                            alignment: _getAlignment(selectedIndex),
-                            child: Container(
-                              width: itemWidth - 8,
-                              height: 40,
-                              margin: const EdgeInsets.only(top: 8, bottom: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = (constraints.maxWidth - 16) / 3;
+              return Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: AnimatedAlign(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutCubic,
+                      alignment: _getAlignment(selectedIndex),
+                      child: Container(
+                        width: itemWidth - 8,
+                        height: 40,
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        // Кнопки навигации
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _NavItem(
-                                icon: FontAwesomeIcons.solidComment,
-                                label: 'Чаты',
-                                isSelected: selectedIndex == 0,
-                                onTap: () => onDestinationSelected(0),
-                              ),
-                            ),
-                            Expanded(
-                              child: _NavItem(
-                                icon: FontAwesomeIcons.users,
-                                label: 'Контакты',
-                                isSelected: selectedIndex == 1,
-                                onTap: () => onDestinationSelected(1),
-                              ),
-                            ),
-                            Expanded(
-                              child: _NavItem(
-                                icon: FontAwesomeIcons.gear,
-                                label: 'Настройки',
-                                isSelected: selectedIndex == 2,
-                                onTap: () => onDestinationSelected(2),
-                              ),
-                            ),
-                          ],
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _NavItem(
+                          icon: FontAwesomeIcons.solidComment,
+                          label: AppLocalizations.of(context)?.chaty_19ad ??
+                              'Fallback',
+                          isSelected: selectedIndex == 0,
+                          onTap: () => onDestinationSelected(0),
                         ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
+                      ),
+                      Expanded(
+                        child: _NavItem(
+                          icon: FontAwesomeIcons.users,
+                          label: AppLocalizations.of(context)?.kontakty_7576 ??
+                              'Fallback',
+                          isSelected: selectedIndex == 1,
+                          onTap: () => onDestinationSelected(1),
+                        ),
+                      ),
+                      Expanded(
+                        child: _NavItem(
+                          icon: FontAwesomeIcons.gear,
+                          label: AppLocalizations.of(context)?.nastroyki_c919 ??
+                              'Fallback',
+                          isSelected: selectedIndex == 2,
+                          onTap: () => onDestinationSelected(2),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),

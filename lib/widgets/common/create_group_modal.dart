@@ -10,6 +10,7 @@ import '../../services/chat/group_channel_service.dart';
 import '../../styles/app_styles.dart';
 import 'avatar_cropper.dart';
 import 'base_custom_modal.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Модальное окно создания группы
 class CreateGroupModal extends BaseCustomModal {
@@ -90,14 +91,14 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
 
     if (name.isEmpty) {
       setState(() {
-        _errorMessage = 'Введите название группы';
+        _errorMessage = (AppLocalizations.of(context)?.vvediteNazvanieGruppy_0a69 ?? 'Fallback');
       });
       return;
     }
 
     if (!_isPrivate && username.isEmpty) {
       setState(() {
-        _errorMessage = 'Для публичной группы требуется никнейм (@username)';
+        _errorMessage = (AppLocalizations.of(context)?.dlyaPublichnoyGruppyTrebuetsyaNikneym_15d0 ?? 'Fallback');
       });
       return;
     }
@@ -133,7 +134,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
         isPersonal: false,
         isChannel: false,
         isFavorites: false,
-        lastMessage: 'Группа создана',
+        lastMessage: (AppLocalizations.of(context)?.gruppaSozdana_6b3b ?? 'Fallback'),
         lastMessageTime: DateTime.now(),
         otherUser: {
           'members_count': 1,
@@ -157,7 +158,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
     } else {
       setState(() {
         _isLoading = false;
-        _errorMessage = result?['error']?.toString() ?? result?['message']?.toString() ?? 'Ошибка при создании группы';
+        _errorMessage = result?['error']?.toString() ?? result?['message']?.toString() ?? (AppLocalizations.of(context)?.oshibkaPriSozdaniiGruppy_794e ?? 'Fallback');
       });
     }
   }
@@ -193,7 +194,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                       ),
                     ),
                     child: _avatarFile == null
-                        ? const Center(
+                        ? Center(
                             child: FaIcon(
                               FontAwesomeIcons.users,
                               color: Colors.white70,
@@ -225,12 +226,12 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
               ),
             ),
             const SizedBox(width: 16),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Создать группу',
+                    (AppLocalizations.of(context)?.sozdatGruppu_459f ?? 'Fallback'),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 19,
@@ -241,7 +242,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                   ),
                   SizedBox(height: 2),
                   Text(
-                    'Нажмите на иконку, чтобы выбрать аватарку',
+                    (AppLocalizations.of(context)?.nazhmiteNaIkonkuChtobyVybrat_af03 ?? 'Fallback'),
                     style: TextStyle(
                       color: Color(0xFF999999),
                       fontSize: 12.5,
@@ -262,7 +263,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
           controller: _nameController,
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: InputDecoration(
-            hintText: 'Название группы',
+            hintText: (AppLocalizations.of(context)?.nazvanieGruppy_9a39 ?? 'Fallback'),
             hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 15),
             filled: true,
             fillColor: Colors.white.withOpacity(0.05),
@@ -286,7 +287,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
           maxLines: 2,
           style: const TextStyle(color: Colors.white, fontSize: 15),
           decoration: InputDecoration(
-            hintText: 'Описание (необязательно)',
+            hintText: (AppLocalizations.of(context)?.opisanieNeobyazatelno_7812 ?? 'Fallback'),
             hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 15),
             filled: true,
             fillColor: Colors.white.withOpacity(0.05),
@@ -325,7 +326,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _isPrivate ? 'Приватная группа' : 'Публичная группа',
+                      _isPrivate ? (AppLocalizations.of(context)?.privatnayaGruppa_d20e ?? 'Fallback') : (AppLocalizations.of(context)?.publichnayaGruppa_50f8 ?? 'Fallback'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
@@ -335,8 +336,8 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                     ),
                     Text(
                       _isPrivate
-                          ? 'Вход только по приглашению'
-                          : 'Любой может найти и вступить',
+                          ? (AppLocalizations.of(context)?.vhodTolkoPoPriglasheniyu_97a1 ?? 'Fallback')
+                          : (AppLocalizations.of(context)?.lyuboyMozhetNaytiIVstupit_5e26 ?? 'Fallback'),
                       style: const TextStyle(
                         color: Color(0xFF888888),
                         fontSize: 12,
@@ -361,12 +362,12 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
 
         // Если группа публичная — поле ввода username
         if (!_isPrivate) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           TextField(
             controller: _usernameController,
             style: const TextStyle(color: Colors.white, fontSize: 16),
             decoration: InputDecoration(
-              hintText: 'Публичная ссылка/никнейм (@my_group)',
+              hintText: (AppLocalizations.of(context)?.publichnayaSsylkanikneymMyGroup_6640 ?? 'Fallback'),
               hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 14.5),
               prefixText: '@ ',
               prefixStyle: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
@@ -423,8 +424,8 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                       color: Colors.black,
                     ),
                   )
-                : const Text(
-                    'Создать группу',
+                : Text(
+                    (AppLocalizations.of(context)?.sozdatGruppu_459f ?? 'Fallback'),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

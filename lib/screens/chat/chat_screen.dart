@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
 
@@ -26,7 +27,10 @@ import '../../services/crypto/crypto_service.dart';
 import '../../services/grpc_service.dart';
 import '../../services/database/app_database.dart';
 import '../../styles/app_styles.dart';
+import '../../utils/chat_name_localizer.dart';
 import '../../widgets/common/chat_info_modal.dart';
+import '../../widgets/common/chat_context_menu.dart';
+import '../../widgets/common/music_playlist_modal.dart';
 import '../../services/webrtc/call_manager.dart';
 import '../webrtc/active_call_screen.dart';
 import 'dart:io';
@@ -45,6 +49,7 @@ import '../../widgets/video_message_player.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../providers/playback_provider.dart';
 import '../../widgets/voice_waveform_slider.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Immutable state class для оптимизации Selector
 String? _parseReplyField(dynamic val) {
@@ -67,7 +72,7 @@ bool _areSameChat(String? id1, String? id2) {
     final parts2 = s2.replaceFirst('personal_', '').split('_');
     if (parts1.length == 2 && parts2.length == 2) {
       return (parts1[0] == parts2[0] && parts1[1] == parts2[1]) ||
-             (parts1[0] == parts2[1] && parts1[1] == parts2[0]);
+          (parts1[0] == parts2[1] && parts1[1] == parts2[0]);
     }
   }
 
@@ -143,6 +148,8 @@ class _ChatScreenState extends State<ChatScreen> {
   int? _localChatId;
   bool _isLoading = true;
   bool _isVoiceMode = true;
+  late bool _isChatPinned;
+  late bool _isChatMuted;
 
   // Recording state variables
   final AudioRecorder _audioRecorder = AudioRecorder();
@@ -158,8 +165,10 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isRecordingVideo = false;
   Timer? _videoRecordingTimer;
   double _videoRecordingDurationSeconds = 0.0;
-  final Map<String, String> _pendingVideoTempIds = {}; // file_id -> temp serverMessageId
-  final Map<String, String> _pendingVideoLocalPaths = {}; // file_id -> локальный путь к записи
+  final Map<String, String> _pendingVideoTempIds =
+      {}; // file_id -> temp serverMessageId
+  final Map<String, String> _pendingVideoLocalPaths =
+      {}; // file_id -> локальный путь к записи
   late Stream<List<Message>> _messagesStream;
 
   // Local copy of otherUser to reflect WS status updates
@@ -199,13 +208,17 @@ class _ChatScreenState extends State<ChatScreen> {
       if (item['author'] is Map) {
         final authorMap = Map<String, dynamic>.from(item['author']);
         firstName = authorMap['first_name']?.toString();
-        avatar = authorMap['avatar']?.toString() ?? authorMap['avatar_url']?.toString();
+        avatar = authorMap['avatar']?.toString() ??
+            authorMap['avatar_url']?.toString();
         gradient = authorMap['avatar_gradient']?.toString();
       }
 
-      firstName ??= item['author_first_name']?.toString() ?? item['first_name']?.toString();
-      avatar ??= item['author_avatar']?.toString() ?? item['avatar']?.toString();
-      gradient ??= item['author_avatar_gradient']?.toString() ?? item['avatar_gradient']?.toString();
+      firstName ??= item['author_first_name']?.toString() ??
+          item['first_name']?.toString();
+      avatar ??=
+          item['author_avatar']?.toString() ?? item['avatar']?.toString();
+      gradient ??= item['author_avatar_gradient']?.toString() ??
+          item['avatar_gradient']?.toString();
 
       final existing = _userProfiles[senderId];
       if (existing != null) {
@@ -216,9 +229,13 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       }
 
-      if (firstName != null || avatar != null || (gradient != null && gradient.isNotEmpty)) {
+      if (firstName != null ||
+          avatar != null ||
+          (gradient != null && gradient.isNotEmpty)) {
         _userProfiles[senderId] = {
-          'first_name': (firstName != null && firstName.isNotEmpty) ? firstName : senderId,
+          'first_name': (firstName != null && firstName.isNotEmpty)
+              ? firstName
+              : senderId,
           'avatar': avatar,
           'avatar_gradient': gradient,
         };
@@ -253,9 +270,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // Оптимистичная отправка голосовых: temp-сообщение показывается сразу,
   // затем сверяется с эхом сервера по file_id (чтобы не плодить дубли).
-  final Map<String, String> _pendingVoiceTempIds = {}; // file_id -> temp serverMessageId
-  final Map<String, String> _pendingVoiceLocalPaths = {}; // file_id -> локальный путь к записи
-  final List<String> _pendingTextTempIds = []; // temp serverMessageId for optimistic text messages
+  final Map<String, String> _pendingVoiceTempIds =
+      {}; // file_id -> temp serverMessageId
+  final Map<String, String> _pendingVoiceLocalPaths =
+      {}; // file_id -> локальный путь к записи
+  final List<String> _pendingTextTempIds =
+      []; // temp serverMessageId for optimistic text messages
 
   Future<void> _loadJwtToken() async {
     final token = await TokenStorage().getAccessToken();
@@ -278,12 +298,17 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _chatName = widget.chat.name;
+    _isChatPinned = widget.chat.isPinned;
+    _isChatMuted = widget.chat.isMuted;
     _loadJwtToken();
     _loadCameras();
-    _otherUser = widget.chat.otherUser != null ? Map<String, dynamic>.from(widget.chat.otherUser!) : null;
+    _otherUser = widget.chat.otherUser != null
+        ? Map<String, dynamic>.from(widget.chat.otherUser!)
+        : null;
     _localChatRepo = context.read<LocalChatRepository>();
     _chatService = ChatService(apiClient: context.read<ApiClient>());
-    _messagesStream = _localChatRepo.watchMessagesForServerChat(widget.chat.id, limit: _limit);
+    _messagesStream = _localChatRepo.watchMessagesForServerChat(widget.chat.id,
+        limit: _limit);
     _chatWebSocketService = ChatWebSocketService(
       tokenStorage: TokenStorage(),
       apiClient: context.read<ApiClient>(),
@@ -298,11 +323,15 @@ class _ChatScreenState extends State<ChatScreen> {
       final rawCallsEnabled = widget.chat.raw['group_calls_enabled'];
       final otherCallsEnabled = widget.chat.otherUser?['group_calls_enabled'];
       debugPrint('====================================================');
-      debugPrint('👥 [GROUP CALL LOG] Заход в групповой чат ID=${widget.chat.id} "${widget.chat.name}":');
+      debugPrint(
+          '👥 [GROUP CALL LOG] Заход в групповой чат ID=${widget.chat.id} "${widget.chat.name}":');
       debugPrint('   -> widget.chat.groupCallsEnabled = $callsEnabled');
-      debugPrint('   -> widget.chat.raw["group_calls_enabled"] = $rawCallsEnabled');
-      debugPrint('   -> widget.chat.otherUser["group_calls_enabled"] = $otherCallsEnabled');
-      debugPrint('   -> Кнопка звонка разрешена в UI (_canCall()): ${_canCall()}');
+      debugPrint(
+          '   -> widget.chat.raw["group_calls_enabled"] = $rawCallsEnabled');
+      debugPrint(
+          '   -> widget.chat.otherUser["group_calls_enabled"] = $otherCallsEnabled');
+      debugPrint(
+          '   -> Кнопка звонка разрешена в UI (_canCall()): ${_canCall()}');
       debugPrint('====================================================');
     }
   }
@@ -382,16 +411,19 @@ class _ChatScreenState extends State<ChatScreen> {
   void _scrollListener() {
     // If we scroll close to the top (maxScrollExtent), load more history
     if (_scrollController.hasClients &&
-        _scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+        _scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 200) {
       _loadMoreMessages();
     }
   }
 
   Future<void> _initChat() async {
     // Pre-load saved user profiles from widget.chat.otherUser
-    if (widget.chat.otherUser != null && widget.chat.otherUser!['user_profiles'] is Map) {
+    if (widget.chat.otherUser != null &&
+        widget.chat.otherUser!['user_profiles'] is Map) {
       try {
-        final savedProfiles = widget.chat.otherUser!['user_profiles'] as Map<String, dynamic>;
+        final savedProfiles =
+            widget.chat.otherUser!['user_profiles'] as Map<String, dynamic>;
         savedProfiles.forEach((key, val) {
           if (val is Map) {
             _userProfiles[key] = Map<String, dynamic>.from(val);
@@ -427,7 +459,8 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     if (localId == null) {
-      final existingOtherUser = Map<String, dynamic>.from(widget.chat.otherUser ?? {});
+      final existingOtherUser =
+          Map<String, dynamic>.from(widget.chat.otherUser ?? {});
       if (isGroupOrChannel) {
         existingOtherUser['is_member'] = initialIsMember;
       }
@@ -442,7 +475,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (localId != null) {
       await _localChatRepo.cleanupFakeFileMessages(localId);
       final localCount = await _localChatRepo.getMessageCount(localId);
-      
+
       if (mounted) {
         setState(() {
           _localChatId = localId;
@@ -474,7 +507,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // 3. Connect to WebSocket for E2EE updates
     await _chatWebSocketService.connect(widget.chat.id);
     _wsEventsSub = _chatWebSocketService.events.listen(_handleWsEvent);
-    
+
     // 4. Mark messages as read since the chat is open
     _markChatAsRead();
 
@@ -498,15 +531,18 @@ class _ChatScreenState extends State<ChatScreen> {
         String? newReplyText = m.replyText;
 
         if (cryptoService.isEncryptedMessage(m.textContent)) {
-          final decrypted = await cryptoService.decryptChatMessage(m.textContent, widget.chat.id);
+          final decrypted = await cryptoService.decryptChatMessage(
+              m.textContent, widget.chat.id);
           if (decrypted != null && decrypted != m.textContent) {
             newTextContent = decrypted;
             needsUpdate = true;
           }
         }
 
-        if (m.replyText != null && cryptoService.isEncryptedMessage(m.replyText!)) {
-          final decryptedReply = await cryptoService.decryptChatMessage(m.replyText!, widget.chat.id);
+        if (m.replyText != null &&
+            cryptoService.isEncryptedMessage(m.replyText!)) {
+          final decryptedReply = await cryptoService.decryptChatMessage(
+              m.replyText!, widget.chat.id);
           if (decryptedReply != null && decryptedReply != m.replyText) {
             newReplyText = decryptedReply;
             needsUpdate = true;
@@ -537,7 +573,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
       if (companionsToUpdate.isNotEmpty) {
         await _localChatRepo.saveMessagesBatch(companionsToUpdate);
-        debugPrint('XSEC-2: Swept and decrypted ${companionsToUpdate.length} previously encrypted messages');
+        debugPrint(
+            'XSEC-2: Swept and decrypted ${companionsToUpdate.length} previously encrypted messages');
       }
     } catch (e) {
       debugPrint('XSEC-2: Error during encrypted messages sweep: $e');
@@ -546,7 +583,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _parseIsRead(Map<String, dynamic> item, {bool isFavorites = false}) {
     if (isFavorites) {
-      debugPrint('[READ_STATUS_LOG] _parseIsRead: favorites chat => isRead=true');
+      debugPrint(
+          '[READ_STATUS_LOG] _parseIsRead: favorites chat => isRead=true');
       return true;
     }
 
@@ -556,36 +594,47 @@ class _ChatScreenState extends State<ChatScreen> {
         item['read'] ??
         item['is_read_by_current_user'];
 
-    if (isReadVal == true || isReadVal == 1 || isReadVal == 'true' || isReadVal == '1') {
-      debugPrint('[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched value=$isReadVal (by_recipient=${item['is_read_by_recipient']}, is_read=${item['is_read']}) => isRead=true');
+    if (isReadVal == true ||
+        isReadVal == 1 ||
+        isReadVal == 'true' ||
+        isReadVal == '1') {
+      debugPrint(
+          '[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched value=$isReadVal (by_recipient=${item['is_read_by_recipient']}, is_read=${item['is_read']}) => isRead=true');
       return true;
     }
 
     final status = item['status']?.toString().toLowerCase();
     if (status == 'read' || status == 'seen') {
-      debugPrint('[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched status=$status => isRead=true');
+      debugPrint(
+          '[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched status=$status => isRead=true');
       return true;
     }
 
     final readAt = item['read_at'] ?? item['readAt'] ?? item['read_time'];
-    if (readAt != null && readAt.toString().isNotEmpty && readAt.toString() != 'null') {
-      debugPrint('[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched readAt=$readAt => isRead=true');
+    if (readAt != null &&
+        readAt.toString().isNotEmpty &&
+        readAt.toString() != 'null') {
+      debugPrint(
+          '[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched readAt=$readAt => isRead=true');
       return true;
     }
 
     final readBy = item['read_by'] ?? item['readBy'] ?? item['readers'];
     if (readBy is List && readBy.isNotEmpty) {
-      debugPrint('[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched readBy=$readBy => isRead=true');
+      debugPrint(
+          '[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched readBy=$readBy => isRead=true');
       return true;
     }
 
-    debugPrint('[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} NO READ MATCH (is_read_by_recipient=${item['is_read_by_recipient']}, is_read=${item['is_read']}, is_read_by_current_user=${item['is_read_by_current_user']}) => isRead=false');
+    debugPrint(
+        '[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} NO READ MATCH (is_read_by_recipient=${item['is_read_by_recipient']}, is_read=${item['is_read']}, is_read_by_current_user=${item['is_read_by_current_user']}) => isRead=false');
     return false;
   }
 
   void _markChatAsRead() async {
     final localId = _localChatId;
-    debugPrint('[READ_STATUS_LOG] _markChatAsRead called for chat=${widget.chat.id}, localId=$localId');
+    debugPrint(
+        '[READ_STATUS_LOG] _markChatAsRead called for chat=${widget.chat.id}, localId=$localId');
     if (localId != null) {
       await _localChatRepo.markMessagesAsReadInDb(localId);
       if (mounted) {
@@ -604,17 +653,26 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   String? _parseFileInfo(Map<String, dynamic> item, String? decrypted) {
-    if ((item['message_type'] == 'call' || item['type'] == 'call') && item['message_data'] != null) {
+    if ((item['message_type'] == 'call' || item['type'] == 'call') &&
+        item['message_data'] != null) {
       return jsonEncode(item['message_data']);
     }
     // 1. Check if it's already inside decrypted text (polls/todos or file info JSON)
-    final hasServerFile = (item['attached_file_id'] != null && item['attached_file_id'].toString().isNotEmpty) ||
-                          (item['file_id'] != null && item['file_id'].toString().isNotEmpty) ||
-                          (item['file_url'] != null && item['file_url'].toString().isNotEmpty);
-    if (hasServerFile && decrypted != null && decrypted.trim().startsWith('{')) {
+    final hasServerFile = (item['attached_file_id'] != null &&
+            item['attached_file_id'].toString().isNotEmpty) ||
+        (item['file_id'] != null && item['file_id'].toString().isNotEmpty) ||
+        (item['file_url'] != null && item['file_url'].toString().isNotEmpty);
+    if (hasServerFile &&
+        decrypted != null &&
+        decrypted.trim().startsWith('{')) {
       try {
         final parsed = jsonDecode(decrypted);
-        if (parsed is Map && (parsed['type'] == 'file' || parsed['type'] == 'voice' || parsed['type'] == 'video_message') && parsed['file_id'] != null && parsed['file_id'].toString().isNotEmpty) {
+        if (parsed is Map &&
+            (parsed['type'] == 'file' ||
+                parsed['type'] == 'voice' ||
+                parsed['type'] == 'video_message') &&
+            parsed['file_id'] != null &&
+            parsed['file_id'].toString().isNotEmpty) {
           return decrypted;
         }
       } catch (_) {}
@@ -628,10 +686,15 @@ class _ChatScreenState extends State<ChatScreen> {
         if (img is Map) {
           final fId = img['file_id']?.toString();
           if (fId != null && fId.isNotEmpty) {
-            final fName = img['name']?.toString() ?? img['file_name']?.toString() ?? 'file';
+            final fName = img['name']?.toString() ??
+                img['file_name']?.toString() ??
+                'file';
             final fSize = img['size'] as int? ?? img['file_size'] as int? ?? 0;
-            final fType = img['mime_type']?.toString() ?? img['file_type']?.toString() ?? 'image/jpeg';
-            String fUrl = img['url']?.toString() ?? img['file_url']?.toString() ?? '';
+            final fType = img['mime_type']?.toString() ??
+                img['file_type']?.toString() ??
+                'image/jpeg';
+            String fUrl =
+                img['url']?.toString() ?? img['file_url']?.toString() ?? '';
             if (fUrl.isEmpty) {
               fUrl = '/api/files/download/$fId/';
             }
@@ -655,12 +718,20 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     // 3. Check for single attached file
-    final fileId = item['attached_file_id']?.toString() ?? item['file_id']?.toString();
+    final fileId =
+        item['attached_file_id']?.toString() ?? item['file_id']?.toString();
     if (fileId != null && fileId.isNotEmpty) {
-      final fileName = item['attached_file_name']?.toString() ?? item['file_name']?.toString() ?? 'file';
-      final fileSize = item['attached_file_size'] as int? ?? item['file_size'] as int? ?? 0;
-      final fileType = item['attached_file_type']?.toString() ?? item['mime_type']?.toString() ?? 'application/octet-stream';
-      String fileUrlSuffix = item['attached_file_url']?.toString() ?? item['file_url']?.toString() ?? '';
+      final fileName = item['attached_file_name']?.toString() ??
+          item['file_name']?.toString() ??
+          'file';
+      final fileSize =
+          item['attached_file_size'] as int? ?? item['file_size'] as int? ?? 0;
+      final fileType = item['attached_file_type']?.toString() ??
+          item['mime_type']?.toString() ??
+          'application/octet-stream';
+      String fileUrlSuffix = item['attached_file_url']?.toString() ??
+          item['file_url']?.toString() ??
+          '';
       if (fileUrlSuffix.isEmpty) {
         fileUrlSuffix = '/api/files/download/$fileId/';
       }
@@ -698,8 +769,11 @@ class _ChatScreenState extends State<ChatScreen> {
             .where((id) => id.isNotEmpty)
             .toList();
 
-        final existingMessages = await _localChatRepo.getMessagesByServerIds(msgIds);
-        final existingMap = {for (final m in existingMessages) m.serverMessageId: m};
+        final existingMessages =
+            await _localChatRepo.getMessagesByServerIds(msgIds);
+        final existingMap = {
+          for (final m in existingMessages) m.serverMessageId: m
+        };
 
         int newMessagesCount = 0;
         for (final item in results) {
@@ -710,7 +784,8 @@ class _ChatScreenState extends State<ChatScreen> {
           }
           final senderId = item['author_username']?.toString() ?? 'unknown';
           final encryptedText = item['encrypted_text']?.toString() ?? '';
-          final timestamp = _parseDateTime(item['created_at']) ?? DateTime.now();
+          final timestamp =
+              _parseDateTime(item['created_at']) ?? DateTime.now();
 
           String? decrypted;
           String? existingFileUrl;
@@ -718,34 +793,48 @@ class _ChatScreenState extends State<ChatScreen> {
             final existingMsg = existingMap[msgId]!;
             final existingText = existingMsg.textContent;
             existingFileUrl = existingMsg.fileUrl;
-            if (cryptoService.isEncryptedMessage(existingText) && encryptedText.isNotEmpty) {
-              decrypted = await cryptoService.decryptChatMessage(encryptedText, widget.chat.id);
+            if (cryptoService.isEncryptedMessage(existingText) &&
+                encryptedText.isNotEmpty) {
+              decrypted = await cryptoService.decryptChatMessage(
+                  encryptedText, widget.chat.id);
               await Future.delayed(Duration.zero);
             } else {
               decrypted = existingText;
             }
           } else if (encryptedText.isNotEmpty) {
-            decrypted = await cryptoService.decryptChatMessage(encryptedText, widget.chat.id);
+            decrypted = await cryptoService.decryptChatMessage(
+                encryptedText, widget.chat.id);
             // Yield event loop to prevent UI stutter during heavy decryption loop
             await Future.delayed(Duration.zero);
           }
 
-          final fileInfoJson = _parseFileInfo(Map<String, dynamic>.from(item), decrypted);
+          final fileInfoJson =
+              _parseFileInfo(Map<String, dynamic>.from(item), decrypted);
 
           final messageType = item['message_type']?.toString();
           final messageId = item['message_id']?.toString();
-          final completionStatusVal = item['completion_status'] != null ? jsonEncode(item['completion_status']) : null;
-          final votesByOptionVal = item['votes_by_option'] != null ? jsonEncode(item['votes_by_option']) : null;
+          final completionStatusVal = item['completion_status'] != null
+              ? jsonEncode(item['completion_status'])
+              : null;
+          final votesByOptionVal = item['votes_by_option'] != null
+              ? jsonEncode(item['votes_by_option'])
+              : null;
 
-          final isServerRead = _parseIsRead(Map<String, dynamic>.from(item), isFavorites: widget.chat.isFavorites);
-          final isReadFinal = isServerRead || (existingMap.containsKey(msgId) && existingMap[msgId]!.isRead);
-          final replyToIdVal = _parseReplyField(item['reply_to_id'] ?? item['reply_to_ref'] ?? item['reply_to']);
+          final isServerRead = _parseIsRead(Map<String, dynamic>.from(item),
+              isFavorites: widget.chat.isFavorites);
+          final isReadFinal = isServerRead ||
+              (existingMap.containsKey(msgId) && existingMap[msgId]!.isRead);
+          final replyToIdVal = _parseReplyField(
+              item['reply_to_id'] ?? item['reply_to_ref'] ?? item['reply_to']);
           final replyTextRaw = _parseReplyField(item['reply_text']);
           String? replyTextVal;
           if (replyTextRaw != null) {
-            replyTextVal = await cryptoService.decryptChatMessage(replyTextRaw, widget.chat.id) ?? replyTextRaw;
+            replyTextVal = await cryptoService.decryptChatMessage(
+                    replyTextRaw, widget.chat.id) ??
+                replyTextRaw;
           }
-          final replyAuthorNameVal = _parseReplyField(item['reply_author_name'] ?? item['reply_author']);
+          final replyAuthorNameVal = _parseReplyField(
+              item['reply_author_name'] ?? item['reply_author']);
 
           companions.add(
             MessagesCompanion(
@@ -784,7 +873,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   double _estimateMessageHeight(Message msg) {
-    double height = 7.0 + 3.0 + 14.0 + 5.0; // vertical padding/margins + time row + safety margin
+    double height = 7.0 +
+        3.0 +
+        14.0 +
+        5.0; // vertical padding/margins + time row + safety margin
 
     if (msg.textContent.isNotEmpty && !msg.textContent.startsWith('{')) {
       final textLength = msg.textContent.length;
@@ -809,9 +901,18 @@ class _ChatScreenState extends State<ChatScreen> {
             height += 48.0;
           } else {
             final mime = (fileData['mime_type'] ?? '').toString().toLowerCase();
-            final fileName = (fileData['file_name'] ?? '').toString().toLowerCase();
-            final isImage = mime.startsWith('image/') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || fileName.endsWith('.png') || fileName.endsWith('.gif') || fileName.endsWith('.webp');
-            final isVideo = mime.startsWith('video/') || fileName.endsWith('.mp4') || fileName.endsWith('.mov') || fileName.endsWith('.avi');
+            final fileName =
+                (fileData['file_name'] ?? '').toString().toLowerCase();
+            final isImage = mime.startsWith('image/') ||
+                fileName.endsWith('.jpg') ||
+                fileName.endsWith('.jpeg') ||
+                fileName.endsWith('.png') ||
+                fileName.endsWith('.gif') ||
+                fileName.endsWith('.webp');
+            final isVideo = mime.startsWith('video/') ||
+                fileName.endsWith('.mp4') ||
+                fileName.endsWith('.mov') ||
+                fileName.endsWith('.avi');
 
             if (isImage || isVideo) {
               height += 200.0;
@@ -836,13 +937,14 @@ class _ChatScreenState extends State<ChatScreen> {
       if (i >= _loadedMessages.length) break;
       offset += _estimateMessageHeight(_loadedMessages[i]);
 
-      // Add estimated height of date separator (approx. 50.0 pixels including padding and margins)
+      // Add estimated height of date separator (approx.loc_50.0 pixels including padding and margins)
       bool hasDateSeparator = false;
       if (i == _loadedMessages.length - 1) {
         hasDateSeparator = true;
       } else {
         final currentMsg = _loadedMessages[i];
-        final nextMsg = _loadedMessages[i + 1]; // visually above currentMsg (older)
+        final nextMsg =
+            _loadedMessages[i + 1]; // visually above currentMsg (older)
         if (currentMsg.timestamp.year != nextMsg.timestamp.year ||
             currentMsg.timestamp.month != nextMsg.timestamp.month ||
             currentMsg.timestamp.day != nextMsg.timestamp.day) {
@@ -859,17 +961,27 @@ class _ChatScreenState extends State<ChatScreen> {
   String _formatDateSeparator(DateTime dt) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
+    final yesterday = today.subtract(Duration(days: 1));
     final targetDate = DateTime(dt.year, dt.month, dt.day);
 
     if (targetDate == today) {
-      return 'Сегодня';
+      return (AppLocalizations.of(context)?.segodnya_9626 ?? 'Fallback');
     } else if (targetDate == yesterday) {
-      return 'Вчера';
+      return (AppLocalizations.of(context)?.vchera_61d4 ?? 'Fallback');
     } else {
-      const months = [
-        'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-        'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
+      var months = [
+        (AppLocalizations.of(context)?.yanvarya_d861 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.fevralya_fcf9 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.marta_bb77 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.aprelya_2b5a ?? 'Fallback'),
+        (AppLocalizations.of(context)?.maya_4dbb ?? 'Fallback'),
+        (AppLocalizations.of(context)?.iyunya_adcb ?? 'Fallback'),
+        (AppLocalizations.of(context)?.iyulya_3236 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.avgusta_e3aa ?? 'Fallback'),
+        (AppLocalizations.of(context)?.sentyabrya_a146 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.oktyabrya_7abd ?? 'Fallback'),
+        (AppLocalizations.of(context)?.noyabrya_6e78 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.dekabrya_29cc ?? 'Fallback')
       ];
       final monthStr = months[dt.month - 1];
       if (dt.year == now.year) {
@@ -917,22 +1029,26 @@ class _ChatScreenState extends State<ChatScreen> {
       }
       element.visitChildren(visitor);
     }
+
     context.visitChildElements(visitor);
     return foundElement;
   }
 
   Future<void> _scrollToMessage(String msgId) async {
-    final index = await _localChatRepo.getMessageIndexByServerId(widget.chat.id, msgId);
-    debugPrint('[_scrollToMessage] Target msgId: $msgId, resolved index in SQLite: $index');
+    final index =
+        await _localChatRepo.getMessageIndexByServerId(widget.chat.id, msgId);
+    debugPrint(
+        '[_scrollToMessage] Target msgId: $msgId, resolved index in SQLite: $index');
     if (index != null && index != -1) {
       if (index >= _limit) {
         setState(() {
           _limit = index + 15;
           _updateStream();
         });
-        
+
         int retries = 0;
-        while (retries < 20 && !_loadedMessages.any((m) => m.serverMessageId == msgId)) {
+        while (retries < 20 &&
+            !_loadedMessages.any((m) => m.serverMessageId == msgId)) {
           await Future.delayed(const Duration(milliseconds: 100));
           retries++;
         }
@@ -943,14 +1059,16 @@ class _ChatScreenState extends State<ChatScreen> {
         debugPrint('[_scrollToMessage] Warning: _loadedMessages is empty!');
         return;
       }
-      
-      final actualIndex = _loadedMessages.indexWhere((m) => m.serverMessageId == msgId);
-      debugPrint('[_scrollToMessage] Index in active list: $actualIndex, loaded count: ${_loadedMessages.length}');
+
+      final actualIndex =
+          _loadedMessages.indexWhere((m) => m.serverMessageId == msgId);
+      debugPrint(
+          '[_scrollToMessage] Index in active list: $actualIndex, loaded count: ${_loadedMessages.length}');
       if (actualIndex != -1) {
         setState(() {
           _highlightedMessageId = msgId;
         });
-        
+
         // Iterative jump loop: maxScrollExtent grows lazily as ListView
         // builds more off-screen items, so a single jump from offset 0
         // usually lands short. We keep recalculating and jumping until
@@ -959,23 +1077,24 @@ class _ChatScreenState extends State<ChatScreen> {
         final targetKey = ValueKey('msg_${_loadedMessages[actualIndex].id}');
         final totalCount = _loadedMessages.length;
         final ratio = actualIndex / totalCount;
-        
+
         for (int attempt = 0; attempt < 5; attempt++) {
           if (!_scrollController.hasClients) break;
-          
+
           final maxScroll = _scrollController.position.maxScrollExtent;
           final targetOffset = (ratio * maxScroll).clamp(0.0, maxScroll);
-          
-          debugPrint('[_scrollToMessage] Attempt ${attempt + 1}: jumpTo $targetOffset (maxScroll: $maxScroll)');
+
+          debugPrint(
+              '[_scrollToMessage] Attempt ${attempt + 1}: jumpTo $targetOffset (maxScroll: $maxScroll)');
           _scrollController.jumpTo(targetOffset);
-          
+
           // Let Flutter build the newly visible items
           await Future.delayed(const Duration(milliseconds: 80));
-          
+
           element = _findElementByKey(targetKey);
           if (element != null) break;
         }
-        
+
         // Final centering with smooth animation
         if (element != null) {
           debugPrint('[_scrollToMessage] Found element, centering...');
@@ -986,7 +1105,8 @@ class _ChatScreenState extends State<ChatScreen> {
             curve: Curves.easeOutCubic,
           );
         } else {
-          debugPrint('[_scrollToMessage] Warning: Element not found after all attempts');
+          debugPrint(
+              '[_scrollToMessage] Warning: Element not found after all attempts');
         }
 
         Future.delayed(const Duration(milliseconds: 1500), () {
@@ -999,7 +1119,10 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Сообщение находится выше в истории')),
+        SnackBar(
+            content: Text((AppLocalizations.of(context)
+                    ?.soobschenieNahoditsyaVysheVIstorii_dc90 ??
+                'Fallback'))),
       );
     }
   }
@@ -1018,7 +1141,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final localId = _localChatId;
     if (localId == null) return;
 
-    // Set loading flag without rebuilding stream  
+    // Set loading flag without rebuilding stream
     setState(() => _isHistoryLoading = true);
 
     try {
@@ -1067,15 +1190,19 @@ class _ChatScreenState extends State<ChatScreen> {
             .where((id) => id.isNotEmpty)
             .toList();
 
-        final existingMessages = await _localChatRepo.getMessagesByServerIds(msgIds);
-        final existingMap = {for (final m in existingMessages) m.serverMessageId: m};
+        final existingMessages =
+            await _localChatRepo.getMessagesByServerIds(msgIds);
+        final existingMap = {
+          for (final m in existingMessages) m.serverMessageId: m
+        };
 
         for (final item in results) {
           _cacheUserProfileFromMap(Map<String, dynamic>.from(item));
           final msgId = item['id']?.toString() ?? '';
           final senderId = item['author_username']?.toString() ?? 'unknown';
           final encryptedText = item['encrypted_text']?.toString() ?? '';
-          final timestamp = _parseDateTime(item['created_at']) ?? DateTime.now();
+          final timestamp =
+              _parseDateTime(item['created_at']) ?? DateTime.now();
 
           String? decrypted;
           String? existingFileUrl;
@@ -1083,35 +1210,49 @@ class _ChatScreenState extends State<ChatScreen> {
             final existingMsg = existingMap[msgId]!;
             final existingText = existingMsg.textContent;
             existingFileUrl = existingMsg.fileUrl;
-            if (cryptoService.isEncryptedMessage(existingText) && encryptedText.isNotEmpty) {
-              decrypted = await cryptoService.decryptChatMessage(encryptedText, widget.chat.id);
+            if (cryptoService.isEncryptedMessage(existingText) &&
+                encryptedText.isNotEmpty) {
+              decrypted = await cryptoService.decryptChatMessage(
+                  encryptedText, widget.chat.id);
               await Future.delayed(Duration.zero);
             } else {
               decrypted = existingText;
             }
           } else if (encryptedText.isNotEmpty) {
-            decrypted = await cryptoService.decryptChatMessage(encryptedText, widget.chat.id);
+            decrypted = await cryptoService.decryptChatMessage(
+                encryptedText, widget.chat.id);
             // Yield event loop to prevent UI stutter during heavy decryption loop
             await Future.delayed(Duration.zero);
           }
 
-          final fileInfoJson = _parseFileInfo(Map<String, dynamic>.from(item), decrypted);
+          final fileInfoJson =
+              _parseFileInfo(Map<String, dynamic>.from(item), decrypted);
 
           final messageType = item['message_type']?.toString();
           final messageId = item['message_id']?.toString();
-          final completionStatusVal = item['completion_status'] != null ? jsonEncode(item['completion_status']) : null;
-          final votesByOptionVal = item['votes_by_option'] != null ? jsonEncode(item['votes_by_option']) : null;
+          final completionStatusVal = item['completion_status'] != null
+              ? jsonEncode(item['completion_status'])
+              : null;
+          final votesByOptionVal = item['votes_by_option'] != null
+              ? jsonEncode(item['votes_by_option'])
+              : null;
 
-          final isServerRead = _parseIsRead(Map<String, dynamic>.from(item), isFavorites: widget.chat.isFavorites);
-          final isReadFinal = isServerRead || (existingMap.containsKey(msgId) && existingMap[msgId]!.isRead);
+          final isServerRead = _parseIsRead(Map<String, dynamic>.from(item),
+              isFavorites: widget.chat.isFavorites);
+          final isReadFinal = isServerRead ||
+              (existingMap.containsKey(msgId) && existingMap[msgId]!.isRead);
 
-          final replyToIdVal = _parseReplyField(item['reply_to_id'] ?? item['reply_to_ref'] ?? item['reply_to']);
+          final replyToIdVal = _parseReplyField(
+              item['reply_to_id'] ?? item['reply_to_ref'] ?? item['reply_to']);
           final replyTextRaw = _parseReplyField(item['reply_text']);
           String? replyTextVal;
           if (replyTextRaw != null) {
-            replyTextVal = await cryptoService.decryptChatMessage(replyTextRaw, widget.chat.id) ?? replyTextRaw;
+            replyTextVal = await cryptoService.decryptChatMessage(
+                    replyTextRaw, widget.chat.id) ??
+                replyTextRaw;
           }
-          final replyAuthorNameVal = _parseReplyField(item['reply_author_name'] ?? item['reply_author']);
+          final replyAuthorNameVal = _parseReplyField(
+              item['reply_author_name'] ?? item['reply_author']);
 
           companions.add(
             MessagesCompanion(
@@ -1163,7 +1304,8 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _handleWsEvent(Map<String, dynamic> event) async {
     final type = event['type']?.toString();
     if (type != null && (type.contains('read') || type.contains('mark'))) {
-      debugPrint('[READ_STATUS_LOG] Incoming WS Event with read/mark: type=$type, payload=$event');
+      debugPrint(
+          '[READ_STATUS_LOG] Incoming WS Event with read/mark: type=$type, payload=$event');
     }
 
     // Handle server-side error responses
@@ -1176,29 +1318,37 @@ class _ChatScreenState extends State<ChatScreen> {
       final userId = event['user_id']?.toString() ?? '';
       final eventIsTyping = event['is_typing'] == true;
       final action = event['action']?.toString() ?? 'typing';
-      
+
       // 🟢 Игнорируем собственные события "печатает"
       final currentUser = context.read<AuthProvider>().user;
       final currentUserId = currentUser?.id.toString();
       final currentUsername = currentUser?.username;
-      if ((currentUserId != null && currentUserId.isNotEmpty && userId == currentUserId) ||
-          (currentUsername != null && currentUsername.isNotEmpty && event['username']?.toString() == currentUsername)) {
+      if ((currentUserId != null &&
+              currentUserId.isNotEmpty &&
+              userId == currentUserId) ||
+          (currentUsername != null &&
+              currentUsername.isNotEmpty &&
+              event['username']?.toString() == currentUsername)) {
         return;
       }
-      
+
       String getActionText(String? action) {
         switch (action) {
           case 'recording_voice':
-            return 'записывает голосовое...';
+            return (AppLocalizations.of(context)?.zapisyvaetGolosovoe_2a5c ??
+                'Fallback');
           case 'sending_photo':
-            return 'отправляет фото...';
+            return (AppLocalizations.of(context)?.otpravlyaetFoto_67c1 ??
+                'Fallback');
           case 'sending_video':
-            return 'отправляет видео...';
+            return (AppLocalizations.of(context)?.otpravlyaetVideo_ce80 ??
+                'Fallback');
           case 'sending_file':
-            return 'отправляет файл...';
+            return (AppLocalizations.of(context)?.otpravlyaetFayl_5e88 ??
+                'Fallback');
           case 'typing':
           default:
-            return 'печатает...';
+            return (AppLocalizations.of(context)?.pechataet_812c ?? 'Fallback');
         }
       }
 
@@ -1217,11 +1367,12 @@ class _ChatScreenState extends State<ChatScreen> {
             return 'assets/animations/typing.json';
         }
       }
-      
+
       if (widget.chat.isPersonal) {
         final otherId = _otherUser?['id']?.toString();
         final otherUsername = _otherUser?['username']?.toString();
-        if (userId == otherId || event['username']?.toString() == otherUsername) {
+        if (userId == otherId ||
+            event['username']?.toString() == otherUsername) {
           if (eventIsTyping) {
             setState(() {
               _typingText = getActionText(action);
@@ -1245,10 +1396,12 @@ class _ChatScreenState extends State<ChatScreen> {
           }
         }
       } else {
-        final name = event['first_name']?.toString() ?? event['username']?.toString() ?? 'Кто-то';
+        final name = event['first_name']?.toString() ??
+            event['username']?.toString() ??
+            (AppLocalizations.of(context)?.ktoTo_8405 ?? 'Fallback');
         final actionText = getActionText(action);
         final lottieAsset = getLottieAsset(action);
-        
+
         if (eventIsTyping) {
           setState(() {
             _typingUsers[userId] = '$name $actionText';
@@ -1308,19 +1461,25 @@ class _ChatScreenState extends State<ChatScreen> {
         type == 'read_event' ||
         type == 'messages_marked_read' ||
         type == 'read_receipt') {
-      final eventChatId = event['chat_id']?.toString() ?? event['chatId']?.toString();
-      debugPrint('[READ_STATUS_LOG] WS READ EVENT: type=$type, eventChatId=$eventChatId, activeChatId=${widget.chat.id}, payload=$event');
+      final eventChatId =
+          event['chat_id']?.toString() ?? event['chatId']?.toString();
+      debugPrint(
+          '[READ_STATUS_LOG] WS READ EVENT: type=$type, eventChatId=$eventChatId, activeChatId=${widget.chat.id}, payload=$event');
       if (eventChatId == null || _areSameChat(eventChatId, widget.chat.id)) {
         final localId = _localChatId;
         if (localId != null) {
-          final rawIds = event['message_ids'] ?? event['ids'] ?? event['message_id'] ?? event['server_message_id'];
+          final rawIds = event['message_ids'] ??
+              event['ids'] ??
+              event['message_id'] ??
+              event['server_message_id'];
           List<String>? serverMessageIds;
           if (rawIds is List) {
             serverMessageIds = rawIds.map((e) => e.toString()).toList();
           } else if (rawIds != null) {
             serverMessageIds = [rawIds.toString()];
           }
-          await _localChatRepo.markMessagesAsReadInDb(localId, serverMessageIds: serverMessageIds);
+          await _localChatRepo.markMessagesAsReadInDb(localId,
+              serverMessageIds: serverMessageIds);
           if (mounted) {
             setState(() {});
           }
@@ -1339,7 +1498,11 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    if (type != 'encrypted_message' && type != 'poll_message' && type != 'todo_list_message' && type != 'file_message' && type != 'file') {
+    if (type != 'encrypted_message' &&
+        type != 'poll_message' &&
+        type != 'todo_list_message' &&
+        type != 'file_message' &&
+        type != 'file') {
       if (type == 'todo_completion_update') {
         await _handleTodoCompletionUpdate(event);
         return;
@@ -1352,14 +1515,18 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     final chatId = event['chat_id']?.toString();
-    final encryptedText = event['encrypted_text']?.toString() ?? event['encrypted_content']?.toString();
+    final encryptedText = event['encrypted_text']?.toString() ??
+        event['encrypted_content']?.toString();
 
-    if (chatId == null || !_areSameChat(chatId, widget.chat.id) || encryptedText == null) return;
+    if (chatId == null ||
+        !_areSameChat(chatId, widget.chat.id) ||
+        encryptedText == null) return;
 
     _cacheUserProfileFromMap(Map<String, dynamic>.from(event));
 
     final cryptoService = context.read<CryptoService>();
-    final decrypted = await cryptoService.decryptChatMessage(encryptedText, widget.chat.id);
+    final decrypted =
+        await cryptoService.decryptChatMessage(encryptedText, widget.chat.id);
 
     final localId = _localChatId;
     if (localId != null) {
@@ -1370,28 +1537,40 @@ class _ChatScreenState extends State<ChatScreen> {
           event['creator_username']?.toString() ??
           event['creator_id']?.toString() ??
           'system';
-      final msgId = event['id']?.toString() ?? 'ws_${DateTime.now().millisecondsSinceEpoch}';
+      final msgId = event['id']?.toString() ??
+          'ws_${DateTime.now().millisecondsSinceEpoch}';
 
-      String? fileInfoJson = _parseFileInfo(Map<String, dynamic>.from(event), decrypted);
+      String? fileInfoJson =
+          _parseFileInfo(Map<String, dynamic>.from(event), decrypted);
 
       String? messageType = event['message_type']?.toString();
+      messageType = inferChatMessageType(event, fallback: messageType);
       if (messageType == null) {
         if (type == 'todo_list_message') messageType = 'todo_list';
         if (type == 'poll_message') messageType = 'poll';
       }
       final messageId = event['message_id']?.toString();
-      final completionStatusVal = event['completion_status'] != null ? jsonEncode(event['completion_status']) : null;
-      final votesByOptionVal = event['votes_by_option'] != null ? jsonEncode(event['votes_by_option']) : null;
+      final completionStatusVal = event['completion_status'] != null
+          ? jsonEncode(event['completion_status'])
+          : null;
+      final votesByOptionVal = event['votes_by_option'] != null
+          ? jsonEncode(event['votes_by_option'])
+          : null;
 
-      final bool isAlreadyKnown = _initialMessageIds.contains(msgId) || _animatedMessageIds.contains(msgId);
+      final bool isAlreadyKnown = _initialMessageIds.contains(msgId) ||
+          _animatedMessageIds.contains(msgId);
 
-      final replyToIdVal = _parseReplyField(event['reply_to_id'] ?? event['reply_to_ref'] ?? event['reply_to']);
+      final replyToIdVal = _parseReplyField(
+          event['reply_to_id'] ?? event['reply_to_ref'] ?? event['reply_to']);
       final replyTextRaw = _parseReplyField(event['reply_text']);
       String? replyTextVal;
       if (replyTextRaw != null) {
-        replyTextVal = await cryptoService.decryptChatMessage(replyTextRaw, widget.chat.id) ?? replyTextRaw;
+        replyTextVal = await cryptoService.decryptChatMessage(
+                replyTextRaw, widget.chat.id) ??
+            replyTextRaw;
       }
-      final replyAuthorNameVal = _parseReplyField(event['reply_author_name'] ?? event['reply_author']);
+      final replyAuthorNameVal =
+          _parseReplyField(event['reply_author_name'] ?? event['reply_author']);
 
       if (_pendingTextTempIds.isNotEmpty) {
         final tempId = _pendingTextTempIds.removeAt(0);
@@ -1414,7 +1593,10 @@ class _ChatScreenState extends State<ChatScreen> {
             messageId: Value(messageId),
             completionStatus: Value(completionStatusVal),
             votesByOption: Value(votesByOptionVal),
-            isRead: Value(isOutgoing ? false : _parseIsRead(Map<String, dynamic>.from(event), isFavorites: widget.chat.isFavorites)),
+            isRead: Value(isOutgoing
+                ? false
+                : _parseIsRead(Map<String, dynamic>.from(event),
+                    isFavorites: widget.chat.isFavorites)),
             replyToId: Value(replyToIdVal),
             replyText: Value(replyTextVal),
             replyAuthorName: Value(replyAuthorNameVal),
@@ -1497,7 +1679,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (isOwnEcho) {
       await _localChatRepo.deleteMessageByServerId(tempId);
       _messagesToAnimate.remove(tempId);
-      _animatedMessageIds.add(msgId); // считаем уже "проявленным" — не анимируем заново
+      _animatedMessageIds
+          .add(msgId); // считаем уже "проявленным" — не анимируем заново
     }
 
     // Шаблон голосового: плеер сам подгрузит и расшифрует файл по file_id.
@@ -1543,7 +1726,8 @@ class _ChatScreenState extends State<ChatScreen> {
       name: widget.chat.name,
       avatar: widget.chat.avatar,
       avatarGradient: widget.chat.avatarGradient,
-      lastMessage: '🎤 Голосовое сообщение',
+      lastMessage: (AppLocalizations.of(context)?.golosovoeSoobschenie_4a85 ??
+          'Fallback'),
       lastMessageTime: timestamp,
       unreadCount: 0,
       isGroup: widget.chat.isGroup,
@@ -1634,7 +1818,8 @@ class _ChatScreenState extends State<ChatScreen> {
       name: widget.chat.name,
       avatar: widget.chat.avatar,
       avatarGradient: widget.chat.avatarGradient,
-      lastMessage: '📹 Видеосообщение',
+      lastMessage:
+          (AppLocalizations.of(context)?.videosoobschenie_57f1 ?? 'Fallback'),
       lastMessageTime: timestamp,
       unreadCount: 0,
       isGroup: widget.chat.isGroup,
@@ -1650,12 +1835,14 @@ class _ChatScreenState extends State<ChatScreen> {
     await _localChatRepo.saveChat(updatedChat);
   }
 
-  Future<String?> _insertOptimisticVideoMessage(String path, double duration) async {
+  Future<String?> _insertOptimisticVideoMessage(
+      String path, double duration) async {
     final localId = _localChatId;
     if (localId == null) return null;
 
     final currentUser = context.read<AuthProvider>().user;
-    final senderId = currentUser?.username ?? currentUser?.id.toString() ?? 'me';
+    final senderId =
+        currentUser?.username ?? currentUser?.id.toString() ?? 'me';
     final timestamp = DateTime.now();
     final tempId = 'temp_video_${timestamp.millisecondsSinceEpoch}';
 
@@ -1702,7 +1889,8 @@ class _ChatScreenState extends State<ChatScreen> {
       name: widget.chat.name,
       avatar: widget.chat.avatar,
       avatarGradient: widget.chat.avatarGradient,
-      lastMessage: '📹 Видеосообщение (${duration.toStringAsFixed(1)} сек.)',
+      lastMessage:
+          '${AppLocalizations.of(context)?.videoMessage ?? 'Video message'} • ${duration.toStringAsFixed(1)}s',
       lastMessageTime: timestamp,
       unreadCount: widget.chat.unreadCount,
       isGroup: widget.chat.isGroup,
@@ -1733,7 +1921,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_cameras.isEmpty) return null;
 
     final prefs = await SharedPreferences.getInstance();
-    final savedDirection = prefs.getString('last_used_camera_lens_direction') ?? 'front';
+    final savedDirection =
+        prefs.getString('last_used_camera_lens_direction') ?? 'front';
 
     CameraDescription? selectedCamera;
     if (savedDirection == 'back') {
@@ -1796,7 +1985,10 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!hasPermission) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Требуется разрешение на камеру и микрофон')),
+            SnackBar(
+                content: Text((AppLocalizations.of(context)
+                        ?.trebuetsyaRazreshenieNaKameruI_06fa ??
+                    'Fallback'))),
           );
         }
         return;
@@ -1806,7 +1998,10 @@ class _ChatScreenState extends State<ChatScreen> {
       if (camera == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Камера не найдена')),
+            SnackBar(
+                content: Text(
+                    (AppLocalizations.of(context)?.kameraNeNaydena_208d ??
+                        'Fallback'))),
           );
         }
         return;
@@ -1851,7 +2046,8 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
 
-      _videoRecordingTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      _videoRecordingTimer =
+          Timer.periodic(const Duration(milliseconds: 100), (timer) {
         if (mounted) {
           setState(() {
             _videoRecordingDurationSeconds += 0.1;
@@ -1865,7 +2061,9 @@ class _ChatScreenState extends State<ChatScreen> {
       debugPrint('Error starting video recording: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка инициализации камеры: $e')),
+          SnackBar(
+              content: Text(
+                  '${AppLocalizations.of(context)?.kameraNeNaydena_208d ?? 'Camera error'}: $e')),
         );
       }
     }
@@ -1897,7 +2095,9 @@ class _ChatScreenState extends State<ChatScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Запись видео отменена'),
+            content: Text(
+                (AppLocalizations.of(context)?.zapisVideoOtmenena_1db7 ??
+                    'Fallback')),
             backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
             duration: const Duration(seconds: 1),
           ),
@@ -1915,7 +2115,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _videoRecordingTimer = null;
 
       if (_cameraController == null) return;
-      
+
       final XFile file;
       try {
         file = await _cameraController!.stopVideoRecording();
@@ -1946,7 +2146,9 @@ class _ChatScreenState extends State<ChatScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Слишком короткое видеосообщение'),
+              content: Text((AppLocalizations.of(context)
+                      ?.slishkomKorotkoeVideosoobschenie_4676 ??
+                  'Fallback')),
               backgroundColor: Colors.orangeAccent.withValues(alpha: 0.9),
               duration: const Duration(seconds: 1),
             ),
@@ -1962,7 +2164,8 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _uploadAndSendVideoMessage(String path, double duration, [String? tempId]) async {
+  Future<void> _uploadAndSendVideoMessage(String path, double duration,
+      [String? tempId]) async {
     try {
       final file = File(path);
       if (!await file.exists()) return;
@@ -2003,7 +2206,8 @@ class _ChatScreenState extends State<ChatScreen> {
           'mime_type': 'video/mp4',
         });
 
-        final encryptedText = await cryptoService.encryptMessage(videoMetadata, widget.chat.id);
+        final encryptedText =
+            await cryptoService.encryptMessage(videoMetadata, widget.chat.id);
 
         if (encryptedText != null) {
           await _chatWebSocketService.send({
@@ -2028,7 +2232,9 @@ class _ChatScreenState extends State<ChatScreen> {
       debugPrint('Error uploading video message: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка отправки видеосообщения: $e')),
+          SnackBar(
+              content: Text(
+                  '${AppLocalizations.of(context)?.videoMessage ?? 'Video message'}: $e')),
         );
       }
     }
@@ -2077,7 +2283,8 @@ class _ChatScreenState extends State<ChatScreen> {
       // 1. Update userVotes (if this vote belongs to the current user)
       final currentUser = context.read<AuthProvider>().user;
       final isCurrentUser = (currentUser != null &&
-          (userId == currentUser.id.toString() || username == currentUser.username));
+          (userId == currentUser.id.toString() ||
+              username == currentUser.username));
 
       List<String> userVotes = [];
       if (dbMsg.userVotes != null && dbMsg.userVotes!.isNotEmpty) {
@@ -2106,7 +2313,8 @@ class _ChatScreenState extends State<ChatScreen> {
       Map<String, dynamic> votesByOption = {};
       if (dbMsg.votesByOption != null && dbMsg.votesByOption!.isNotEmpty) {
         try {
-          votesByOption = Map<String, dynamic>.from(jsonDecode(dbMsg.votesByOption!));
+          votesByOption =
+              Map<String, dynamic>.from(jsonDecode(dbMsg.votesByOption!));
         } catch (_) {}
       }
 
@@ -2136,7 +2344,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (_attachments.any((a) => a.status == 'uploading')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Пожалуйста, подождите окончания загрузки файлов')),
+        SnackBar(
+            content: Text((AppLocalizations.of(context)
+                    ?.pozhaluystaPodozhditeOkonchaniyaZagruzkiFaylov_4c35 ??
+                'Fallback'))),
       );
       return;
     }
@@ -2163,10 +2374,28 @@ class _ChatScreenState extends State<ChatScreen> {
     final timestamp = DateTime.now();
 
     String previewText = text;
+    String? previewMessageType;
     if (previewText.isEmpty && localAttachments.isNotEmpty) {
-      previewText = localAttachments.length == 1 
-          ? 'Файл: ${localAttachments[0].fileName}'
-          : 'Файлы (${localAttachments.length})';
+      previewText = localAttachments.length == 1
+          ? '${AppLocalizations.of(context)?.file ?? 'File'}: ${localAttachments[0].fileName}'
+          : '${AppLocalizations.of(context)?.files ?? 'Files'} (${localAttachments.length})';
+
+      if (localAttachments.length > 1 &&
+          localAttachments.every(
+              (attachment) => attachment.fileType.toLowerCase() == 'image')) {
+        previewMessageType = 'collage';
+      } else if (localAttachments.length == 1) {
+        previewMessageType =
+            switch (localAttachments.first.fileType.toLowerCase()) {
+          'image' => 'image',
+          'video' => 'video',
+          'audio' => 'file',
+          'document' => 'file',
+          final type => type.isEmpty ? 'file' : type,
+        };
+      } else {
+        previewMessageType = 'file';
+      }
     }
 
     final updatedChat = ChatModel(
@@ -2185,6 +2414,7 @@ class _ChatScreenState extends State<ChatScreen> {
       isEncrypted: false,
       isArchived: widget.chat.isArchived,
       archivedAt: widget.chat.archivedAt,
+      lastMessageType: previewMessageType,
     );
     await _localChatRepo.saveChat(updatedChat);
 
@@ -2198,7 +2428,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final tempId = 'temp_text_${timestamp.millisecondsSinceEpoch}';
     final currentUser = context.read<AuthProvider>().user;
-    final currentSenderId = currentUser?.username ?? currentUser?.id.toString() ?? 'me';
+    final currentSenderId =
+        currentUser?.username ?? currentUser?.id.toString() ?? 'me';
 
     await _localChatRepo.saveMessage(
       MessagesCompanion(
@@ -2230,20 +2461,24 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     try {
-      final encryptedText = await cryptoService.encryptMessage(text, widget.chat.id);
+      final encryptedText =
+          await cryptoService.encryptMessage(text, widget.chat.id);
       if (encryptedText == null) {
-        debugPrint('SEND_MSG: encryption returned null, key not available for chat ${widget.chat.id}');
+        debugPrint(
+            'SEND_MSG: encryption returned null, key not available for chat ${widget.chat.id}');
         return;
       }
 
       if (text.isNotEmpty && localAttachments.isNotEmpty) {
-        final allFilesList = localAttachments.map((file) => {
-          'file_id': file.fileId,
-          'name': file.fileName,
-          'size': file.fileSize,
-          'type': file.fileType,
-          'mime_type': file.fileType,
-        }).toList();
+        final allFilesList = localAttachments
+            .map((file) => {
+                  'file_id': file.fileId,
+                  'name': file.fileName,
+                  'size': file.fileSize,
+                  'type': file.fileType,
+                  'mime_type': file.fileType,
+                })
+            .toList();
 
         await _chatWebSocketService.send({
           'type': 'encrypted_message',
@@ -2253,7 +2488,8 @@ class _ChatScreenState extends State<ChatScreen> {
           if (replyToId != null) 'reply_to_id': replyToId,
         });
       } else if (text.isEmpty && localAttachments.isNotEmpty) {
-        final encryptedEmptyText = await cryptoService.encryptMessage("", widget.chat.id);
+        final encryptedEmptyText =
+            await cryptoService.encryptMessage("", widget.chat.id);
         if (encryptedEmptyText == null) return;
 
         List<Map<String, dynamic>> compressedImagesList = [];
@@ -2262,23 +2498,28 @@ class _ChatScreenState extends State<ChatScreen> {
         if (localAttachments.length == 1) {
           final singleFile = localAttachments[0];
           firstFileId = singleFile.fileId;
-          if (singleFile.fileType == 'image' || singleFile.fileType == 'video') {
-            compressedImagesList = [{
-              'file_id': singleFile.fileId,
-              'name': singleFile.fileName,
-              'size': singleFile.fileSize,
-              'type': singleFile.fileType,
-              'mime_type': singleFile.fileType,
-            }];
+          if (singleFile.fileType == 'image' ||
+              singleFile.fileType == 'video') {
+            compressedImagesList = [
+              {
+                'file_id': singleFile.fileId,
+                'name': singleFile.fileName,
+                'size': singleFile.fileSize,
+                'type': singleFile.fileType,
+                'mime_type': singleFile.fileType,
+              }
+            ];
           }
         } else {
-          compressedImagesList = localAttachments.map((file) => {
-            'file_id': file.fileId,
-            'name': file.fileName,
-            'size': file.fileSize,
-            'type': file.fileType,
-            'mime_type': file.fileType,
-          }).toList();
+          compressedImagesList = localAttachments
+              .map((file) => {
+                    'file_id': file.fileId,
+                    'name': file.fileName,
+                    'size': file.fileSize,
+                    'type': file.fileType,
+                    'mime_type': file.fileType,
+                  })
+              .toList();
         }
 
         await _chatWebSocketService.send({
@@ -2304,7 +2545,8 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _sendPollMessage(String question, List<String> options, bool isMultipleChoice) async {
+  Future<void> _sendPollMessage(
+      String question, List<String> options, bool isMultipleChoice) async {
     final cryptoService = context.read<CryptoService>();
     final List<Map<String, String>> optionsList = options
         .asMap()
@@ -2321,8 +2563,10 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      final encryptedText = await cryptoService.encryptMessage(payload, widget.chat.id);
-      final encryptedQuestion = await cryptoService.encryptMessage(question, widget.chat.id);
+      final encryptedText =
+          await cryptoService.encryptMessage(payload, widget.chat.id);
+      final encryptedQuestion =
+          await cryptoService.encryptMessage(question, widget.chat.id);
 
       if (encryptedText != null && encryptedQuestion != null) {
         await _chatWebSocketService.send({
@@ -2340,10 +2584,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _sendTodoListMessage(String title, List<String> items) async {
     final cryptoService = context.read<CryptoService>();
-    final List<Map<String, dynamic>> itemsList = items.map((item) => {
-      'text': item,
-      'completed': false,
-    }).toList();
+    final List<Map<String, dynamic>> itemsList = items
+        .map((item) => {
+              'text': item,
+              'completed': false,
+            })
+        .toList();
 
     final payload = jsonEncode({
       'type': 'todo_list',
@@ -2353,8 +2599,10 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      final encryptedText = await cryptoService.encryptMessage(payload, widget.chat.id);
-      final encryptedTitle = await cryptoService.encryptMessage(title, widget.chat.id);
+      final encryptedText =
+          await cryptoService.encryptMessage(payload, widget.chat.id);
+      final encryptedTitle =
+          await cryptoService.encryptMessage(title, widget.chat.id);
 
       if (encryptedText != null && encryptedTitle != null) {
         await _chatWebSocketService.send({
@@ -2388,7 +2636,7 @@ class _ChatScreenState extends State<ChatScreen> {
         lowerPath.endsWith('.flv') ||
         lowerPath.endsWith('.webm') ||
         lowerPath.endsWith('.mkv') ||
-        lowerPath.endsWith('.3gp') ||
+        lowerPath.endsWith('.loc_3gp') ||
         lowerPath.endsWith('.ogv') ||
         lowerPath.endsWith('.m4v')) {
       return 'video';
@@ -2450,7 +2698,9 @@ class _ChatScreenState extends State<ChatScreen> {
       debugPrint('Error picking files: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка при выборе файлов: $e')),
+          SnackBar(
+              content: Text(
+                  '${AppLocalizations.of(context)?.otpravkaFaylov_aaca ?? 'Files'}: $e')),
         );
       }
     }
@@ -2525,7 +2775,8 @@ class _ChatScreenState extends State<ChatScreen> {
               height: 74,
               errorBuilder: (context, error, stackTrace) => Container(
                 color: Colors.black26,
-                child: const Icon(Icons.broken_image, color: Colors.white54, size: 24),
+                child: const Icon(Icons.broken_image,
+                    color: Colors.white54, size: 24),
               ),
             );
           } else {
@@ -2544,7 +2795,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 4.0),
                       child: Text(
                         att.fileName,
-                        style: const TextStyle(color: Colors.white70, fontSize: 8),
+                        style:
+                            const TextStyle(color: Colors.white70, fontSize: 8),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -2589,7 +2841,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Center(
-                      child: Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                      child: Icon(Icons.error_outline,
+                          color: Colors.redAccent, size: 20),
                     ),
                   ),
                 Positioned(
@@ -2631,7 +2884,7 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (context) {
         return Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF141416),
+            color: Color(0xFF141416),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             border: Border(
               top: BorderSide(
@@ -2664,10 +2917,21 @@ class _ChatScreenState extends State<ChatScreen> {
                         color: Colors.white.withOpacity(0.05),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.phone_rounded, color: Colors.white),
+                      child:
+                          const Icon(Icons.phone_rounded, color: Colors.white),
                     ),
-                    title: const Text('Аудиозвонок', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                    subtitle: Text('Позвонить по голосовой связи', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+                    title: Text(
+                        (AppLocalizations.of(context)?.audiozvonok_dcf6 ??
+                            'Fallback'),
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w600)),
+                    subtitle: Text(
+                        (AppLocalizations.of(context)
+                                ?.pozvonitPoGolosovoySvyazi_4069 ??
+                            'Fallback'),
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.4),
+                            fontSize: 12)),
                     onTap: () {
                       Navigator.pop(context);
                       _initiateCall('audio');
@@ -2681,10 +2945,20 @@ class _ChatScreenState extends State<ChatScreen> {
                         color: Colors.white.withOpacity(0.05),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.videocam_rounded, color: Colors.white),
+                      child: Icon(Icons.videocam_rounded, color: Colors.white),
                     ),
-                    title: const Text('Видеозвонок', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                    subtitle: Text('Позвонить с включенной камерой', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+                    title: Text(
+                        (AppLocalizations.of(context)?.videozvonok_8142 ??
+                            'Fallback'),
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w600)),
+                    subtitle: Text(
+                        (AppLocalizations.of(context)
+                                ?.pozvonitSVklyuchennoyKameroy_fb05 ??
+                            'Fallback'),
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.4),
+                            fontSize: 12)),
                     onTap: () {
                       Navigator.pop(context);
                       _initiateCall('video');
@@ -2708,7 +2982,7 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (context) {
         return Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF141416),
+            color: Color(0xFF141416),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             border: Border(
               top: BorderSide(
@@ -2741,10 +3015,21 @@ class _ChatScreenState extends State<ChatScreen> {
                         color: Colors.white.withOpacity(0.05),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.insert_drive_file_rounded, color: Colors.white),
+                      child: const Icon(Icons.insert_drive_file_rounded,
+                          color: Colors.white),
                     ),
-                    title: const Text('Файлы', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                    subtitle: Text('Отправить фото, видео, аудио или другие файлы', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+                    title: Text(
+                        (AppLocalizations.of(context)?.fayly_200c ??
+                            'Fallback'),
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w600)),
+                    subtitle: Text(
+                        (AppLocalizations.of(context)
+                                ?.otpravitFotoVideoAudioIli_37e9 ??
+                            'Fallback'),
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.4),
+                            fontSize: 12)),
                     onTap: () {
                       Navigator.pop(context);
                       _pickFilesUnified();
@@ -2758,10 +3043,20 @@ class _ChatScreenState extends State<ChatScreen> {
                         color: Colors.white.withOpacity(0.05),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.poll_rounded, color: Colors.white),
+                      child: Icon(Icons.poll_rounded, color: Colors.white),
                     ),
-                    title: const Text('Создать опрос', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                    subtitle: Text('Проведение голосования в чате', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+                    title: Text(
+                        (AppLocalizations.of(context)?.sozdatOpros_8401 ??
+                            'Fallback'),
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w600)),
+                    subtitle: Text(
+                        (AppLocalizations.of(context)
+                                ?.provedenieGolosovaniyaVChate_a629 ??
+                            'Fallback'),
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.4),
+                            fontSize: 12)),
                     onTap: () {
                       Navigator.pop(context);
                       CreatePollModal.show(context, _sendPollMessage);
@@ -2775,10 +3070,20 @@ class _ChatScreenState extends State<ChatScreen> {
                         color: Colors.white.withOpacity(0.05),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.check_box_rounded, color: Colors.white),
+                      child: Icon(Icons.check_box_rounded, color: Colors.white),
                     ),
-                    title: const Text('Создать To-Do список', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                    subtitle: Text('Список задач с отметками выполнения', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+                    title: Text(
+                        (AppLocalizations.of(context)?.sozdatToDoSpisok_cb50 ??
+                            'Fallback'),
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w600)),
+                    subtitle: Text(
+                        (AppLocalizations.of(context)
+                                ?.spisokZadachSOtmetkamiVypolneniya_c778 ??
+                            'Fallback'),
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.4),
+                            fontSize: 12)),
                     onTap: () {
                       Navigator.pop(context);
                       CreateTodoModal.show(context, _sendTodoListMessage);
@@ -2800,7 +3105,10 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!hasPermission) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Требуется разрешение на запись аудио')),
+            SnackBar(
+                content: Text((AppLocalizations.of(context)
+                        ?.trebuetsyaRazreshenieNaZapisAudio_8175 ??
+                    'Fallback'))),
           );
         }
         return;
@@ -2809,7 +3117,8 @@ class _ChatScreenState extends State<ChatScreen> {
       final tempDir = await getTemporaryDirectory();
       // Используем WAV (pcm16bits) для 100% гарантии точной перемотки (seek) на всех платформах.
       // Сжимаем sampleRate для уменьшения размера файла (24kHz достаточно для голоса).
-      final path = '${tempDir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.wav';
+      final path =
+          '${tempDir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.wav';
 
       // Haptic feedback
       try {
@@ -2856,7 +3165,7 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       _recordingTimer?.cancel();
       _recordingTimer = null;
-      
+
       final path = await _audioRecorder.stop();
       if (path != null) {
         final file = File(path);
@@ -2864,17 +3173,18 @@ class _ChatScreenState extends State<ChatScreen> {
           await file.delete();
         }
       }
-      
+
       _sendTypingEvent(false);
 
       if (mounted) {
         setState(() {
           _isRecording = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Запись отменена'),
+            content: Text((AppLocalizations.of(context)?.zapisOtmenena_1609 ??
+                'Fallback')),
             backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
             duration: const Duration(seconds: 1),
           ),
@@ -2912,7 +3222,9 @@ class _ChatScreenState extends State<ChatScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Слишком короткое сообщение'),
+              content: Text((AppLocalizations.of(context)
+                      ?.slishkomKorotkoeSoobschenie_c2ee ??
+                  'Fallback')),
               backgroundColor: Colors.orangeAccent.withValues(alpha: 0.9),
               duration: const Duration(seconds: 1),
             ),
@@ -2939,7 +3251,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (localId == null) return null;
 
     final currentUser = context.read<AuthProvider>().user;
-    final senderId = currentUser?.username ?? currentUser?.id.toString() ?? 'me';
+    final senderId =
+        currentUser?.username ?? currentUser?.id.toString() ?? 'me';
     final timestamp = DateTime.now();
     final tempId = 'temp_voice_${timestamp.millisecondsSinceEpoch}';
 
@@ -2985,7 +3298,8 @@ class _ChatScreenState extends State<ChatScreen> {
       name: widget.chat.name,
       avatar: widget.chat.avatar,
       avatarGradient: widget.chat.avatarGradient,
-      lastMessage: '🎤 Голосовое сообщение',
+      lastMessage: (AppLocalizations.of(context)?.golosovoeSoobschenie_4a85 ??
+          'Fallback'),
       lastMessageTime: timestamp,
       unreadCount: 0,
       isGroup: widget.chat.isGroup,
@@ -3003,7 +3317,8 @@ class _ChatScreenState extends State<ChatScreen> {
     return tempId;
   }
 
-  Future<void> _uploadAndSendVoiceMessage(String path, int duration, [String? tempId]) async {
+  Future<void> _uploadAndSendVoiceMessage(String path, int duration,
+      [String? tempId]) async {
     try {
       final file = File(path);
       if (!await file.exists()) return;
@@ -3046,7 +3361,8 @@ class _ChatScreenState extends State<ChatScreen> {
           'mime_type': 'audio/wav',
         });
 
-        final encryptedText = await cryptoService.encryptMessage(voiceMetadata, widget.chat.id);
+        final encryptedText =
+            await cryptoService.encryptMessage(voiceMetadata, widget.chat.id);
 
         if (encryptedText != null) {
           await _chatWebSocketService.send({
@@ -3066,7 +3382,9 @@ class _ChatScreenState extends State<ChatScreen> {
       debugPrint('Error uploading/sending voice: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка отправки голосового сообщения: $e')),
+          SnackBar(
+              content: Text(
+                  '${AppLocalizations.of(context)?.voiceMessage ?? 'Voice message'}: $e')),
         );
       }
     }
@@ -3078,7 +3396,8 @@ class _ChatScreenState extends State<ChatScreen> {
     return '$m:${s.toString().padLeft(2, '0')}';
   }
 
-  void _applyFormatting(String prefix, String suffix, EditableTextState editableTextState) {
+  void _applyFormatting(
+      String prefix, String suffix, EditableTextState editableTextState) {
     final value = editableTextState.textEditingValue;
     final text = value.text;
     final selection = value.selection;
@@ -3086,8 +3405,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (selection.isCollapsed) return;
 
     final selectedText = selection.textInside(text);
-    final newText = text.replaceRange(selection.start, selection.end, '$prefix$selectedText$suffix');
-    
+    final newText = text.replaceRange(
+        selection.start, selection.end, '$prefix$selectedText$suffix');
+
     final newSelection = TextSelection(
       baseOffset: selection.start,
       extentOffset: selection.end + prefix.length + suffix.length,
@@ -3097,7 +3417,7 @@ class _ChatScreenState extends State<ChatScreen> {
       text: newText,
       selection: newSelection,
     );
-    
+
     editableTextState.hideToolbar();
   }
 
@@ -3136,7 +3456,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         )
                       : _buildMessagesList(currentUser),
                 ),
-                
+
                 // Compact Input Bar
                 SafeArea(
                   top: false,
@@ -3157,7 +3477,9 @@ class _ChatScreenState extends State<ChatScreen> {
             // Mini Media Player
             _buildMiniPlayer(),
 
-            if (_isRecordingVideo && _cameraController != null && _cameraController!.value.isInitialized)
+            if (_isRecordingVideo &&
+                _cameraController != null &&
+                _cameraController!.value.isInitialized)
               _buildVideoRecordingOverlay(),
           ],
         ),
@@ -3199,22 +3521,25 @@ class _ChatScreenState extends State<ChatScreen> {
                             fit: BoxFit.cover,
                             child: SizedBox(
                               width: 260,
-                              height: 260 * _cameraController!.value.aspectRatio,
+                              height:
+                                  260 * _cameraController!.value.aspectRatio,
                               child: CameraPreview(_cameraController!),
                             ),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.black45,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
-                        _formatRecordingDuration(_videoRecordingDurationSeconds.toInt()),
+                        _formatRecordingDuration(
+                            _videoRecordingDurationSeconds.toInt()),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -3223,8 +3548,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    const Text(
-                      'Удерживайте кнопку для записи',
+                    Text(
+                      (AppLocalizations.of(context)
+                              ?.uderzhivayteKnopkuDlyaZapisi_a762 ??
+                          'Fallback'),
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
@@ -3265,7 +3592,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMiniPlayer() {
-    final topOffset = MediaQuery.of(context).padding.top + 64; // Under the AppBar
+    final topOffset =
+        MediaQuery.of(context).padding.top + 64; // Under the AppBar
     // Positioned всегда в дереве (он в Stack). Анимация появления/исчезновения
     // делается внутри через AnimatedSwitcher: slide-down + fade на появление,
     // slide-up + fade на исчезновение.
@@ -3291,114 +3619,16 @@ class _ChatScreenState extends State<ChatScreen> {
                   position: Tween<Offset>(
                     begin: const Offset(0, -0.6),
                     end: Offset.zero,
-                  ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                  ).animate(CurvedAnimation(
+                      parent: animation, curve: Curves.easeOutCubic)),
                   child: widget,
                 ),
               );
             },
             child: isVisible
-                ? Container(
-                    key: const ValueKey('mini_player_visible'),
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: const Color(0xE6141416), // frosted look
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.08),
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.4),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 12),
-                        // Play/Pause
-                        GestureDetector(
-                          onTap: () {
-                            if (isPlaying) {
-                              playbackProvider.pause();
-                            } else {
-                              playbackProvider.resume();
-                            }
-                          },
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                              color: Colors.black,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Title and subtitle
-                        Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () async {
-                              final currentUrl = playbackProvider.currentAudioUrl;
-                              if (currentUrl != null && currentUrl.isNotEmpty) {
-                                final message = await _localChatRepo.getMessageByFileUrlOrPath(currentUrl);
-                                if (message != null && message.serverMessageId.isNotEmpty) {
-                                  _scrollToMessage(message.serverMessageId);
-                                }
-                              }
-                            },
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    fontFamily: AppStyles.fontFamily,
-                                  ),
-                                ),
-                                const SizedBox(height: 1),
-                                Text(
-                                  subtitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
-                                    fontSize: 10,
-                                    fontFamily: AppStyles.fontFamily,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // Close button
-                        GestureDetector(
-                          onTap: () => playbackProvider.stop(),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            child: Icon(
-                              Icons.close_rounded,
-                              color: Colors.white.withOpacity(0.4),
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                ? TopChatAudioMiniPlayer(
+                    playbackProvider: playbackProvider,
+                    onTapTitle: () => _showMusicPlaylistModal(context),
                   )
                 : const SizedBox.shrink(key: ValueKey('mini_player_hidden')),
           );
@@ -3408,11 +3638,107 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   // Pre-cached color constants — avoids creating new Color objects on every build
-  static const _glowIndigo = Color(0x3F6366F1);      // 0.25 opacity
-  static const _glowIndigoT = Color(0x006366F1);      // 0.0 opacity
-  static const _glowFuchsia = Color(0x2ED946EF);       // 0.18 opacity
-  static const _glowFuchsiaT = Color(0x00D946EF);      // 0.0 opacity
-  static const _glassTint = Color(0xD9000000);          // ~0.85 opacity replaces blur+0.75
+  static const _glowIndigo = Color(0x3F6366F1); // 0.25 opacity
+  static const _glowIndigoT = Color(0x006366F1); // 0.0 opacity
+  static const _glowFuchsia = Color(0x2ED946EF); // 0.18 opacity
+  static const _glowFuchsiaT = Color(0x00D946EF); // 0.0 opacity
+  static const _glassTint =
+      Color(0xD9000000); // ~0.85 opacity replaces blur+0.75
+
+  String _formatBytes(int bytes) {
+    if (bytes <= 0)
+      return (AppLocalizations.of(context)?.loc_0B_5a4d ?? 'Fallback');
+    var suffixes = [
+      (AppLocalizations.of(context)?.b_3b67 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.kb_419d ?? 'Fallback'),
+      (AppLocalizations.of(context)?.mb_b808 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.gb_e572 ?? 'Fallback')
+    ];
+    var i = (log(bytes) / log(1024)).floor();
+    if (i >= suffixes.length) i = suffixes.length - 1;
+    return ((bytes / pow(1024, i)).toStringAsFixed(1)) + ' ' + suffixes[i];
+  }
+
+  Map<String, dynamic>? _getAttachmentData(Message msg) {
+    if (msg.fileUrl != null && msg.fileUrl!.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(msg.fileUrl!);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  List<PlaybackItem> _getMusicPlaylistFromChat() {
+    final playlist = <PlaybackItem>[];
+    final uri = Uri.parse(AppConfig.apiBaseUrl);
+    final hostUrl =
+        '${uri.scheme}://${uri.host}${uri.hasPort ? ":${uri.port}" : ""}';
+    final tokenToUse = _jwtToken;
+
+    for (final msg in _loadedMessages) {
+      final fileData = _getAttachmentData(msg);
+      if (fileData == null) continue;
+      final type = fileData['type']?.toString().toLowerCase() ?? '';
+      if (type == 'voice' || type == 'video_message') continue;
+
+      final fileName = fileData['file_name']?.toString() ??
+          fileData['name']?.toString() ??
+          (AppLocalizations.of(context)?.audiozapis_867d ?? 'Fallback');
+      final lowerName = fileName.toLowerCase();
+      final mime = fileData['mime_type']?.toString().toLowerCase() ??
+          fileData['type']?.toString().toLowerCase() ??
+          '';
+
+      final isAudioMusic = type == 'audio' ||
+          (mime.startsWith('audio/') &&
+              !lowerName.contains('voice') &&
+              !lowerName.endsWith('.ogg') &&
+              !lowerName.endsWith('.opus')) ||
+          lowerName.endsWith('.mp3') ||
+          lowerName.endsWith('.wav') ||
+          lowerName.endsWith('.m4a') ||
+          lowerName.endsWith('.flac') ||
+          lowerName.endsWith('.aac') ||
+          lowerName.endsWith('.wma');
+
+      if (isAudioMusic) {
+        final fileUrlSuffix = fileData['file_url']?.toString() ??
+            fileData['url']?.toString() ??
+            '';
+        String absoluteUrl = '';
+        if (fileUrlSuffix.startsWith('http')) {
+          absoluteUrl =
+              '$fileUrlSuffix${tokenToUse != null ? (fileUrlSuffix.contains('?') ? "&token=$tokenToUse" : "?token=$tokenToUse") : ""}';
+        } else {
+          final prefix = fileUrlSuffix.startsWith('/') ? '' : '/';
+          absoluteUrl =
+              '$hostUrl$prefix$fileUrlSuffix${tokenToUse != null ? "?token=$tokenToUse" : ""}';
+        }
+
+        playlist.add(PlaybackItem(
+          url: absoluteUrl,
+          title: fileName,
+          subtitle: _formatBytes(
+              fileData['file_size'] as int? ?? fileData['size'] as int? ?? 0),
+          mimeType: mime,
+        ));
+      }
+    }
+    return playlist;
+  }
+
+  void _showMusicPlaylistModal(BuildContext context) {
+    final playlist = _getMusicPlaylistFromChat();
+    final playbackProvider = context.read<PlaybackProvider>();
+    if (playlist.isNotEmpty && playbackProvider.playlist.isEmpty) {
+      playbackProvider.setPlaylist(playlist,
+          initialUrl: playbackProvider.currentAudioUrl);
+    }
+    MusicPlaylistModal.show(context, _loadedMessages, _jwtToken);
+  }
 
   Widget _buildGlassBackground() {
     // Instead of BackdropFilter (which recomputes blur every frame during scroll),
@@ -3509,7 +3835,8 @@ class _ChatScreenState extends State<ChatScreen> {
             child: _buildHeaderDroplet(
               isCircle: true,
               onTap: () => Navigator.of(context).pop(),
-              child: const FaIcon(FontAwesomeIcons.chevronLeft, color: Colors.white, size: 14),
+              child: const FaIcon(FontAwesomeIcons.chevronLeft,
+                  color: Colors.white, size: 14),
             ),
           ),
         ),
@@ -3549,7 +3876,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _chatName ?? widget.chat.name,
+                      widget.chat.isFavorites
+                          ? localizedChatName(context, widget.chat)
+                          : (_chatName ?? widget.chat.name),
                       style: AppStyles.bodyMedium.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -3569,29 +3898,20 @@ class _ChatScreenState extends State<ChatScreen> {
               child: _buildHeaderDroplet(
                 isCircle: true,
                 onTap: _showCallTypeMenu,
-                child: const FaIcon(FontAwesomeIcons.phone, color: Colors.white70, size: 16),
+                child: const FaIcon(FontAwesomeIcons.phone,
+                    color: Colors.white70, size: 16),
               ),
             ),
             const SizedBox(width: 8),
           ],
           Center(
-            child: PopupMenuButton<String>(
-              offset: const Offset(0, 48),
-              color: const Color(0xFF16161A),
-              elevation: 8,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(
-                  color: Colors.white.withOpacity(0.08),
-                  width: 1,
-                ),
-              ),
-              onSelected: _handleMenuAction,
-              itemBuilder: (context) => _buildMenuItems(),
-              child: _buildHeaderDroplet(
-                isCircle: true,
-                onTap: null,
-                child: const FaIcon(FontAwesomeIcons.ellipsisVertical, color: Colors.white70, size: 16),
+            child: _buildHeaderDroplet(
+              isCircle: true,
+              onTap: _showCurrentChatContextMenu,
+              child: const FaIcon(
+                FontAwesomeIcons.ellipsisVertical,
+                color: Colors.white70,
+                size: 16,
               ),
             ),
           ),
@@ -3603,14 +3923,16 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _isDeleted() {
     final name = widget.chat.name.toLowerCase();
-    if (name.contains('удаленный') || 
-        name.contains('удалённый') || 
+    if (name.contains(
+            (AppLocalizations.of(context)?.udalennyy_40c6 ?? 'Fallback')) ||
+        name.contains(
+            (AppLocalizations.of(context)?.udalennyy_c2c8 ?? 'Fallback')) ||
         name.contains('deleted')) {
       return true;
     }
     if (_otherUser != null) {
       final other = _otherUser!;
-      if (other['is_deleted'] == true || 
+      if (other['is_deleted'] == true ||
           other['deleted'] == true ||
           other['status'] == 'deleted') {
         return true;
@@ -3672,13 +3994,17 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _initiateCall(String callType) async {
     final hasMic = await Permission.microphone.request().isGranted;
-    final hasCam = callType == 'video' ? await Permission.camera.request().isGranted : true;
+    final hasCam = callType == 'video'
+        ? await Permission.camera.request().isGranted
+        : true;
 
     if (!hasMic || !hasCam) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Необходимы разрешения на микрофон и камеру для совершения звонка'),
+          SnackBar(
+            content: Text((AppLocalizations.of(context)
+                    ?.neobhodimyRazresheniyaNaMikrofonI_224b ??
+                'Fallback')),
             backgroundColor: Color(0xFFEF4444),
           ),
         );
@@ -3690,7 +4016,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final authProvider = context.read<AuthProvider>();
 
     if (widget.chat.isGroup) {
-      final groupId = widget.chat.id.toString().replaceAll(RegExp(r'[^0-9]'), '');
+      final groupId =
+          widget.chat.id.toString().replaceAll(RegExp(r'[^0-9]'), '');
       await callManager.startOutgoingGroupCall(
         groupId: groupId,
         groupName: widget.chat.name,
@@ -3733,38 +4060,13 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   String _pluralizeParticipants(int count) {
-    if (count % 10 == 1 && count % 100 != 11) {
-      return '$count участник';
-    } else if ([2, 3, 4].contains(count % 10) && ![12, 13, 14].contains(count % 100)) {
-      return '$count участника';
-    } else {
-      return '$count участников';
-    }
+    return AppLocalizations.of(context)?.membersCount(count) ??
+        '$count members';
   }
 
   String _formatSubscribers(int count) {
-    if (count < 1000) {
-      if (count % 10 == 1 && count % 100 != 11) {
-        return '$count подписчик';
-      } else if ([2, 3, 4].contains(count % 10) && ![12, 13, 14].contains(count % 100)) {
-        return '$count подписчика';
-      } else {
-        return '$count подписчиков';
-      }
-    }
-    
-    String formatted;
-    if (count < 1000000) {
-      final kVal = count / 1000.0;
-      formatted = '${_formatDecimal(kVal)}K';
-    } else if (count < 1000000000) {
-      final mVal = count / 1000000.0;
-      formatted = '${_formatDecimal(mVal)}M';
-    } else {
-      final bVal = count / 1000000000.0;
-      formatted = '${_formatDecimal(bVal)}B';
-    }
-    return '$formatted подписчиков';
+    return AppLocalizations.of(context)?.subscribersCount(count) ??
+        '$count subscribers';
   }
 
   String _formatDecimal(double value) {
@@ -3776,14 +4078,17 @@ class _ChatScreenState extends State<ChatScreen> {
 
   String _formatUserStatus(Map<String, dynamic>? otherUser) {
     if (otherUser == null) return '';
-    
+
     if (otherUser['is_online'] == true || otherUser['online'] == true) {
-      return 'в сети';
+      return (AppLocalizations.of(context)?.vSeti_d902 ?? 'Fallback');
     }
-    
-    final lastSeenVal = otherUser['last_seen'] ?? otherUser['last_login'] ?? otherUser['last_activity'];
-    if (lastSeenVal == null) return 'был(-а) недавно';
-    
+
+    final lastSeenVal = otherUser['last_seen'] ??
+        otherUser['last_login'] ??
+        otherUser['last_activity'];
+    if (lastSeenVal == null)
+      return (AppLocalizations.of(context)?.bylANedavno_168d ?? 'Fallback');
+
     DateTime? lastSeen;
     if (lastSeenVal is String) {
       lastSeen = DateTime.tryParse(lastSeenVal);
@@ -3792,47 +4097,40 @@ class _ChatScreenState extends State<ChatScreen> {
     } else if (lastSeenVal is DateTime) {
       lastSeen = lastSeenVal;
     }
-    
-    if (lastSeen == null) return 'был(-а) недавно';
-    
+
+    if (lastSeen == null)
+      return (AppLocalizations.of(context)?.bylANedavno_168d ?? 'Fallback');
+
     final now = DateTime.now();
     final difference = now.difference(lastSeen);
-    
+
     if (difference.inMinutes < 1) {
-      return 'был(-а) только что';
+      return (AppLocalizations.of(context)?.bylATolkoChto_9ac0 ?? 'Fallback');
     }
-    
+
     if (difference.inMinutes < 60) {
-      final mins = difference.inMinutes;
-      String minStr;
-      if (mins % 10 == 1 && mins % 100 != 11) {
-        minStr = 'минуту';
-      } else if ([2, 3, 4].contains(mins % 10) && ![12, 13, 14].contains(mins % 100)) {
-        minStr = 'минуты';
-      } else {
-        minStr = 'минут';
-      }
-      return 'был(-а) в сети $mins $minStr назад';
+      return AppLocalizations.of(context)?.lastSeenRecently ??
+          'last seen recently';
     }
-    
+
     final today = DateTime(now.year, now.month, now.day);
     final lastSeenDay = DateTime(lastSeen.year, lastSeen.month, lastSeen.day);
-    
+
     final hour = lastSeen.hour.toString().padLeft(2, '0');
     final minute = lastSeen.minute.toString().padLeft(2, '0');
-    
+
     if (lastSeenDay == today) {
-      return 'был(-а) в сети сегодня в $hour:$minute';
+      return '${AppLocalizations.of(context)?.today ?? 'Today'} • $hour:$minute';
     }
-    
+
     final yesterday = today.subtract(const Duration(days: 1));
     if (lastSeenDay == yesterday) {
-      return 'был(-а) в сети вчера в $hour:$minute';
+      return '${AppLocalizations.of(context)?.yesterday ?? 'Yesterday'} • $hour:$minute';
     }
-    
+
     final day = lastSeen.day.toString().padLeft(2, '0');
     final month = lastSeen.month.toString().padLeft(2, '0');
-    return 'был(-а) в сети $day.$month.${lastSeen.year} в $hour:$minute';
+    return '$day.$month.${lastSeen.year} • $hour:$minute';
   }
 
   Widget _buildAppBarSubtitle() {
@@ -3847,7 +4145,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (widget.chat.isPersonal) {
       if (_isBot()) {
-        statusText = 'бот';
+        statusText = (AppLocalizations.of(context)?.bot_2712 ?? 'Fallback');
         icon = FontAwesomeIcons.robot;
       } else {
         if (_typingText != null) {
@@ -3856,7 +4154,8 @@ class _ChatScreenState extends State<ChatScreen> {
           lottiePath = _activeLottiePath;
         } else {
           statusText = _formatUserStatus(_otherUser);
-          if (statusText == 'в сети') {
+          if (statusText ==
+              (AppLocalizations.of(context)?.vSeti_d902 ?? 'Fallback')) {
             color = const Color(0xE64ADE80); // green for online
           }
         }
@@ -3865,22 +4164,37 @@ class _ChatScreenState extends State<ChatScreen> {
       if (_typingUsers.isNotEmpty) {
         statusText = _typingUsers.values.join(', ');
         color = const Color(0xFF38BDF8); // sky blue for typing
-        lottiePath = _typingLottiePaths.isNotEmpty ? _typingLottiePaths.values.first : null;
+        lottiePath = _typingLottiePaths.isNotEmpty
+            ? _typingLottiePaths.values.first
+            : null;
       } else {
         final rawMem = _otherUser?['members_count'];
-        final membersCount = rawMem is int ? rawMem : (rawMem is num ? rawMem.toInt() : int.tryParse(rawMem?.toString() ?? '') ?? 0);
+        final membersCount = rawMem is int
+            ? rawMem
+            : (rawMem is num
+                ? rawMem.toInt()
+                : int.tryParse(rawMem?.toString() ?? '') ?? 0);
         final rawOnline = _otherUser?['online_count'];
-        final onlineCount = rawOnline is int ? rawOnline : (rawOnline is num ? rawOnline.toInt() : int.tryParse(rawOnline?.toString() ?? '') ?? 0);
+        final onlineCount = rawOnline is int
+            ? rawOnline
+            : (rawOnline is num
+                ? rawOnline.toInt()
+                : int.tryParse(rawOnline?.toString() ?? '') ?? 0);
 
         statusText = _pluralizeParticipants(membersCount);
         if (onlineCount > 0) {
-          statusText += ', $onlineCount в сети';
+          statusText +=
+              ' • $onlineCount ${AppLocalizations.of(context)?.online ?? 'online'}';
         }
       }
       icon = FontAwesomeIcons.users;
     } else if (widget.chat.isChannel) {
       final rawSub = _otherUser?['subscribers_count'];
-      final subscribersCount = rawSub is int ? rawSub : (rawSub is num ? rawSub.toInt() : int.tryParse(rawSub?.toString() ?? '') ?? 0);
+      final subscribersCount = rawSub is int
+          ? rawSub
+          : (rawSub is num
+              ? rawSub.toInt()
+              : int.tryParse(rawSub?.toString() ?? '') ?? 0);
       statusText = _formatSubscribers(subscribersCount);
       icon = FontAwesomeIcons.bullhorn;
     }
@@ -3930,22 +4244,28 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildMessagesList(UserModel? currentUser) {
     if (_localChatId == null) {
-      return const Center(child: Text('Чат не найден', style: TextStyle(color: Colors.white)));
+      return Center(
+          child: Text(
+              (AppLocalizations.of(context)?.chatNeNayden_ba4f ?? 'Fallback'),
+              style: TextStyle(color: Colors.white)));
     }
 
     return StreamBuilder<List<Message>>(
       stream: _messagesStream,
       builder: (context, snapshot) {
         // Prevent full-screen loading spinner flicker when switching/re-subscribing to the stream
-        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator(color: Colors.white54));
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const Center(
+              child: CircularProgressIndicator(color: Colors.white54));
         }
 
         final messages = snapshot.data ?? [];
         _loadedMessages = messages;
 
         if (messages.isEmpty && _isHistoryLoading) {
-          return const Center(child: CircularProgressIndicator(color: Colors.white54));
+          return const Center(
+              child: CircularProgressIndicator(color: Colors.white54));
         }
 
         if (messages.isEmpty) {
@@ -3953,11 +4273,15 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                FaIcon(FontAwesomeIcons.lockOpen, size: 40, color: Colors.white.withOpacity(0.2)),
-                const SizedBox(height: 12),
+                FaIcon(FontAwesomeIcons.lockOpen,
+                    size: 40, color: Colors.white.withOpacity(0.2)),
+                SizedBox(height: 12),
                 Text(
-                  'Напишите первое сообщение',
-                  style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 14),
+                  (AppLocalizations.of(context)
+                          ?.napishitePervoeSoobschenie_8260 ??
+                      'Fallback'),
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.4), fontSize: 14),
                 ),
               ],
             ),
@@ -3977,7 +4301,8 @@ class _ChatScreenState extends State<ChatScreen> {
           padding: EdgeInsets.only(top: topPadding, bottom: 16),
           reverse: true, // Newer messages at the bottom
           itemCount: messages.length + (showSpinner ? 1 : 0),
-          cacheExtent: 600, // Кешируем виджеты в пределах 600 пикселей для плавной прокрутки без пересборок
+          cacheExtent:
+              600, // Кешируем виджеты в пределах 600 пикселей для плавной прокрутки без пересборок
           itemBuilder: (context, index) {
             if (index == messages.length) {
               return const Padding(
@@ -3995,36 +4320,46 @@ class _ChatScreenState extends State<ChatScreen> {
               );
             }
             final msg = messages[index];
-            final isMe = msg.senderId == currentUser?.username || msg.senderId == currentUser?.id.toString() || msg.senderId == 'me';
-            final myName = (currentUser?.firstName != null && currentUser!.firstName!.isNotEmpty)
+            final isMe = msg.senderId == currentUser?.username ||
+                msg.senderId == currentUser?.id.toString() ||
+                msg.senderId == 'me';
+            final myName = (currentUser?.firstName != null &&
+                    currentUser!.firstName!.isNotEmpty)
                 ? currentUser.firstName!
-                : 'Вы';
-            final otherFirstName = widget.chat.otherUser?['first_name']?.toString() ??
-                widget.chat.otherUser?['firstName']?.toString() ??
-                widget.chat.otherUser?['name']?.toString();
-            final otherName = (otherFirstName != null && otherFirstName.isNotEmpty)
-                ? otherFirstName
-                : widget.chat.name;
+                : (AppLocalizations.of(context)?.vy_0101 ?? 'Fallback');
+            final otherFirstName =
+                widget.chat.otherUser?['first_name']?.toString() ??
+                    widget.chat.otherUser?['firstName']?.toString() ??
+                    widget.chat.otherUser?['name']?.toString();
+            final otherName =
+                (otherFirstName != null && otherFirstName.isNotEmpty)
+                    ? otherFirstName
+                    : widget.chat.name;
 
             final senderProfile = _userProfiles[msg.senderId];
             final senderFirstName = senderProfile?['first_name']?.toString();
             final senderAvatar = senderProfile?['avatar']?.toString();
-            final senderGradient = senderProfile?['avatar_gradient']?.toString();
+            final senderGradient =
+                senderProfile?['avatar_gradient']?.toString();
 
-            final senderRealName = (isMe || widget.chat.isFavorites) 
-              ? myName 
-              : (widget.chat.isGroup 
-                  ? ((senderFirstName != null && senderFirstName.isNotEmpty) ? senderFirstName : msg.senderId)
-                  : otherName);
+            final senderRealName = (isMe || widget.chat.isFavorites)
+                ? myName
+                : (widget.chat.isGroup
+                    ? ((senderFirstName != null && senderFirstName.isNotEmpty)
+                        ? senderFirstName
+                        : msg.senderId)
+                    : otherName);
 
-            final bool isNewMessage = _messagesToAnimate.contains(msg.serverMessageId);
+            final bool isNewMessage =
+                _messagesToAnimate.contains(msg.serverMessageId);
             final isHighlighted = msg.serverMessageId == _highlightedMessageId;
 
             bool showDateSeparator = false;
             if (index == messages.length - 1) {
               showDateSeparator = true;
             } else {
-              final prevMsg = messages[index + 1]; // Visually above (older message)
+              final prevMsg =
+                  messages[index + 1]; // Visually above (older message)
               if (msg.timestamp.year != prevMsg.timestamp.year ||
                   msg.timestamp.month != prevMsg.timestamp.month ||
                   msg.timestamp.day != prevMsg.timestamp.day) {
@@ -4090,7 +4425,8 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _highlightedMessageId = replyServerId;
     });
-    final idx = await _localChatRepo.getMessageIndexByServerId(widget.chat.id, replyServerId);
+    final idx = await _localChatRepo.getMessageIndexByServerId(
+        widget.chat.id, replyServerId);
     if (idx != null && _scrollController.hasClients) {
       _scrollController.animateTo(
         idx * 65.0,
@@ -4111,24 +4447,42 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_replyingToMessage == null) return const SizedBox.shrink();
 
     final currentUser = context.read<AuthProvider>().user;
-    final isMe = _replyingToMessage!.senderId == currentUser?.id?.toString() || _replyingToMessage!.senderId == currentUser?.username;
-    final senderName = isMe ? 'Вы' : (widget.chat.isPersonal ? widget.chat.name : _replyingToMessage!.senderId);
+    final isMe = _replyingToMessage!.senderId == currentUser?.id?.toString() ||
+        _replyingToMessage!.senderId == currentUser?.username;
+    final senderName = isMe
+        ? (AppLocalizations.of(context)?.vy_0101 ?? 'Fallback')
+        : (widget.chat.isPersonal
+            ? widget.chat.name
+            : _replyingToMessage!.senderId);
 
     String textPreview = _replyingToMessage!.textContent;
     if (textPreview.trim().startsWith('{')) {
       try {
         final parsed = jsonDecode(textPreview);
         if (parsed is Map) {
-          if (parsed['type'] == 'voice') textPreview = '🎤 Голосовое сообщение';
-          else if (parsed['type'] == 'video_message') textPreview = '📹 Видеосообщение';
-          else if (parsed['type'] == 'file') textPreview = '📁 Файл: ${parsed['file_name'] ?? ''}';
-          else if (parsed['type'] == 'todo_list') textPreview = '📋 Список задач';
-          else if (parsed['type'] == 'poll') textPreview = '📊 Опрос';
+          if (parsed['type'] == 'voice')
+            textPreview =
+                (AppLocalizations.of(context)?.golosovoeSoobschenie_4a85 ??
+                    'Fallback');
+          else if (parsed['type'] == 'video_message')
+            textPreview =
+                (AppLocalizations.of(context)?.videosoobschenie_57f1 ??
+                    'Fallback');
+          else if (parsed['type'] == 'file')
+            textPreview =
+                '📁 ${AppLocalizations.of(context)?.file ?? 'File'}: ${parsed['file_name'] ?? ''}';
+          else if (parsed['type'] == 'todo_list')
+            textPreview =
+                (AppLocalizations.of(context)?.spisokZadach_cfa4 ?? 'Fallback');
+          else if (parsed['type'] == 'poll')
+            textPreview =
+                (AppLocalizations.of(context)?.opros_5902 ?? 'Fallback');
         }
       } catch (_) {}
     }
     if (textPreview.isEmpty && _replyingToMessage!.fileUrl != null) {
-      textPreview = '📎 Вложение';
+      textPreview =
+          (AppLocalizations.of(context)?.vlozhenie_2474 ?? 'Fallback');
     }
 
     return Container(
@@ -4143,7 +4497,8 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       child: Row(
         children: [
-          const FaIcon(FontAwesomeIcons.reply, size: 14, color: Color(0xFF3B82F6)),
+          const FaIcon(FontAwesomeIcons.reply,
+              size: 14, color: Color(0xFF3B82F6)),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -4151,7 +4506,7 @@ class _ChatScreenState extends State<ChatScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Ответ для $senderName',
+                  '${AppLocalizations.of(context)?.reply ?? 'Reply'}: $senderName',
                   style: const TextStyle(
                     color: Color(0xFF60A5FA),
                     fontWeight: FontWeight.bold,
@@ -4213,8 +4568,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildJoinButton(BuildContext context) {
     final String label = widget.chat.isChannel
-        ? 'Присоединиться к каналу'
-        : 'Присоединиться к группе';
+        ? (AppLocalizations.of(context)?.prisoedinitsyaKKanalu_f863 ??
+            'Fallback')
+        : (AppLocalizations.of(context)?.prisoedinitsyaKGruppe_eb45 ??
+            'Fallback');
 
     return Container(
       width: double.infinity,
@@ -4280,7 +4637,7 @@ class _ChatScreenState extends State<ChatScreen> {
       width: double.infinity,
       height: 52,
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B22),
+        color: Color(0xFF1B1B22),
         borderRadius: BorderRadius.circular(26),
         border: Border.all(
           color: Colors.white.withOpacity(0.12),
@@ -4296,8 +4653,8 @@ class _ChatScreenState extends State<ChatScreen> {
             size: 16,
           ),
           const SizedBox(width: 10),
-          const Text(
-            'Вы подписаны',
+          Text(
+            (AppLocalizations.of(context)?.vyPodpisany_5fb9 ?? 'Fallback'),
             style: TextStyle(
               color: Colors.white70,
               fontSize: 14,
@@ -4312,7 +4669,8 @@ class _ChatScreenState extends State<ChatScreen> {
               borderRadius: BorderRadius.circular(16),
               onTap: _isJoining ? null : _handleUnsubscribeChannel,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.redAccent.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(16),
@@ -4330,7 +4688,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Row(
+                    : Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           FaIcon(
@@ -4340,7 +4698,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                           SizedBox(width: 6),
                           Text(
-                            'Отписаться',
+                            (AppLocalizations.of(context)?.otpisatsya_ee2d ??
+                                'Fallback'),
                             style: TextStyle(
                               color: Colors.redAccent,
                               fontSize: 13,
@@ -4375,9 +4734,11 @@ class _ChatScreenState extends State<ChatScreen> {
           success = await groupChannelService.joinGroup(groupId);
         }
       } else if (widget.chat.isChannel) {
-        final channelId = int.tryParse(widget.chat.id.replaceFirst('channel_', ''));
+        final channelId =
+            int.tryParse(widget.chat.id.replaceFirst('channel_', ''));
         if (channelId != null) {
-          success = await groupChannelService.toggleChannelSubscription(channelId, subscribe: true);
+          success = await groupChannelService
+              .toggleChannelSubscription(channelId, subscribe: true);
         }
       }
 
@@ -4396,7 +4757,13 @@ class _ChatScreenState extends State<ChatScreen> {
           }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(widget.chat.isChannel ? 'Вы успешно подписались на канал!' : 'Вы успешно вступили в группу!'),
+              content: Text(widget.chat.isChannel
+                  ? (AppLocalizations.of(context)
+                          ?.vyUspeshnoPodpisalisNaKanal_9c99 ??
+                      'Fallback')
+                  : (AppLocalizations.of(context)
+                          ?.vyUspeshnoVstupiliVGruppu_61a1 ??
+                      'Fallback')),
               backgroundColor: const Color(0xFF6366F1),
               duration: const Duration(seconds: 2),
             ),
@@ -4408,8 +4775,10 @@ class _ChatScreenState extends State<ChatScreen> {
             _isJoining = false;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Не удалось присоединиться. Попробуйте еще раз.'),
+            SnackBar(
+              content: Text((AppLocalizations.of(context)
+                      ?.neUdalosPrisoedinitsyaPoprobuyteEsche_bce5 ??
+                  'Fallback')),
               backgroundColor: Colors.redAccent,
             ),
           );
@@ -4434,11 +4803,13 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final apiClient = context.read<ApiClient>();
       final groupChannelService = GroupChannelService(apiClient: apiClient);
-      final channelId = int.tryParse(widget.chat.id.replaceFirst('channel_', ''));
+      final channelId =
+          int.tryParse(widget.chat.id.replaceFirst('channel_', ''));
       bool success = false;
 
       if (channelId != null) {
-        success = await groupChannelService.toggleChannelSubscription(channelId, subscribe: false);
+        success = await groupChannelService.toggleChannelSubscription(channelId,
+            subscribe: false);
       }
 
       if (success) {
@@ -4448,8 +4819,10 @@ class _ChatScreenState extends State<ChatScreen> {
             _isJoining = false;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Вы отписались от канала'),
+            SnackBar(
+              content: Text(
+                  (AppLocalizations.of(context)?.vyOtpisalisOtKanala_7698 ??
+                      'Fallback')),
               backgroundColor: Colors.grey,
               duration: Duration(seconds: 2),
             ),
@@ -4494,64 +4867,79 @@ class _ChatScreenState extends State<ChatScreen> {
           TextField(
             controller: _messageController,
             focusNode: _messageFocusNode,
-            style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.3),
+            style:
+                const TextStyle(color: Colors.white, fontSize: 15, height: 1.3),
             maxLines: 3,
             minLines: 1,
             textInputAction: TextInputAction.newline,
             contextMenuBuilder: (context, editableTextState) {
               final selection = editableTextState.textEditingValue.selection;
               final List<Widget> items = [];
-              
+
               if (editableTextState.cutEnabled) {
                 items.add(_buildToolbarButton(
                   icon: FontAwesomeIcons.scissors,
-                  label: 'Вырезать',
-                  onTap: () => editableTextState.cutSelection(SelectionChangedCause.toolbar),
+                  label: (AppLocalizations.of(context)?.vyrezat_a195 ??
+                      'Fallback'),
+                  onTap: () => editableTextState
+                      .cutSelection(SelectionChangedCause.toolbar),
                 ));
               }
               if (editableTextState.copyEnabled) {
                 items.add(_buildToolbarButton(
                   icon: FontAwesomeIcons.copy,
-                  label: 'Копировать',
-                  onTap: () => editableTextState.copySelection(SelectionChangedCause.toolbar),
+                  label: (AppLocalizations.of(context)?.kopirovat_112b ??
+                      'Fallback'),
+                  onTap: () => editableTextState
+                      .copySelection(SelectionChangedCause.toolbar),
                 ));
               }
               if (editableTextState.pasteEnabled) {
                 items.add(_buildToolbarButton(
                   icon: FontAwesomeIcons.clipboard,
-                  label: 'Вставить',
-                  onTap: () => editableTextState.pasteText(SelectionChangedCause.toolbar),
+                  label: (AppLocalizations.of(context)?.vstavit_dcc4 ??
+                      'Fallback'),
+                  onTap: () => editableTextState
+                      .pasteText(SelectionChangedCause.toolbar),
                 ));
               }
               if (editableTextState.selectAllEnabled) {
                 items.add(_buildToolbarButton(
                   icon: FontAwesomeIcons.squareCheck,
-                  label: 'Выбрать все',
-                  onTap: () => editableTextState.selectAll(SelectionChangedCause.toolbar),
+                  label: (AppLocalizations.of(context)?.vybratVse_4d09 ??
+                      'Fallback'),
+                  onTap: () => editableTextState
+                      .selectAll(SelectionChangedCause.toolbar),
                 ));
               }
-              
+
               if (!selection.isCollapsed) {
                 items.addAll([
                   _buildToolbarButton(
                     icon: FontAwesomeIcons.bold,
-                    label: 'Жирный',
-                    onTap: () => _applyFormatting('**', '**', editableTextState),
+                    label: (AppLocalizations.of(context)?.zhirnyy_7774 ??
+                        'Fallback'),
+                    onTap: () =>
+                        _applyFormatting('**', '**', editableTextState),
                   ),
                   _buildToolbarButton(
                     icon: FontAwesomeIcons.italic,
-                    label: 'Курсив',
+                    label: (AppLocalizations.of(context)?.kursiv_e0b1 ??
+                        'Fallback'),
                     onTap: () => _applyFormatting('*', '*', editableTextState),
                   ),
                   _buildToolbarButton(
                     icon: FontAwesomeIcons.code,
-                    label: 'Код',
+                    label:
+                        (AppLocalizations.of(context)?.kod_3f34 ?? 'Fallback'),
                     onTap: () => _applyFormatting('`', '`', editableTextState),
                   ),
                   _buildToolbarButton(
                     icon: FontAwesomeIcons.strikethrough,
-                    label: 'Зачеркнуть',
-                    onTap: () => _applyFormatting('~~', '~~', editableTextState),
+                    label: (AppLocalizations.of(context)?.zacherknut_02fc ??
+                        'Fallback'),
+                    onTap: () =>
+                        _applyFormatting('~~', '~~', editableTextState),
                   ),
                 ]);
               }
@@ -4568,8 +4956,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
               return TextSelectionToolbar(
                 anchorAbove: editableTextState.contextMenuAnchors.primaryAnchor,
-                anchorBelow: editableTextState.contextMenuAnchors.secondaryAnchor ??
-                    editableTextState.contextMenuAnchors.primaryAnchor,
+                anchorBelow:
+                    editableTextState.contextMenuAnchors.secondaryAnchor ??
+                        editableTextState.contextMenuAnchors.primaryAnchor,
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(16),
@@ -4579,7 +4968,8 @@ class _ChatScreenState extends State<ChatScreen> {
                         constraints: BoxConstraints(
                           maxWidth: MediaQuery.of(context).size.width - 32,
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.85),
                           borderRadius: BorderRadius.circular(16),
@@ -4609,12 +4999,15 @@ class _ChatScreenState extends State<ChatScreen> {
               );
             },
             decoration: InputDecoration(
-              hintText: 'Сообщение...',
-              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 15),
+              hintText: (AppLocalizations.of(context)?.soobschenie_8b9b ??
+                  'Fallback'),
+              hintStyle: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.35), fontSize: 15),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.08),
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(28),
                 borderSide: BorderSide(
@@ -4687,11 +5080,14 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: ValueListenableBuilder<TextEditingValue>(
                       valueListenable: _messageController,
                       builder: (context, value, child) {
-                        final hasText = value.text.trim().isNotEmpty || _attachments.isNotEmpty;
+                        final hasText = value.text.trim().isNotEmpty ||
+                            _attachments.isNotEmpty;
                         return AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
-                          transitionBuilder: (Widget child, Animation<double> animation) {
-                            return ScaleTransition(scale: animation, child: child);
+                          transitionBuilder:
+                              (Widget child, Animation<double> animation) {
+                            return ScaleTransition(
+                                scale: animation, child: child);
                           },
                           child: hasText
                               ? GestureDetector(
@@ -4705,7 +5101,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                       shape: BoxShape.circle,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.white.withValues(alpha: 0.2),
+                                          color: Colors.white
+                                              .withValues(alpha: 0.2),
                                           blurRadius: 10,
                                           offset: const Offset(0, 3),
                                         ),
@@ -4733,15 +5130,20 @@ class _ChatScreenState extends State<ChatScreen> {
                                   onLongPressMoveUpdate: (details) {
                                     if (_isVoiceMode && _isRecording) {
                                       setState(() {
-                                        _dragOffset = details.offsetFromOrigin.dx.clamp(-120.0, 0.0);
+                                        _dragOffset = details
+                                            .offsetFromOrigin.dx
+                                            .clamp(-120.0, 0.0);
                                       });
                                       if (_dragOffset < -100) {
                                         _isHoldingButton = false;
                                         _cancelRecording();
                                       }
-                                    } else if (!_isVoiceMode && _isRecordingVideo) {
+                                    } else if (!_isVoiceMode &&
+                                        _isRecordingVideo) {
                                       setState(() {
-                                        _dragOffset = details.offsetFromOrigin.dx.clamp(-120.0, 0.0);
+                                        _dragOffset = details
+                                            .offsetFromOrigin.dx
+                                            .clamp(-120.0, 0.0);
                                       });
                                       if (_dragOffset < -100) {
                                         _isHoldingButton = false;
@@ -4753,7 +5155,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                     _isHoldingButton = false;
                                     if (_isVoiceMode && _isRecording) {
                                       await _stopAndSendRecording();
-                                    } else if (!_isVoiceMode && _isRecordingVideo) {
+                                    } else if (!_isVoiceMode &&
+                                        _isRecordingVideo) {
                                       await _stopAndSendVideoRecording();
                                     }
                                   },
@@ -4772,20 +5175,33 @@ class _ChatScreenState extends State<ChatScreen> {
                                   },
                                   child: AnimatedContainer(
                                     duration: const Duration(milliseconds: 200),
-                                    width: (_isRecording || _isRecordingVideo) ? 42 : 38,
-                                    height: (_isRecording || _isRecordingVideo) ? 42 : 38,
+                                    width: (_isRecording || _isRecordingVideo)
+                                        ? 42
+                                        : 38,
+                                    height: (_isRecording || _isRecordingVideo)
+                                        ? 42
+                                        : 38,
                                     decoration: BoxDecoration(
-                                      color: (_isRecording || _isRecordingVideo) ? Colors.red : Colors.white.withValues(alpha: 0.1),
+                                      color: (_isRecording || _isRecordingVideo)
+                                          ? Colors.red
+                                          : Colors.white.withValues(alpha: 0.1),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Center(
                                       child: AnimatedSwitcher(
-                                        duration: const Duration(milliseconds: 300),
-                                        transitionBuilder: (Widget child, Animation<double> animation) {
+                                        duration:
+                                            const Duration(milliseconds: 300),
+                                        transitionBuilder: (Widget child,
+                                            Animation<double> animation) {
                                           return RotationTransition(
-                                            turns: child.key == const ValueKey('mic')
-                                                ? Tween<double>(begin: 0.15, end: 0.0).animate(animation)
-                                                : Tween<double>(begin: -0.15, end: 0.0).animate(animation),
+                                            turns: child.key ==
+                                                    const ValueKey('mic')
+                                                ? Tween<double>(
+                                                        begin: 0.15, end: 0.0)
+                                                    .animate(animation)
+                                                : Tween<double>(
+                                                        begin: -0.15, end: 0.0)
+                                                    .animate(animation),
                                             child: ScaleTransition(
                                               scale: animation,
                                               child: FadeTransition(
@@ -4799,9 +5215,13 @@ class _ChatScreenState extends State<ChatScreen> {
                                           _isVoiceMode
                                               ? FontAwesomeIcons.microphone
                                               : FontAwesomeIcons.video,
-                                          key: ValueKey(_isVoiceMode ? 'mic' : 'video'),
+                                          key: ValueKey(
+                                              _isVoiceMode ? 'mic' : 'video'),
                                           color: Colors.white,
-                                          size: (_isRecording || _isRecordingVideo) ? 18 : 16,
+                                          size: (_isRecording ||
+                                                  _isRecordingVideo)
+                                              ? 18
+                                              : 16,
                                         ),
                                       ),
                                     ),
@@ -4813,7 +5233,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ],
               ),
-              suffixIconConstraints: const BoxConstraints(
+              suffixIconConstraints: BoxConstraints(
                 minWidth: 80,
                 minHeight: 44,
               ),
@@ -4849,15 +5269,17 @@ class _ChatScreenState extends State<ChatScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.chevron_left, 
-                              color: Colors.white.withValues(alpha: 0.5), 
+                              Icons.chevron_left,
+                              color: Colors.white.withValues(alpha: 0.5),
                               size: 16,
                             ),
                             const SizedBox(width: 2),
                             Text(
-                              'Смахните для отмены',
+                              (AppLocalizations.of(context)
+                                      ?.smahniteDlyaOtmeny_e976 ??
+                                  'Fallback'),
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.5), 
+                                color: Colors.white.withValues(alpha: 0.5),
                                 fontSize: 13,
                               ),
                             ),
@@ -4885,7 +5307,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       const _BlinkingRedDot(),
                       const SizedBox(width: 10),
                       Text(
-                        _formatRecordingDuration(_videoRecordingDurationSeconds.toInt()),
+                        _formatRecordingDuration(
+                            _videoRecordingDurationSeconds.toInt()),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 15,
@@ -4899,15 +5322,17 @@ class _ChatScreenState extends State<ChatScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.chevron_left, 
-                              color: Colors.white.withValues(alpha: 0.5), 
+                              Icons.chevron_left,
+                              color: Colors.white.withValues(alpha: 0.5),
                               size: 16,
                             ),
                             const SizedBox(width: 2),
                             Text(
-                              'Смахните для отмены',
+                              (AppLocalizations.of(context)
+                                      ?.smahniteDlyaOtmeny_e976 ??
+                                  'Fallback'),
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.5), 
+                                color: Colors.white.withValues(alpha: 0.5),
                                 fontSize: 13,
                               ),
                             ),
@@ -4923,8 +5348,6 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
-
-
 
   Widget _buildToolbarButton({
     required FaIconData icon,
@@ -4971,7 +5394,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (widget.chat.isFavorites || widget.chat.isPersonal) {
       return;
     }
-    
+
     try {
       final apiClient = context.read<ApiClient>();
       final String endpoint;
@@ -4984,26 +5407,32 @@ class _ChatScreenState extends State<ChatScreen> {
       } else {
         return;
       }
-      
+
       final response = await apiClient.get(endpoint);
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
         if (data is Map<String, dynamic>) {
-          final fetchedGradient = data['avatar_gradient']?.toString() ?? data['gradient']?.toString();
-          final fetchedAvatar = data['avatar']?.toString() ?? data['avatar_url']?.toString();
-          final fetchedName = data['name']?.toString() ?? data['title']?.toString();
+          final fetchedGradient = data['avatar_gradient']?.toString() ??
+              data['gradient']?.toString();
+          final fetchedAvatar =
+              data['avatar']?.toString() ?? data['avatar_url']?.toString();
+          final fetchedName =
+              data['name']?.toString() ?? data['title']?.toString();
 
           if (data['members'] is List) {
             for (final m in (data['members'] as List)) {
               if (m is Map) {
                 final username = m['username']?.toString();
                 final firstName = m['first_name']?.toString();
-                final avatar = m['avatar']?.toString() ?? m['avatar_url']?.toString();
+                final avatar =
+                    m['avatar']?.toString() ?? m['avatar_url']?.toString();
                 final gradient = m['avatar_gradient']?.toString();
 
                 if (username != null && username.isNotEmpty) {
                   _userProfiles[username] = {
-                    'first_name': (firstName != null && firstName.isNotEmpty) ? firstName : username,
+                    'first_name': (firstName != null && firstName.isNotEmpty)
+                        ? firstName
+                        : username,
                     'avatar': avatar,
                     'avatar_gradient': gradient,
                   };
@@ -5012,17 +5441,26 @@ class _ChatScreenState extends State<ChatScreen> {
             }
           }
 
-          final isOwner = data['is_creator'] == true || data['is_owner'] == true;
-          final isMember = data['is_member'] == true || data['is_joined'] == true || data['is_subscribed'] == true || isOwner;
-          
+          final isOwner =
+              data['is_creator'] == true || data['is_owner'] == true;
+          final isMember = data['is_member'] == true ||
+              data['is_joined'] == true ||
+              data['is_subscribed'] == true ||
+              isOwner;
+
           bool canWrite = true;
           if (widget.chat.isChannel) {
-            canWrite = data['can_post'] == true || data['can_write'] == true || data['is_admin'] == true || isOwner;
+            canWrite = data['can_post'] == true ||
+                data['can_write'] == true ||
+                data['is_admin'] == true ||
+                isOwner;
           } else if (widget.chat.isGroup) {
-            canWrite = isMember && (data['can_post'] != false && data['can_write'] != false);
+            canWrite = isMember &&
+                (data['can_post'] != false && data['can_write'] != false);
           }
 
-          final existingOtherUser = Map<String, dynamic>.from(widget.chat.otherUser ?? {});
+          final existingOtherUser =
+              Map<String, dynamic>.from(widget.chat.otherUser ?? {});
           existingOtherUser['user_profiles'] = _userProfiles;
           existingOtherUser['is_member'] = isMember;
           existingOtherUser['can_write'] = canWrite;
@@ -5042,7 +5480,9 @@ class _ChatScreenState extends State<ChatScreen> {
           }
 
           final updatedChat = widget.chat.copyWith(
-            name: (fetchedName != null && fetchedName.isNotEmpty) ? fetchedName : widget.chat.name,
+            name: (fetchedName != null && fetchedName.isNotEmpty)
+                ? fetchedName
+                : widget.chat.name,
             avatar: fetchedAvatar ?? widget.chat.avatar,
             avatarGradient: fetchedGradient ?? widget.chat.avatarGradient,
             otherUser: existingOtherUser,
@@ -5092,6 +5532,88 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _showCurrentChatContextMenu() async {
+    final action = await ChatContextMenu.show(
+      context: context,
+      isPinned: _isChatPinned,
+      isArchived: widget.chat.isArchived,
+      isMuted: _isChatMuted,
+      canDelete: !widget.chat.isFavorites,
+    );
+    if (!mounted || action == null) return;
+
+    switch (action) {
+      case ChatContextAction.pin:
+        await _setCurrentChatPinned(!_isChatPinned);
+      case ChatContextAction.archive:
+        await _setCurrentChatArchived(!widget.chat.isArchived);
+      case ChatContextAction.mute:
+        await _setCurrentChatMuted(!_isChatMuted);
+      case ChatContextAction.clearHistory:
+        await _confirmClearHistory();
+      case ChatContextAction.delete:
+        await _confirmDeleteChat();
+    }
+  }
+
+  Future<void> _setCurrentChatPinned(bool isPinned) async {
+    final success = await _chatService.pinChat(widget.chat.id, isPinned);
+    if (!mounted) return;
+    if (!success) {
+      _showCurrentChatActionError();
+      return;
+    }
+    await _localChatRepo.updateChatSettings(
+      widget.chat.id,
+      isPinned: isPinned,
+    );
+    if (mounted) setState(() => _isChatPinned = isPinned);
+  }
+
+  Future<void> _setCurrentChatMuted(bool isMuted) async {
+    final success = await _chatService.muteChat(widget.chat.id, isMuted);
+    if (!mounted) return;
+    if (!success) {
+      _showCurrentChatActionError();
+      return;
+    }
+    await _localChatRepo.updateChatSettings(
+      widget.chat.id,
+      isMuted: isMuted,
+    );
+    if (mounted) setState(() => _isChatMuted = isMuted);
+  }
+
+  Future<void> _setCurrentChatArchived(bool isArchived) async {
+    final success = await _chatService.archiveChat(widget.chat.id, isArchived);
+    if (!mounted) return;
+    if (!success) {
+      _showCurrentChatActionError();
+      return;
+    }
+
+    await _localChatRepo.updateArchiveStatus(widget.chat.id, isArchived);
+    if (isArchived) {
+      await _localChatRepo.updateChatSettings(
+        widget.chat.id,
+        isPinned: false,
+        isMuted: true,
+      );
+    }
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  void _showCurrentChatActionError() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          AppLocalizations.of(context)?.serverError ?? 'Server error',
+        ),
+        backgroundColor: AppStyles.errorColor,
+      ),
+    );
+  }
+
   List<PopupMenuEntry<String>> _buildMenuItems() {
     final List<PopupMenuEntry<String>> items = [];
 
@@ -5129,18 +5651,19 @@ class _ChatScreenState extends State<ChatScreen> {
       items.add(buildItem(
         value: 'search',
         icon: FontAwesomeIcons.magnifyingGlass,
-        text: 'Поиск',
+        text: (AppLocalizations.of(context)?.poisk_bfc9 ?? 'Fallback'),
       ));
       items.add(buildItem(
         value: 'clear',
         icon: FontAwesomeIcons.trash,
-        text: 'Очистить историю',
+        text:
+            (AppLocalizations.of(context)?.ochistitIstoriyu_837a ?? 'Fallback'),
       ));
       if (!_isBot() && !_isDeleted()) {
         items.add(buildItem(
           value: 'delete',
           icon: FontAwesomeIcons.trashCan,
-          text: 'Удалить чат',
+          text: (AppLocalizations.of(context)?.udalitChat_4b2b ?? 'Fallback'),
           isDanger: true,
         ));
       }
@@ -5148,41 +5671,44 @@ class _ChatScreenState extends State<ChatScreen> {
       items.add(buildItem(
         value: 'search',
         icon: FontAwesomeIcons.magnifyingGlass,
-        text: 'Поиск',
+        text: (AppLocalizations.of(context)?.poisk_bfc9 ?? 'Fallback'),
       ));
       items.add(buildItem(
         value: 'clear',
         icon: FontAwesomeIcons.trash,
-        text: 'Очистить историю',
+        text:
+            (AppLocalizations.of(context)?.ochistitIstoriyu_837a ?? 'Fallback'),
       ));
     } else if (widget.chat.isChannel) {
       if (_isOwner) {
         items.add(buildItem(
           value: 'clear',
           icon: FontAwesomeIcons.trash,
-          text: 'Очистить историю',
+          text: (AppLocalizations.of(context)?.ochistitIstoriyu_837a ??
+              'Fallback'),
         ));
         items.add(buildItem(
           value: 'search',
           icon: FontAwesomeIcons.magnifyingGlass,
-          text: 'Поиск',
+          text: (AppLocalizations.of(context)?.poisk_bfc9 ?? 'Fallback'),
         ));
         items.add(buildItem(
           value: 'delete',
           icon: FontAwesomeIcons.trashCan,
-          text: 'Удалить канал',
+          text: (AppLocalizations.of(context)?.udalitKanal_482f ?? 'Fallback'),
           isDanger: true,
         ));
       } else {
         items.add(buildItem(
           value: 'search',
           icon: FontAwesomeIcons.magnifyingGlass,
-          text: 'Поиск',
+          text: (AppLocalizations.of(context)?.poisk_bfc9 ?? 'Fallback'),
         ));
         items.add(buildItem(
           value: 'report',
           icon: FontAwesomeIcons.flag,
-          text: 'Пожаловаться',
+          text:
+              (AppLocalizations.of(context)?.pozhalovatsya_a7d9 ?? 'Fallback'),
         ));
       }
     } else if (widget.chat.isGroup) {
@@ -5190,50 +5716,56 @@ class _ChatScreenState extends State<ChatScreen> {
         items.add(buildItem(
           value: 'edit',
           icon: FontAwesomeIcons.pen,
-          text: 'Редактировать группу',
+          text: (AppLocalizations.of(context)?.redaktirovatGruppu_e40a ??
+              'Fallback'),
         ));
         items.add(buildItem(
           value: 'search',
           icon: FontAwesomeIcons.magnifyingGlass,
-          text: 'Поиск',
+          text: (AppLocalizations.of(context)?.poisk_bfc9 ?? 'Fallback'),
         ));
         items.add(buildItem(
           value: 'clear',
           icon: FontAwesomeIcons.trash,
-          text: 'Очистить историю',
+          text: (AppLocalizations.of(context)?.ochistitIstoriyu_837a ??
+              'Fallback'),
         ));
         items.add(buildItem(
           value: 'delete',
           icon: FontAwesomeIcons.trashCan,
-          text: 'Удалить группу',
+          text: (AppLocalizations.of(context)?.udalitGruppu_dff8 ?? 'Fallback'),
           isDanger: true,
         ));
         items.add(buildItem(
           value: 'leave',
           icon: FontAwesomeIcons.rightFromBracket,
-          text: 'Покинуть группу',
+          text:
+              (AppLocalizations.of(context)?.pokinutGruppu_e6ce ?? 'Fallback'),
           isDanger: true,
         ));
       } else {
         items.add(buildItem(
           value: 'search',
           icon: FontAwesomeIcons.magnifyingGlass,
-          text: 'Поиск',
+          text: (AppLocalizations.of(context)?.poisk_bfc9 ?? 'Fallback'),
         ));
         items.add(buildItem(
           value: 'clear',
           icon: FontAwesomeIcons.trash,
-          text: 'Очистить историю',
+          text: (AppLocalizations.of(context)?.ochistitIstoriyu_837a ??
+              'Fallback'),
         ));
         items.add(buildItem(
           value: 'report',
           icon: FontAwesomeIcons.flag,
-          text: 'Пожаловаться',
+          text:
+              (AppLocalizations.of(context)?.pozhalovatsya_a7d9 ?? 'Fallback'),
         ));
         items.add(buildItem(
           value: 'leave',
           icon: FontAwesomeIcons.rightFromBracket,
-          text: 'Покинуть группу',
+          text:
+              (AppLocalizations.of(context)?.pokinutGruppu_e6ce ?? 'Fallback'),
           isDanger: true,
         ));
       }
@@ -5246,8 +5778,10 @@ class _ChatScreenState extends State<ChatScreen> {
     switch (value) {
       case 'search':
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Поиск сообщений временно недоступен в мобильной версии'),
+          SnackBar(
+            content: Text((AppLocalizations.of(context)
+                    ?.poiskSoobscheniyVremennoNedostupenV_4443 ??
+                'Fallback')),
             backgroundColor: Color(0xFF1E1E22),
           ),
         );
@@ -5260,16 +5794,20 @@ class _ChatScreenState extends State<ChatScreen> {
         break;
       case 'report':
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Жалоба отправлена модераторам'),
+          SnackBar(
+            content: Text((AppLocalizations.of(context)
+                    ?.zhalobaOtpravlenaModeratoram_4547 ??
+                'Fallback')),
             backgroundColor: Colors.green,
           ),
         );
         break;
       case 'edit':
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Редактирование группы временно недоступно в мобильной версии'),
+          SnackBar(
+            content: Text((AppLocalizations.of(context)
+                    ?.redaktirovanieGruppyVremennoNedostupnoV_05d0 ??
+                'Fallback')),
             backgroundColor: Color(0xFF1E1E22),
           ),
         );
@@ -5281,37 +5819,21 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _confirmClearHistory() async {
-    final confirmed = await showDialog<bool>(
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await ChatActionConfirmationModal.confirm(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E22),
-        title: const Text('Очистить историю', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Вы уверены, что хотите очистить историю сообщений в этом чате? Это действие нельзя отменить.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Отмена', style: TextStyle(color: Colors.white38)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Очистить', style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
+      title: l10n.clearHistory,
+      message: l10n.vyUverenyChtoHotiteOchistit_7c3a,
+      confirmLabel: l10n.ochistit_7074,
     );
 
-    if (confirmed == true) {
+    if (confirmed) {
       await _clearHistory();
     }
   }
 
   Future<void> _clearHistory() async {
     try {
-      final apiClient = context.read<ApiClient>();
-      
       final String chatType;
       if (widget.chat.isFavorites) {
         chatType = 'favorites';
@@ -5323,35 +5845,42 @@ class _ChatScreenState extends State<ChatScreen> {
         chatType = 'personal';
       }
 
-      final response = await apiClient.post(
-        '/../clear-chat-history/',
-        data: {
-          'chat_id': widget.chat.id,
-          'chat_type': chatType,
-        },
+      var chatId = widget.chat.id;
+      if (chatId == 'favorites') {
+        final userId = context.read<AuthProvider>().user?.id;
+        if (userId != null) chatId = 'favorites_user_$userId';
+      }
+      final success = await _chatService.clearChatHistory(
+        chatId,
+        chatType,
       );
 
-      if (response.statusCode == 200) {
-        final localId = _localChatId;
-        if (localId != null) {
-          await _localChatRepo.deleteMessagesForChat(localId);
-        }
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('История чата "${widget.chat.name}" успешно очищена'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
+      if (!success) {
+        if (mounted) _showCurrentChatActionError();
+        return;
+      }
+
+      final localId = _localChatId;
+      if (localId != null) {
+        await _localChatRepo.deleteMessagesForChat(localId);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '${AppLocalizations.of(context)?.clearHistory ?? 'Clear history'}: "${localizedChatName(context, widget.chat)}"'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (e) {
       debugPrint('Error clearing chat history: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ошибка при очистке истории: $e'),
+            content: Text(
+                '${AppLocalizations.of(context)?.clearHistory ?? 'Clear history'}: $e'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -5363,70 +5892,59 @@ class _ChatScreenState extends State<ChatScreen> {
     final String titleText;
     final String contentText;
     if (widget.chat.isChannel) {
-      titleText = 'Удалить канал';
-      contentText = 'Вы уверены, что хотите удалить канал "${widget.chat.name}"? Все подписчики будут удалены, а история очищена.';
+      titleText =
+          (AppLocalizations.of(context)?.udalitKanal_482f ?? 'Fallback');
+      contentText =
+          '$titleText "${localizedChatName(context, widget.chat)}". ${AppLocalizations.of(context)?.irreversibleAction ?? 'Irreversible action'}.';
     } else if (widget.chat.isGroup) {
-      titleText = 'Удалить группу';
-      contentText = 'Вы уверены, что хотите удалить группу "${widget.chat.name}"? Все участники будут удалены, а история очищена.';
+      titleText =
+          (AppLocalizations.of(context)?.udalitGruppu_dff8 ?? 'Fallback');
+      contentText =
+          '$titleText "${localizedChatName(context, widget.chat)}". ${AppLocalizations.of(context)?.irreversibleAction ?? 'Irreversible action'}.';
     } else {
-      titleText = 'Удалить чат';
-      contentText = 'Вы уверены, что хотите удалить чат "${widget.chat.name}"? Все сообщения будут безвозвратно удалены.';
+      titleText = (AppLocalizations.of(context)?.udalitChat_4b2b ?? 'Fallback');
+      contentText =
+          '$titleText "${localizedChatName(context, widget.chat)}". ${AppLocalizations.of(context)?.irreversibleAction ?? 'Irreversible action'}.';
     }
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await ChatActionConfirmationModal.confirm(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E22),
-        title: Text(titleText, style: const TextStyle(color: Colors.white)),
-        content: Text(contentText, style: const TextStyle(color: Colors.white70)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Отмена', style: TextStyle(color: Colors.white38)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Удалить', style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
+      title: titleText,
+      message: contentText,
+      confirmLabel: (AppLocalizations.of(context)?.udalit_ed2b ?? 'Delete'),
     );
 
-    if (confirmed == true) {
+    if (confirmed) {
       await _deleteChatAction();
     }
   }
 
   Future<void> _deleteChatAction() async {
     try {
-      final apiClient = context.read<ApiClient>();
-      
-      final response = await apiClient.post(
-        '/../delete-chat/',
-        data: {
-          'chat_id': widget.chat.id,
-        },
-      );
+      final success = await _chatService.deleteChat(widget.chat.id);
+      if (!success) {
+        if (mounted) _showCurrentChatActionError();
+        return;
+      }
+      await _localChatRepo.deleteChatByServerId(widget.chat.id);
 
-      if (response.statusCode == 200) {
-        await _localChatRepo.deleteChatByServerId(widget.chat.id);
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Чат "${widget.chat.name}" успешно удален'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Navigator.of(context).pop();
-        }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '${AppLocalizations.of(context)?.deleteChat ?? 'Delete chat'}: "${localizedChatName(context, widget.chat)}"'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop();
       }
     } catch (e) {
       debugPrint('Error deleting chat: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ошибка при удалении чата: $e'),
+            content: Text(
+                '${AppLocalizations.of(context)?.deleteChat ?? 'Delete chat'}: $e'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -5438,20 +5956,26 @@ class _ChatScreenState extends State<ChatScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E22),
-        title: const Text('Покинуть группу', style: TextStyle(color: Colors.white)),
+        backgroundColor: Color(0xFF1E1E22),
+        title: Text(
+            (AppLocalizations.of(context)?.pokinutGruppu_e6ce ?? 'Fallback'),
+            style: TextStyle(color: Colors.white)),
         content: Text(
-          'Вы уверены, что хотите покинуть группу "${widget.chat.name}"?',
+          '${AppLocalizations.of(context)?.leaveGroup ?? 'Leave group'}: "${localizedChatName(context, widget.chat)}"?',
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Отмена', style: TextStyle(color: Colors.white38)),
+            child: Text(
+                (AppLocalizations.of(context)?.otmena_987b ?? 'Fallback'),
+                style: TextStyle(color: Colors.white38)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Выйти', style: TextStyle(color: Colors.redAccent)),
+            child: Text(
+                (AppLocalizations.of(context)?.vyyti_0f05 ?? 'Fallback'),
+                style: TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
@@ -5466,16 +5990,17 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final apiClient = context.read<ApiClient>();
       final groupId = widget.chat.id.replaceFirst('group_', '');
-      
+
       final response = await apiClient.post('/groups/$groupId/leave/');
 
       if (response.statusCode == 200) {
         await _localChatRepo.deleteChatByServerId(widget.chat.id);
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Вы покинули группу "${widget.chat.name}"'),
+              content: Text(
+                  '${AppLocalizations.of(context)?.leaveGroup ?? 'Leave group'}: "${localizedChatName(context, widget.chat)}"'),
               backgroundColor: Colors.green,
             ),
           );
@@ -5487,7 +6012,8 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ошибка при выходе из группы: $e'),
+            content: Text(
+                '${AppLocalizations.of(context)?.leaveGroup ?? 'Leave group'}: $e'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -5519,7 +6045,7 @@ class FormattedTextEditingController extends TextEditingController {
 
     for (final Match match in matches) {
       final String fullMatch = match.group(0) ?? '';
-      
+
       // Match bold: **text**
       if (match.group(2) != null) {
         final content = match.group(2)!;
@@ -5647,13 +6173,15 @@ class FormattedText extends StatelessWidget {
     // Pre-compute style variants once (not per-match)
     final boldStyle = rootStyle.copyWith(fontWeight: FontWeight.bold);
     final italicStyle = rootStyle.copyWith(fontStyle: FontStyle.italic);
-    final underlineStyle = rootStyle.copyWith(decoration: TextDecoration.underline);
+    final underlineStyle =
+        rootStyle.copyWith(decoration: TextDecoration.underline);
     final codeStyle = rootStyle.copyWith(
       fontFamily: 'monospace',
       backgroundColor: _codeBg,
       color: _codeColor,
     );
-    final strikeStyle = rootStyle.copyWith(decoration: TextDecoration.lineThrough);
+    final strikeStyle =
+        rootStyle.copyWith(decoration: TextDecoration.lineThrough);
 
     final List<TextSpan> spans = [];
     final matches = _regExp.allMatches(content);
@@ -5700,7 +6228,6 @@ class FormattedText extends StatelessWidget {
   }
 }
 
-
 class NewMessageAnimator extends StatefulWidget {
   final Widget child;
   final bool animate;
@@ -5717,7 +6244,8 @@ class NewMessageAnimator extends StatefulWidget {
   State<NewMessageAnimator> createState() => _NewMessageAnimatorState();
 }
 
-class _NewMessageAnimatorState extends State<NewMessageAnimator> with SingleTickerProviderStateMixin {
+class _NewMessageAnimatorState extends State<NewMessageAnimator>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _fadeAnimation;
   late final Animation<double> _sizeAnimation;
@@ -5784,7 +6312,6 @@ class _NewMessageAnimatorState extends State<NewMessageAnimator> with SingleTick
   }
 }
 
-
 class MessageBubble extends StatelessWidget {
   final Message message;
   final bool isMe;
@@ -5812,22 +6339,35 @@ class MessageBubble extends StatelessWidget {
   });
 
   Widget _buildReplyQuote(BuildContext context) {
-    final replyAuthor = message.replyAuthorName ?? 'Сообщение';
+    final replyAuthor = message.replyAuthorName ??
+        (AppLocalizations.of(context)?.soobschenie_3715 ?? 'Fallback');
     String replyText = message.replyText ?? '';
 
     if (replyText.trim().startsWith('{')) {
       try {
         final parsed = jsonDecode(replyText);
         if (parsed is Map) {
-          if (parsed['type'] == 'voice') replyText = '🎤 Голосовое сообщение';
-          else if (parsed['type'] == 'video_message') replyText = '📹 Видеосообщение';
-          else if (parsed['type'] == 'file') replyText = '📁 Файл: ${parsed['file_name'] ?? ''}';
-          else if (parsed['type'] == 'todo_list') replyText = '📋 Список задач';
-          else if (parsed['type'] == 'poll') replyText = '📊 Опрос';
+          if (parsed['type'] == 'voice')
+            replyText =
+                (AppLocalizations.of(context)?.golosovoeSoobschenie_4a85 ??
+                    'Fallback');
+          else if (parsed['type'] == 'video_message')
+            replyText = (AppLocalizations.of(context)?.videosoobschenie_57f1 ??
+                'Fallback');
+          else if (parsed['type'] == 'file')
+            replyText =
+                '📁 ${AppLocalizations.of(context)?.file ?? 'File'}: ${parsed['file_name'] ?? ''}';
+          else if (parsed['type'] == 'todo_list')
+            replyText =
+                (AppLocalizations.of(context)?.spisokZadach_cfa4 ?? 'Fallback');
+          else if (parsed['type'] == 'poll')
+            replyText =
+                (AppLocalizations.of(context)?.opros_5902 ?? 'Fallback');
         }
       } catch (_) {}
     }
-    if (replyText.isEmpty) replyText = 'Вложение';
+    if (replyText.isEmpty)
+      replyText = (AppLocalizations.of(context)?.vlozhenie_ef44 ?? 'Fallback');
 
     return GestureDetector(
       onTap: () {
@@ -5839,7 +6379,9 @@ class MessageBubble extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 6),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: isMe ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.2),
+          color: isMe
+              ? Colors.white.withValues(alpha: 0.15)
+              : Colors.black.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(8),
           border: Border(
             left: BorderSide(
@@ -5878,7 +6420,8 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildCollageWidget(BuildContext context, List<dynamic> filesList, String hostUrl, String? tokenToUse) {
+  Widget _buildCollageWidget(BuildContext context, List<dynamic> filesList,
+      String hostUrl, String? tokenToUse) {
     final List<Map<String, dynamic>> files = [];
     for (final item in filesList) {
       if (item is Map) {
@@ -5890,9 +6433,13 @@ class MessageBubble extends StatelessWidget {
 
     // 1. Separate media and documents
     bool isMediaFile(Map<String, dynamic> fileData) {
-      final fileName = (fileData['file_name'] ?? fileData['name'] ?? '').toString().toLowerCase();
-      final mime = (fileData['mime_type'] ?? fileData['type'] ?? '').toString().toLowerCase();
-      
+      final fileName = (fileData['file_name'] ?? fileData['name'] ?? '')
+          .toString()
+          .toLowerCase();
+      final mime = (fileData['mime_type'] ?? fileData['type'] ?? '')
+          .toString()
+          .toLowerCase();
+
       final isImage = mime.startsWith('image/') ||
           fileName.endsWith('.jpg') ||
           fileName.endsWith('.jpeg') ||
@@ -5910,7 +6457,7 @@ class MessageBubble extends StatelessWidget {
           fileName.endsWith('.flv') ||
           fileName.endsWith('.webm') ||
           fileName.endsWith('.mkv') ||
-          fileName.endsWith('.3gp') ||
+          fileName.endsWith('.loc_3gp') ||
           fileName.endsWith('.ogv') ||
           fileName.endsWith('.m4v');
 
@@ -5931,7 +6478,8 @@ class MessageBubble extends StatelessWidget {
     Widget buildDocumentCard(Map<String, dynamic> fileData) {
       final fileId = fileData['file_id']?.toString() ?? '';
       final fileName = fileData['file_name'] ?? fileData['name'] ?? 'file';
-      final fileSize = fileData['file_size'] as int? ?? fileData['size'] as int? ?? 0;
+      final fileSize =
+          fileData['file_size'] as int? ?? fileData['size'] as int? ?? 0;
       String fileUrlSuffix = fileData['file_url']?.toString() ?? '';
       if (fileUrlSuffix.isEmpty) {
         fileUrlSuffix = '/api/files/download/$fileId/';
@@ -5939,10 +6487,12 @@ class MessageBubble extends StatelessWidget {
 
       String absoluteUrl = '';
       if (fileUrlSuffix.startsWith('http')) {
-        absoluteUrl = '$fileUrlSuffix${tokenToUse != null ? (fileUrlSuffix.contains('?') ? "&token=$tokenToUse" : "?token=$tokenToUse") : ""}';
+        absoluteUrl =
+            '$fileUrlSuffix${tokenToUse != null ? (fileUrlSuffix.contains('?') ? "&token=$tokenToUse" : "?token=$tokenToUse") : ""}';
       } else {
         final prefix = fileUrlSuffix.startsWith('/') ? '' : '/';
-        absoluteUrl = '$hostUrl$prefix$fileUrlSuffix${tokenToUse != null ? "?token=$tokenToUse" : ""}';
+        absoluteUrl =
+            '$hostUrl$prefix$fileUrlSuffix${tokenToUse != null ? "?token=$tokenToUse" : ""}';
       }
 
       return GestureDetector(
@@ -5963,7 +6513,8 @@ class MessageBubble extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const FaIcon(FontAwesomeIcons.fileLines, color: Colors.white70, size: 20),
+                child: const FaIcon(FontAwesomeIcons.fileLines,
+                    color: Colors.white70, size: 20),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -5972,19 +6523,24 @@ class MessageBubble extends StatelessWidget {
                   children: [
                     Text(
                       fileName,
-                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       _formatFileSize(fileSize),
-                      style: const TextStyle(color: Colors.white54, fontSize: 10),
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 10),
                     ),
                   ],
                 ),
               ),
-              const FaIcon(FontAwesomeIcons.download, color: Colors.white54, size: 14),
+              const FaIcon(FontAwesomeIcons.download,
+                  color: Colors.white54, size: 14),
             ],
           ),
         ),
@@ -5996,10 +6552,13 @@ class MessageBubble extends StatelessWidget {
       final displayedFiles = mediaFiles.take(4).toList();
       final remainingCount = mediaFiles.length - displayedFiles.length;
 
-      Widget buildMediaItem(Map<String, dynamic> fileData, {bool isLastWithOverlay = false}) {
+      Widget buildMediaItem(Map<String, dynamic> fileData,
+          {bool isLastWithOverlay = false}) {
         final fileId = fileData['file_id']?.toString() ?? '';
         final fileName = fileData['file_name'] ?? fileData['name'] ?? '';
-        final mime = (fileData['mime_type'] ?? fileData['type'] ?? '').toString().toLowerCase();
+        final mime = (fileData['mime_type'] ?? fileData['type'] ?? '')
+            .toString()
+            .toLowerCase();
         String fileUrlSuffix = fileData['file_url']?.toString() ?? '';
         if (fileUrlSuffix.isEmpty) {
           fileUrlSuffix = '/api/files/download/$fileId/';
@@ -6007,10 +6566,12 @@ class MessageBubble extends StatelessWidget {
 
         String absoluteUrl = '';
         if (fileUrlSuffix.startsWith('http')) {
-          absoluteUrl = '$fileUrlSuffix${tokenToUse != null ? (fileUrlSuffix.contains('?') ? "&token=$tokenToUse" : "?token=$tokenToUse") : ""}';
+          absoluteUrl =
+              '$fileUrlSuffix${tokenToUse != null ? (fileUrlSuffix.contains('?') ? "&token=$tokenToUse" : "?token=$tokenToUse") : ""}';
         } else {
           final prefix = fileUrlSuffix.startsWith('/') ? '' : '/';
-          absoluteUrl = '$hostUrl$prefix$fileUrlSuffix${tokenToUse != null ? "?token=$tokenToUse" : ""}';
+          absoluteUrl =
+              '$hostUrl$prefix$fileUrlSuffix${tokenToUse != null ? "?token=$tokenToUse" : ""}';
         }
 
         final isVideo = mime.startsWith('video/') ||
@@ -6036,7 +6597,8 @@ class MessageBubble extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 padding: const EdgeInsets.all(8),
-                child: const FaIcon(FontAwesomeIcons.play, color: Colors.white, size: 16),
+                child: const FaIcon(FontAwesomeIcons.play,
+                    color: Colors.white, size: 16),
               ),
             ],
           );
@@ -6044,14 +6606,17 @@ class MessageBubble extends StatelessWidget {
           mediaWidget = Image.network(
             absoluteUrl,
             key: ValueKey('${absoluteUrl}_${tokenToUse ?? ""}'),
-            headers: tokenToUse != null ? {'Authorization': 'Bearer $tokenToUse'} : null,
+            headers: tokenToUse != null
+                ? {'Authorization': 'Bearer $tokenToUse'}
+                : null,
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
             errorBuilder: (context, error, stackTrace) => Container(
               color: Colors.black12,
               child: const Center(
-                child: Icon(Icons.broken_image, color: Colors.white54, size: 24),
+                child:
+                    Icon(Icons.broken_image, color: Colors.white54, size: 24),
               ),
             ),
             loadingBuilder: (context, child, loadingProgress) {
@@ -6073,9 +6638,11 @@ class MessageBubble extends StatelessWidget {
         return GestureDetector(
           onTap: () {
             if (isVideo) {
-              _showFullScreenVideo(context, absoluteUrl, senderRealName, message.timestamp);
+              _showFullScreenVideo(
+                  context, absoluteUrl, senderRealName, message.timestamp);
             } else {
-              _showFullScreenImage(context, absoluteUrl, senderRealName, message.timestamp);
+              _showFullScreenImage(
+                  context, absoluteUrl, senderRealName, message.timestamp);
             }
           },
           child: Stack(
@@ -6208,16 +6775,16 @@ class MessageBubble extends StatelessWidget {
   }
 
   // ── Pre-cached constants ─────────────────────────────────────────
-  static const _myBubbleColor    = Color(0x1FFFFFFF);  // ~0.12 white
-  static const _otherBubbleColor = Color(0x0AFFFFFF);  // ~0.04 white
-  static const _borderColor      = Color(0x0DFFFFFF);  // ~0.05 white
-  static const _systemBg         = Color(0x08FFFFFF);  // ~0.03 white
-  static const _systemBorder     = Color(0x0DFFFFFF);  // ~0.05 white
-  static const _systemIconColor  = Color(0xB34ADE80);  // ~0.7 green
-  static const _systemTextColor  = Color(0x99FFFFFF);  // ~0.6 white
-  static const _timeColor        = Color(0x59FFFFFF);  // ~0.35 white
-  static const _checkColor       = Color(0x4DFFFFFF);  // ~0.3 white
-  static const _checkReadColor   = Color(0xFF4ADE80);
+  static const _myBubbleColor = Color(0x1FFFFFFF); // ~0.12 white
+  static const _otherBubbleColor = Color(0x0AFFFFFF); // ~0.04 white
+  static const _borderColor = Color(0x0DFFFFFF); // ~0.05 white
+  static const _systemBg = Color(0x08FFFFFF); // ~0.03 white
+  static const _systemBorder = Color(0x0DFFFFFF); // ~0.05 white
+  static const _systemIconColor = Color(0xB34ADE80); // ~0.7 green
+  static const _systemTextColor = Color(0x99FFFFFF); // ~0.6 white
+  static const _timeColor = Color(0x59FFFFFF); // ~0.35 white
+  static const _checkColor = Color(0x4DFFFFFF); // ~0.3 white
+  static const _checkReadColor = Color(0xFF4ADE80);
 
   static const _myCorners = BorderRadius.only(
     topLeft: Radius.circular(18),
@@ -6275,11 +6842,9 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-
-
   String _formatFileSize(int bytes) {
-    if (bytes <= 0) return '0 Б';
-    const suffixes = ['Б', 'КБ', 'МБ', 'ГБ'];
+    if (bytes <= 0) return 'Fallback';
+    var suffixes = ['Fallback', 'Fallback', 'Fallback', 'Fallback'];
     var i = 0;
     double size = bytes.toDouble();
     while (size >= 1024 && i < suffixes.length - 1) {
@@ -6314,7 +6879,9 @@ class MessageBubble extends StatelessWidget {
           borderRadius: borderRadius,
           onTap: onTap,
           child: Padding(
-            padding: isCircle ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: isCircle
+                ? EdgeInsets.zero
+                : const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: isCircle ? Center(child: child) : child,
           ),
         ),
@@ -6322,10 +6889,25 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  void _showFullScreenImage(BuildContext context, String imageUrl, String senderName, DateTime timestamp) {
+  void _showFullScreenImage(BuildContext context, String imageUrl,
+      String senderName, DateTime timestamp) {
     final timeStr = _formatTime(timestamp);
-    final months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-    final dateStr = '${timestamp.day} ${months[timestamp.month - 1]} в $timeStr';
+    final months = [
+      (AppLocalizations.of(context)?.yanvarya_d861 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.fevralya_fcf9 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.marta_bb77 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.aprelya_2b5a ?? 'Fallback'),
+      (AppLocalizations.of(context)?.maya_4dbb ?? 'Fallback'),
+      (AppLocalizations.of(context)?.iyunya_adcb ?? 'Fallback'),
+      (AppLocalizations.of(context)?.iyulya_3236 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.avgusta_e3aa ?? 'Fallback'),
+      (AppLocalizations.of(context)?.sentyabrya_a146 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.oktyabrya_7abd ?? 'Fallback'),
+      (AppLocalizations.of(context)?.noyabrya_6e78 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.dekabrya_29cc ?? 'Fallback')
+    ];
+    final dateStr =
+        '${timestamp.day} ${months[timestamp.month - 1]} • $timeStr';
 
     Navigator.of(context).push(
       PageRouteBuilder(
@@ -6346,7 +6928,9 @@ class MessageBubble extends StatelessWidget {
                     tag: imageUrl,
                     child: Image.network(
                       imageUrl,
-                      headers: jwtToken != null ? {'Authorization': 'Bearer $jwtToken'} : null,
+                      headers: jwtToken != null
+                          ? {'Authorization': 'Bearer $jwtToken'}
+                          : null,
                       fit: BoxFit.contain,
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
@@ -6357,13 +6941,18 @@ class MessageBubble extends StatelessWidget {
                       errorBuilder: (context, error, stackTrace) {
                         debugPrint('FULLSCREEN IMAGE LOAD ERROR: $error');
                         debugPrint('FULLSCREEN IMAGE URL: $imageUrl');
-                        return const Center(
+                        return Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.broken_image, color: Colors.white54, size: 64),
+                              Icon(Icons.broken_image,
+                                  color: Colors.white54, size: 64),
                               SizedBox(height: 16),
-                              Text('Не удалось загрузить изображение', style: TextStyle(color: Colors.white54)),
+                              Text(
+                                  (AppLocalizations.of(context)
+                                          ?.neUdalosZagruzitIzobrazhenie_3fa0 ??
+                                      'Fallback'),
+                                  style: TextStyle(color: Colors.white54)),
                             ],
                           ),
                         );
@@ -6385,7 +6974,8 @@ class MessageBubble extends StatelessWidget {
                       child: _buildDroplet(
                         isCircle: true,
                         onTap: () => Navigator.pop(context),
-                        child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+                        child: const Icon(Icons.arrow_back,
+                            color: Colors.white, size: 22),
                       ),
                     ),
 
@@ -6396,7 +6986,8 @@ class MessageBubble extends StatelessWidget {
                       child: _buildDroplet(
                         isCircle: true,
                         onTap: () {}, // Mock
-                        child: const Icon(Icons.more_vert, color: Colors.white, size: 22),
+                        child: const Icon(Icons.more_vert,
+                            color: Colors.white, size: 22),
                       ),
                     ),
 
@@ -6413,12 +7004,16 @@ class MessageBubble extends StatelessWidget {
                             children: [
                               Text(
                                 senderName,
-                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 dateStr,
-                                style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 11),
                               ),
                             ],
                           ),
@@ -6435,12 +7030,16 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  Future<void> _downloadFileSilent(BuildContext context, String url, String fileName) async {
+  Future<void> _downloadFileSilent(
+      BuildContext context, String url, String fileName) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Скачивание $fileName...'), duration: const Duration(seconds: 1)),
+        SnackBar(
+            content: Text(
+                '${AppLocalizations.of(context)?.zagruzkaFayla_f817 ?? 'Downloading file'} $fileName'),
+            duration: const Duration(seconds: 1)),
       );
-      
+
       Directory? dir;
       if (Platform.isAndroid) {
         dir = Directory('/storage/emulated/0/Download/Xaneo');
@@ -6465,25 +7064,44 @@ class MessageBubble extends StatelessWidget {
         dio.options.headers['Authorization'] = 'Bearer $jwtToken';
       }
       await dio.download(url, savePath);
-      
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Файл сохранен: $savePath')),
+          SnackBar(
+              content: Text(
+                  '${AppLocalizations.of(context)?.faylZagruzhenIPrikreplen_dc24 ?? 'File saved'}: $savePath')),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка скачивания: $e')),
+          SnackBar(
+              content: Text(
+                  '${AppLocalizations.of(context)?.oshibkaSkachivaniyaFayla_34ac ?? 'Download error'}: $e')),
         );
       }
     }
   }
 
-  void _showFullScreenVideo(BuildContext context, String videoUrl, String senderName, DateTime timestamp) {
+  void _showFullScreenVideo(BuildContext context, String videoUrl,
+      String senderName, DateTime timestamp) {
     final timeStr = _formatTime(timestamp);
-    final months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-    final dateStr = '${timestamp.day} ${months[timestamp.month - 1]} в $timeStr';
+    final months = [
+      (AppLocalizations.of(context)?.yanvarya_d861 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.fevralya_fcf9 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.marta_bb77 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.aprelya_2b5a ?? 'Fallback'),
+      (AppLocalizations.of(context)?.maya_4dbb ?? 'Fallback'),
+      (AppLocalizations.of(context)?.iyunya_adcb ?? 'Fallback'),
+      (AppLocalizations.of(context)?.iyulya_3236 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.avgusta_e3aa ?? 'Fallback'),
+      (AppLocalizations.of(context)?.sentyabrya_a146 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.oktyabrya_7abd ?? 'Fallback'),
+      (AppLocalizations.of(context)?.noyabrya_6e78 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.dekabrya_29cc ?? 'Fallback')
+    ];
+    final dateStr =
+        '${timestamp.day} ${months[timestamp.month - 1]} • $timeStr';
 
     Navigator.of(context).push(
       PageRouteBuilder(
@@ -6497,7 +7115,8 @@ class MessageBubble extends StatelessWidget {
             children: [
               // Video Player Viewer
               Center(
-                child: FullScreenVideoPlayer(videoUrl: videoUrl, jwtToken: jwtToken),
+                child: FullScreenVideoPlayer(
+                    videoUrl: videoUrl, jwtToken: jwtToken),
               ),
 
               // Animated UI elements
@@ -6512,7 +7131,8 @@ class MessageBubble extends StatelessWidget {
                       child: _buildDroplet(
                         isCircle: true,
                         onTap: () => Navigator.pop(context),
-                        child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+                        child: const Icon(Icons.arrow_back,
+                            color: Colors.white, size: 22),
                       ),
                     ),
 
@@ -6523,7 +7143,8 @@ class MessageBubble extends StatelessWidget {
                       child: _buildDroplet(
                         isCircle: true,
                         onTap: () {}, // Mock
-                        child: const Icon(Icons.more_vert, color: Colors.white, size: 22),
+                        child: const Icon(Icons.more_vert,
+                            color: Colors.white, size: 22),
                       ),
                     ),
 
@@ -6540,12 +7161,16 @@ class MessageBubble extends StatelessWidget {
                             children: [
                               Text(
                                 senderName,
-                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 dateStr,
-                                style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 11),
                               ),
                             ],
                           ),
@@ -6569,7 +7194,8 @@ class MessageBubble extends StatelessWidget {
       if (!url.contains('token=')) {
         try {
           final apiClient = context.read<ApiClient>();
-          final response = await apiClient.post('/files/share/$fileId/', data: {'expires_in_days': 0});
+          final response = await apiClient
+              .post('/files/share/$fileId/', data: {'expires_in_days': 0});
           if (response.statusCode == 200 || response.statusCode == 201) {
             final token = response.data['token']?.toString();
             if (token != null) {
@@ -6587,14 +7213,17 @@ class MessageBubble extends StatelessWidget {
       }
 
       final uri = Uri.parse(finalUrl);
-      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final launched =
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!launched) {
-        throw 'Не удалось открыть ссылку: $finalUrl';
+        throw '${AppLocalizations.of(context)?.oshibkaSkachivaniyaFayla_34ac ?? 'Unable to open file'}: $finalUrl';
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка при открытии файла: $e')),
+          SnackBar(
+              content: Text(
+                  '${AppLocalizations.of(context)?.oshibkaSkachivaniyaFayla_34ac ?? 'Unable to open file'}: $e')),
         );
       }
     }
@@ -6613,7 +7242,8 @@ class MessageBubble extends StatelessWidget {
       'user_subscribed_channel',
       'user_unsubscribed_channel'
     };
-    if (message.senderId == 'system' || systemTypes.contains(message.messageType)) {
+    if (message.senderId == 'system' ||
+        systemTypes.contains(message.messageType)) {
       return Center(
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
@@ -6626,7 +7256,8 @@ class MessageBubble extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const FaIcon(FontAwesomeIcons.shield, color: _systemIconColor, size: 11),
+              const FaIcon(FontAwesomeIcons.shield,
+                  color: _systemIconColor, size: 11),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -6662,9 +7293,9 @@ class MessageBubble extends StatelessWidget {
                 final textParsed = jsonDecode(message.textContent);
                 if (textParsed is Map &&
                     (textParsed['type'] == 'file' ||
-                     textParsed['type'] == 'voice' ||
-                     textParsed['type'] == 'video_message' ||
-                     textParsed['type'] == 'collage')) {
+                        textParsed['type'] == 'voice' ||
+                        textParsed['type'] == 'video_message' ||
+                        textParsed['type'] == 'collage')) {
                   displayContent = '';
                 }
               } catch (_) {}
@@ -6678,8 +7309,7 @@ class MessageBubble extends StatelessWidget {
             final parsed = jsonDecode(message.textContent);
             if (parsed is Map) {
               final type = parsed['type']?.toString();
-              if (type == 'todo_list' ||
-                  type == 'poll') {
+              if (type == 'todo_list' || type == 'poll') {
                 fileData = Map<String, dynamic>.from(parsed);
                 displayContent = '';
               }
@@ -6695,13 +7325,16 @@ class MessageBubble extends StatelessWidget {
     if (fileData != null) {
       if (fileData['type'] == 'collage') {
         final uri = Uri.parse(AppConfig.apiBaseUrl);
-        final hostUrl = '${uri.scheme}://${uri.host}${uri.hasPort ? ":${uri.port}" : ""}';
+        final hostUrl =
+            '${uri.scheme}://${uri.host}${uri.hasPort ? ":${uri.port}" : ""}';
         final tokenToUse = fileData['access_token']?.toString() ?? jwtToken;
         final filesList = fileData['files'] as List<dynamic>? ?? [];
 
         isOnlyFile = displayContent.isEmpty;
-        isOnlyMedia = false; // Коллаж всегда рендерится внутри bubble-контейнера с общим временем
-        attachmentWidget = _buildCollageWidget(context, filesList, hostUrl, tokenToUse);
+        isOnlyMedia =
+            false; // Коллаж всегда рендерится внутри bubble-контейнера с общим временем
+        attachmentWidget =
+            _buildCollageWidget(context, filesList, hostUrl, tokenToUse);
       } else if (message.messageType == 'call') {
         attachmentWidget = _buildCallWidget(context, fileData, isMe);
       } else {
@@ -6709,197 +7342,125 @@ class MessageBubble extends StatelessWidget {
         final fileName = fileData['file_name']?.toString() ?? 'file';
         final fileSize = fileData['file_size'] as int? ?? 0;
         String mime = (fileData['mime_type'] ?? '').toString().toLowerCase();
-      final accessToken = fileData['access_token']?.toString();
+        final accessToken = fileData['access_token']?.toString();
 
-      final lowerName = fileName.toLowerCase();
-      if (mime.isEmpty) {
-        if (lowerName.endsWith('.wav')) mime = 'audio/wav';
-        else if (lowerName.endsWith('.mp3')) mime = 'audio/mp3';
-        else if (lowerName.endsWith('.ogg')) mime = 'audio/ogg';
-        else if (lowerName.endsWith('.webm')) mime = 'audio/webm';
-        else if (lowerName.endsWith('.m4a')) mime = 'audio/m4a';
-      }
+        final lowerName = fileName.toLowerCase();
+        if (mime.isEmpty) {
+          if (lowerName.endsWith('.wav'))
+            mime = 'audio/wav';
+          else if (lowerName.endsWith('.mp3'))
+            mime = 'audio/mp3';
+          else if (lowerName.endsWith('.ogg'))
+            mime = 'audio/ogg';
+          else if (lowerName.endsWith('.webm'))
+            mime = 'audio/webm';
+          else if (lowerName.endsWith('.m4a')) mime = 'audio/m4a';
+        }
 
-      final isImage = mime.startsWith('image/') ||
-          lowerName.endsWith('.jpg') ||
-          lowerName.endsWith('.jpeg') ||
-          lowerName.endsWith('.png') ||
-          lowerName.endsWith('.gif') ||
-          lowerName.endsWith('.webp') ||
-          lowerName.endsWith('.bmp') ||
-          lowerName.endsWith('.svg');
+        final isImage = mime.startsWith('image/') ||
+            lowerName.endsWith('.jpg') ||
+            lowerName.endsWith('.jpeg') ||
+            lowerName.endsWith('.png') ||
+            lowerName.endsWith('.gif') ||
+            lowerName.endsWith('.webp') ||
+            lowerName.endsWith('.bmp') ||
+            lowerName.endsWith('.svg');
 
-      final isVideo = mime.startsWith('video/') ||
-          lowerName.endsWith('.mp4') ||
-          lowerName.endsWith('.avi') ||
-          lowerName.endsWith('.mov') ||
-          lowerName.endsWith('.wmv') ||
-          lowerName.endsWith('.flv') ||
-          lowerName.endsWith('.webm') ||
-          lowerName.endsWith('.mkv') ||
-          lowerName.endsWith('.3gp') ||
-          lowerName.endsWith('.ogv') ||
-          lowerName.endsWith('.m4v');
+        final isVideo = mime.startsWith('video/') ||
+            lowerName.endsWith('.mp4') ||
+            lowerName.endsWith('.avi') ||
+            lowerName.endsWith('.mov') ||
+            lowerName.endsWith('.wmv') ||
+            lowerName.endsWith('.flv') ||
+            lowerName.endsWith('.webm') ||
+            lowerName.endsWith('.mkv') ||
+            lowerName.endsWith('.loc_3gp') ||
+            lowerName.endsWith('.ogv') ||
+            lowerName.endsWith('.m4v');
 
-      // Формируем абсолютную ссылку для скачивания с JWT или access токеном
-      final uri = Uri.parse(AppConfig.apiBaseUrl);
-      final hostUrl = '${uri.scheme}://${uri.host}${uri.hasPort ? ":${uri.port}" : ""}';
-      String fileUrlSuffix = fileData['file_url']?.toString() ?? '';
-      if (fileUrlSuffix.isEmpty) {
-        fileUrlSuffix = '/api/files/download/$fileId/';
-      }
-      String absoluteUrl = '';
-      final tokenToUse = accessToken ?? jwtToken;
-      if (fileUrlSuffix.startsWith('http')) {
-        absoluteUrl = '$fileUrlSuffix${tokenToUse != null ? (fileUrlSuffix.contains('?') ? "&token=$tokenToUse" : "?token=$tokenToUse") : ""}';
-      } else {
-        final prefix = fileUrlSuffix.startsWith('/') ? '' : '/';
-        absoluteUrl = '$hostUrl$prefix$fileUrlSuffix${tokenToUse != null ? "?token=$tokenToUse" : ""}';
-      }
+        // Формируем абсолютную ссылку для скачивания с JWT или access токеном
+        final uri = Uri.parse(AppConfig.apiBaseUrl);
+        final hostUrl =
+            '${uri.scheme}://${uri.host}${uri.hasPort ? ":${uri.port}" : ""}';
+        String fileUrlSuffix = fileData['file_url']?.toString() ?? '';
+        if (fileUrlSuffix.isEmpty) {
+          fileUrlSuffix = '/api/files/download/$fileId/';
+        }
+        String absoluteUrl = '';
+        final tokenToUse = accessToken ?? jwtToken;
+        if (fileUrlSuffix.startsWith('http')) {
+          absoluteUrl =
+              '$fileUrlSuffix${tokenToUse != null ? (fileUrlSuffix.contains('?') ? "&token=$tokenToUse" : "?token=$tokenToUse") : ""}';
+        } else {
+          final prefix = fileUrlSuffix.startsWith('/') ? '' : '/';
+          absoluteUrl =
+              '$hostUrl$prefix$fileUrlSuffix${tokenToUse != null ? "?token=$tokenToUse" : ""}';
+        }
 
-      final isVoice = fileData['type'] == 'voice' ||
-          mime.startsWith('audio/') ||
-          lowerName.endsWith('.ogg') ||
-          lowerName.endsWith('.webm') ||
-          lowerName.endsWith('.opus') ||
-          lowerName.endsWith('.wav') ||
-          lowerName.endsWith('.mp3');
+        final isVoice = fileData['type'] == 'voice' ||
+            (mime.startsWith('audio/') &&
+                (fileData['type'] == 'voice' ||
+                    lowerName.contains('voice') ||
+                    lowerName.endsWith('.ogg') ||
+                    lowerName.endsWith('.opus')));
 
-      final isVideoMessage = fileData['type'] == 'video_message';
+        final isAudioMusic = !isVoice &&
+            (fileData['type'] == 'audio' ||
+                mime.startsWith('audio/') ||
+                lowerName.endsWith('.mp3') ||
+                lowerName.endsWith('.wav') ||
+                lowerName.endsWith('.m4a') ||
+                lowerName.endsWith('.flac') ||
+                lowerName.endsWith('.aac') ||
+                lowerName.endsWith('.wma'));
 
-      isOnlyFile = displayContent.isEmpty;
-      isOnlyMedia = isOnlyFile && (isImage || isVideo || isVideoMessage);
+        final isVideoMessage = fileData['type'] == 'video_message';
 
-      if (fileData['type'] == 'todo_list') {
-        attachmentWidget = TodoListWidget(
-          message: message,
-          chatWebSocketService: context.watch<ChatWebSocketService>(),
-          localChatRepo: context.watch<LocalChatRepository>(),
-          onStateChanged: () {},
-        );
-      } else if (fileData['type'] == 'poll') {
-        attachmentWidget = PollWidget(
-          message: message,
-          chatWebSocketService: context.watch<ChatWebSocketService>(),
-          localChatRepo: context.watch<LocalChatRepository>(),
-          onStateChanged: () {},
-        );
-      } else if (isVideoMessage) {
-        final duration = fileData['duration'] is num
-            ? (fileData['duration'] as num).toDouble()
-            : double.tryParse(fileData['duration']?.toString() ?? '') ?? 0.0;
-        final localPath = fileData['local_path']?.toString();
-        
-        final videoWidget = VideoMessagePlayer(
-          videoUrl: absoluteUrl,
-          jwtToken: jwtToken,
-          duration: duration,
-          localPath: localPath,
-          senderName: isMe ? 'Вы' : senderRealName,
-          messageId: message.serverMessageId,
-        );
-        
-        attachmentWidget = Stack(
-          alignment: Alignment.center,
-          children: [
-            videoWidget,
-            if (isOnlyMedia)
-              Positioned(
-                right: 8,
-                bottom: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.4),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _formatTime(message.timestamp),
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500),
-                      ),
-                      if (isMe) ...[
-                        const SizedBox(width: 4),
-                        _buildMessageStatusIcon(message, color: Colors.white),
-                      ]
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        );
-      } else if (isVoice) {
-        final duration = fileData['duration'] is num
-            ? (fileData['duration'] as num).toInt()
-            : int.tryParse(fileData['duration']?.toString() ?? '') ?? 0;
-        // Если есть локальный путь (только что записанное наше ГС) — играем из него,
-        // не дожидаясь скачивания. Иначе — обычная ссылка на скачивание.
-        final localPath = fileData['local_path']?.toString();
-        final voiceSource = (localPath != null && localPath.isNotEmpty) ? localPath : absoluteUrl;
-        attachmentWidget = VoiceMessagePlayer(
-          audioUrl: voiceSource,
-          duration: duration,
-          jwtToken: jwtToken,
-          isMe: isMe,
-          mimeType: fileData['mime_type']?.toString() ?? mime,
-          senderName: senderRealName,
-        );
-      } else if (isImage) {
-        attachmentWidget = GestureDetector(
-          onTap: () => _showFullScreenImage(context, absoluteUrl, senderRealName, message.timestamp),
-          child: Container(
-            margin: isOnlyMedia ? EdgeInsets.zero : const EdgeInsets.only(bottom: 8),
-            constraints: const BoxConstraints(maxHeight: 280),
-            decoration: isOnlyMedia ? null : BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white12),
-            ),
-            child: ClipRRect(
-              borderRadius: isOnlyMedia ? (isMe ? _myCorners : _otherCorners) : BorderRadius.circular(11),
-              child: Stack(
-                children: [
-                  Hero(
-                    tag: absoluteUrl,
-                    child: Image.network(
-                      absoluteUrl,
-                      key: ValueKey('${absoluteUrl}_${jwtToken ?? ""}'),
-                      headers: jwtToken != null ? {'Authorization': 'Bearer $jwtToken'} : null,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        debugPrint('IMAGE PREVIEW LOAD ERROR: $error');
-                        debugPrint('IMAGE PREVIEW URL: $absoluteUrl');
-                        return Container(
-                          height: 120,
-                          color: Colors.black12,
-                          child: const Center(
-                            child: Icon(Icons.broken_image, color: Colors.white54, size: 36),
-                          ),
-                        );
-                      },
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          height: 150,
-                          color: Colors.black12,
-                          child: const Center(
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+        isOnlyFile = displayContent.isEmpty;
+        isOnlyMedia = isOnlyFile && (isImage || isVideo || isVideoMessage);
+
+        if (fileData['type'] == 'todo_list') {
+          attachmentWidget = TodoListWidget(
+            message: message,
+            chatWebSocketService: context.watch<ChatWebSocketService>(),
+            localChatRepo: context.watch<LocalChatRepository>(),
+            onStateChanged: () {},
+          );
+        } else if (fileData['type'] == 'poll') {
+          attachmentWidget = PollWidget(
+            message: message,
+            chatWebSocketService: context.watch<ChatWebSocketService>(),
+            localChatRepo: context.watch<LocalChatRepository>(),
+            onStateChanged: () {},
+          );
+        } else if (isVideoMessage) {
+          final duration = fileData['duration'] is num
+              ? (fileData['duration'] as num).toDouble()
+              : double.tryParse(fileData['duration']?.toString() ?? '') ?? 0.0;
+          final localPath = fileData['local_path']?.toString();
+
+          final videoWidget = VideoMessagePlayer(
+            videoUrl: absoluteUrl,
+            jwtToken: jwtToken,
+            duration: duration,
+            localPath: localPath,
+            senderName: isMe
+                ? (AppLocalizations.of(context)?.vy_0101 ?? 'Fallback')
+                : senderRealName,
+            messageId: message.serverMessageId,
+          );
+
+          attachmentWidget = Stack(
+            alignment: Alignment.center,
+            children: [
+              videoWidget,
               if (isOnlyMedia)
                 Positioned(
                   right: 8,
                   bottom: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(10),
@@ -6909,7 +7470,10 @@ class MessageBubble extends StatelessWidget {
                       children: [
                         Text(
                           _formatTime(message.timestamp),
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500),
                         ),
                         if (isMe) ...[
                           const SizedBox(width: 4),
@@ -6919,151 +7483,302 @@ class MessageBubble extends StatelessWidget {
                     ),
                   ),
                 ),
-                ],
-              ),
-            ),
-          ),
-        );
-      } else if (isVideo) {
-        attachmentWidget = GestureDetector(
-          onTap: () => _showFullScreenVideo(context, absoluteUrl, senderRealName, message.timestamp),
-          child: Container(
-            margin: isOnlyMedia ? EdgeInsets.zero : const EdgeInsets.only(bottom: 8),
-            constraints: const BoxConstraints(maxHeight: 280),
-            decoration: isOnlyMedia ? null : BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white12),
-            ),
-            child: ClipRRect(
-              borderRadius: isOnlyMedia ? (isMe ? _myCorners : _otherCorners) : BorderRadius.circular(11),
-              child: Stack(
-                children: [
-                  VideoThumbnailWidget(
-                    videoUrl: absoluteUrl,
-                    jwtToken: jwtToken,
-                    width: 280,
-                    height: 200,
-                    borderRadius: isOnlyMedia ? (isMe ? _myCorners : _otherCorners) : BorderRadius.circular(11),
-                  ),
-                  Container(
-                    height: 200,
-                    width: 280,
-                    color: Colors.black26,
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: const BoxDecoration(
-                          color: Colors.black45,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const FaIcon(FontAwesomeIcons.play, color: Colors.white, size: 24),
+            ],
+          );
+        } else if (isVoice) {
+          final duration = fileData['duration'] is num
+              ? (fileData['duration'] as num).toInt()
+              : int.tryParse(fileData['duration']?.toString() ?? '') ?? 0;
+          // Если есть локальный путь (только что записанное наше ГС) — играем из него,
+          // не дожидаясь скачивания. Иначе — обычная ссылка на скачивание.
+          final localPath = fileData['local_path']?.toString();
+          final voiceSource = (localPath != null && localPath.isNotEmpty)
+              ? localPath
+              : absoluteUrl;
+          attachmentWidget = VoiceMessagePlayer(
+            audioUrl: voiceSource,
+            duration: duration,
+            jwtToken: jwtToken,
+            isMe: isMe,
+            mimeType: fileData['mime_type']?.toString() ?? mime,
+            senderName: senderRealName,
+          );
+        } else if (isAudioMusic) {
+          final duration = fileData['duration'] is num
+              ? (fileData['duration'] as num).toInt()
+              : int.tryParse(fileData['duration']?.toString() ?? '') ?? 0;
+          final localPath = fileData['local_path']?.toString();
+          final audioSource = (localPath != null && localPath.isNotEmpty)
+              ? localPath
+              : absoluteUrl;
+          attachmentWidget = MusicMessagePlayer(
+            audioUrl: audioSource,
+            fileName: fileName,
+            fileSize: fileSize,
+            duration: duration,
+            jwtToken: jwtToken,
+            isMe: isMe,
+            mimeType: fileData['mime_type']?.toString() ?? mime,
+            onDownload: () =>
+                _downloadFileSilent(context, absoluteUrl, fileName),
+          );
+        } else if (isImage) {
+          attachmentWidget = GestureDetector(
+            onTap: () => _showFullScreenImage(
+                context, absoluteUrl, senderRealName, message.timestamp),
+            child: Container(
+              margin: isOnlyMedia
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.only(bottom: 8),
+              constraints: const BoxConstraints(maxHeight: 280),
+              decoration: isOnlyMedia
+                  ? null
+                  : BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white12),
+                    ),
+              child: ClipRRect(
+                borderRadius: isOnlyMedia
+                    ? (isMe ? _myCorners : _otherCorners)
+                    : BorderRadius.circular(11),
+                child: Stack(
+                  children: [
+                    Hero(
+                      tag: absoluteUrl,
+                      child: Image.network(
+                        absoluteUrl,
+                        key: ValueKey('${absoluteUrl}_${jwtToken ?? ""}'),
+                        headers: jwtToken != null
+                            ? {'Authorization': 'Bearer $jwtToken'}
+                            : null,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          debugPrint('IMAGE PREVIEW LOAD ERROR: $error');
+                          debugPrint('IMAGE PREVIEW URL: $absoluteUrl');
+                          return Container(
+                            height: 120,
+                            color: Colors.black12,
+                            child: const Center(
+                              child: Icon(Icons.broken_image,
+                                  color: Colors.white54, size: 36),
+                            ),
+                          );
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            height: 150,
+                            color: Colors.black12,
+                            child: const Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
-                  ),
-                  if (isOnlyMedia)
-                    Positioned(
-                      right: 8,
-                      bottom: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.4),
-                          borderRadius: BorderRadius.circular(10),
+                    if (isOnlyMedia)
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _formatTime(message.timestamp),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500),
+                              ),
+                              if (isMe) ...[
+                                const SizedBox(width: 4),
+                                _buildMessageStatusIcon(message,
+                                    color: Colors.white),
+                              ]
+                            ],
+                          ),
                         ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        } else if (isVideo) {
+          attachmentWidget = GestureDetector(
+            onTap: () => _showFullScreenVideo(
+                context, absoluteUrl, senderRealName, message.timestamp),
+            child: Container(
+              margin: isOnlyMedia
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.only(bottom: 8),
+              constraints: const BoxConstraints(maxHeight: 280),
+              decoration: isOnlyMedia
+                  ? null
+                  : BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white12),
+                    ),
+              child: ClipRRect(
+                borderRadius: isOnlyMedia
+                    ? (isMe ? _myCorners : _otherCorners)
+                    : BorderRadius.circular(11),
+                child: Stack(
+                  children: [
+                    VideoThumbnailWidget(
+                      videoUrl: absoluteUrl,
+                      jwtToken: jwtToken,
+                      width: 280,
+                      height: 200,
+                      borderRadius: isOnlyMedia
+                          ? (isMe ? _myCorners : _otherCorners)
+                          : BorderRadius.circular(11),
+                    ),
+                    Container(
+                      height: 200,
+                      width: 280,
+                      color: Colors.black26,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: const BoxDecoration(
+                            color: Colors.black45,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const FaIcon(FontAwesomeIcons.play,
+                              color: Colors.white, size: 24),
+                        ),
+                      ),
+                    ),
+                    if (isOnlyMedia)
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _formatTime(message.timestamp),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500),
+                              ),
+                              if (isMe) ...[
+                                const SizedBox(width: 4),
+                                _buildMessageStatusIcon(message,
+                                    color: Colors.white),
+                              ]
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      Positioned(
+                        bottom: 8,
+                        left: 8,
+                        right: 8,
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              _formatTime(message.timestamp),
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500),
+                            const FaIcon(FontAwesomeIcons.video,
+                                color: Colors.white70, size: 10),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                fileName,
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 10),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            if (isMe) ...[
-                              const SizedBox(width: 4),
-                              _buildMessageStatusIcon(message, color: Colors.white),
-                            ]
+                            Text(
+                              _formatFileSize(fileSize),
+                              style: const TextStyle(
+                                  color: Colors.white54, fontSize: 10),
+                            ),
                           ],
                         ),
                       ),
-                    )
-                  else
-                    Positioned(
-                      bottom: 8,
-                      left: 8,
-                      right: 8,
-                      child: Row(
-                        children: [
-                          const FaIcon(FontAwesomeIcons.video, color: Colors.white70, size: 10),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              fileName,
-                              style: const TextStyle(color: Colors.white70, fontSize: 10),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Text(
-                            _formatFileSize(fileSize),
-                            style: const TextStyle(color: Colors.white54, fontSize: 10),
-                          ),
-                        ],
-                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        } else {
+          // Обычные файлы (документы, архивы и др.)
+          attachmentWidget = GestureDetector(
+            onTap: () => _downloadFileSilent(context, absoluteUrl, fileName),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
                     ),
+                    child: const FaIcon(FontAwesomeIcons.fileLines,
+                        color: Colors.white70, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          fileName,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _formatFileSize(fileSize),
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const FaIcon(FontAwesomeIcons.download,
+                      color: Colors.white54, size: 14),
                 ],
               ),
             ),
-          ),
-        );
-      } else {
-        // Обычные файлы (документы, архивы и др.)
-        attachmentWidget = GestureDetector(
-          onTap: () => _downloadFileSilent(context, absoluteUrl, fileName),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.04),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white10),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const FaIcon(FontAwesomeIcons.fileLines, color: Colors.white70, size: 20),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        fileName,
-                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _formatFileSize(fileSize),
-                        style: const TextStyle(color: Colors.white54, fontSize: 10),
-                      ),
-                    ],
-                  ),
-                ),
-                const FaIcon(FontAwesomeIcons.download, color: Colors.white54, size: 14),
-              ],
-            ),
-          ),
-        );
+          );
+        }
       }
     }
-  }
-
 
     final showGroupSenderInfo = !isMe && isGroup;
     final senderNameColor = _getSenderNameColor(senderRealName, senderGradient);
@@ -7075,7 +7790,8 @@ class MessageBubble extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+          mainAxisAlignment:
+              isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
             if (showGroupSenderInfo) ...[
               AvatarWidget(
@@ -7093,11 +7809,16 @@ class MessageBubble extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => onReply?.call(message),
                 child: Container(
-                  padding: isOnlyMedia ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  padding: isOnlyMedia
+                      ? EdgeInsets.zero
+                      : const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                   decoration: BoxDecoration(
-                    color: isOnlyMedia ? Colors.transparent : (isMe ? _myBubbleColor : _otherBubbleColor),
+                    color: isOnlyMedia
+                        ? Colors.transparent
+                        : (isMe ? _myBubbleColor : _otherBubbleColor),
                     borderRadius: isMe ? _myCorners : _otherCorners,
-                    border: isOnlyMedia ? null : Border.all(color: _borderColor),
+                    border:
+                        isOnlyMedia ? null : Border.all(color: _borderColor),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -7113,29 +7834,31 @@ class MessageBubble extends StatelessWidget {
                         ),
                         const SizedBox(height: 3),
                       ],
-                      if (_parseReplyField(message.replyToId) != null || _parseReplyField(message.replyText) != null || _parseReplyField(message.replyAuthorName) != null)
+                      if (_parseReplyField(message.replyToId) != null ||
+                          _parseReplyField(message.replyText) != null ||
+                          _parseReplyField(message.replyAuthorName) != null)
                         _buildReplyQuote(context),
-                    if (attachmentWidget != null) attachmentWidget,
-                    if (displayContent.isNotEmpty)
-                      FormattedText(
-                        content: displayContent,
-                        baseStyle: _bodyStyle,
-                      ),
-                    if (!isOnlyMedia) const SizedBox(height: 3),
-                    if (!isOnlyMedia)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _formatTime(message.timestamp),
-                            style: _timeStyle,
-                          ),
-                          if (isMe) ...[
-                            const SizedBox(width: 4),
-                            _buildMessageStatusIcon(message),
+                      if (attachmentWidget != null) attachmentWidget,
+                      if (displayContent.isNotEmpty)
+                        FormattedText(
+                          content: displayContent,
+                          baseStyle: _bodyStyle,
+                        ),
+                      if (!isOnlyMedia) const SizedBox(height: 3),
+                      if (!isOnlyMedia)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _formatTime(message.timestamp),
+                              style: _timeStyle,
+                            ),
+                            if (isMe) ...[
+                              const SizedBox(width: 4),
+                              _buildMessageStatusIcon(message),
+                            ],
                           ],
-                        ],
-                      ),
+                        ),
                     ],
                   ),
                 ),
@@ -7159,7 +7882,8 @@ class MessageBubble extends StatelessWidget {
           }
         }
         final firstPart = clean.split(RegExp(r'[,|]')).first.trim();
-        var colorStr = firstPart.startsWith('#') ? firstPart.substring(1) : firstPart;
+        var colorStr =
+            firstPart.startsWith('#') ? firstPart.substring(1) : firstPart;
         if (colorStr.length == 3) {
           colorStr = colorStr.split('').map((c) => '$c$c').join();
         }
@@ -7187,13 +7911,15 @@ class MessageBubble extends StatelessWidget {
     return colors[code % colors.length];
   }
 
-  Widget _buildCallWidget(BuildContext context, Map<String, dynamic> fileData, bool isMe) {
+  Widget _buildCallWidget(
+      BuildContext context, Map<String, dynamic> fileData, bool isMe) {
     final status = fileData['status']?.toString();
     final duration = fileData['duration'] as int? ?? 0;
     final callType = fileData['call_type']?.toString() ?? 'audio';
 
     final isVideo = callType == 'video';
-    FaIconData callIcon = isVideo ? FontAwesomeIcons.video : FontAwesomeIcons.phone;
+    FaIconData callIcon =
+        isVideo ? FontAwesomeIcons.video : FontAwesomeIcons.phone;
     Color iconColor = Colors.grey;
     Color iconBg = Colors.grey.withValues(alpha: 0.15);
     String callTitle = '';
@@ -7201,47 +7927,59 @@ class MessageBubble extends StatelessWidget {
 
     if (isMe) {
       // Outgoing
-      callTitle = 'Исходящий звонок';
+      callTitle =
+          (AppLocalizations.of(context)?.ishodyaschiyZvonok_8381 ?? 'Fallback');
       if (status == 'connected') {
         iconColor = const Color(0xFF10B981);
         iconBg = const Color(0xFF10B981).withValues(alpha: 0.15);
         final mins = duration ~/ 60;
         final secs = duration % 60;
         if (mins > 0) {
-          callSubtext = '$mins мин $secs сек';
+          callSubtext =
+              '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
         } else {
-          callSubtext = '$secs сек';
+          callSubtext = '00:${secs.toString().padLeft(2, '0')}';
         }
       } else {
         iconColor = const Color(0xFF9CA3AF);
         iconBg = const Color(0xFF9CA3AF).withValues(alpha: 0.15);
-        callSubtext = 'Разговор не состоялся';
+        callSubtext =
+            (AppLocalizations.of(context)?.razgovorNeSostoyalsya_67fb ??
+                'Fallback');
       }
     } else {
       // Incoming
       if (status == 'connected') {
-        callTitle = 'Входящий звонок';
+        callTitle = (AppLocalizations.of(context)?.vhodyaschiyZvonok_5ce9 ??
+            'Fallback');
         iconColor = const Color(0xFF10B981);
         iconBg = const Color(0xFF10B981).withValues(alpha: 0.15);
         final mins = duration ~/ 60;
         final secs = duration % 60;
         if (mins > 0) {
-          callSubtext = '$mins мин $secs сек';
+          callSubtext =
+              '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
         } else {
-          callSubtext = '$secs сек';
+          callSubtext = '00:${secs.toString().padLeft(2, '0')}';
         }
       } else if (status == 'rejected') {
-        callTitle = 'Отклонённый звонок';
+        callTitle = (AppLocalizations.of(context)?.otklonennyyZvonok_d499 ??
+            'Fallback');
         iconColor = const Color(0xFFEF4444);
         iconBg = const Color(0xFFEF4444).withValues(alpha: 0.15);
-        callIcon = isVideo ? FontAwesomeIcons.videoSlash : FontAwesomeIcons.phoneSlash;
-        callSubtext = 'Вы отклонили вызов';
+        callIcon =
+            isVideo ? FontAwesomeIcons.videoSlash : FontAwesomeIcons.phoneSlash;
+        callSubtext =
+            (AppLocalizations.of(context)?.vyOtkloniliVyzov_8d1d ?? 'Fallback');
       } else {
-        callTitle = 'Пропущенный звонок';
+        callTitle = (AppLocalizations.of(context)?.propuschennyyZvonok_e98d ??
+            'Fallback');
         iconColor = const Color(0xFFEF4444);
         iconBg = const Color(0xFFEF4444).withValues(alpha: 0.15);
-        callIcon = isVideo ? FontAwesomeIcons.videoSlash : FontAwesomeIcons.phoneSlash;
-        callSubtext = 'Вы пропустили вызов';
+        callIcon =
+            isVideo ? FontAwesomeIcons.videoSlash : FontAwesomeIcons.phoneSlash;
+        callSubtext = (AppLocalizations.of(context)?.vyPropustiliVyzov_f17a ??
+            'Fallback');
       }
     }
 
@@ -7297,11 +8035,11 @@ class MessageBubble extends StatelessWidget {
   }
 }
 
-
 class FullScreenVideoPlayer extends StatefulWidget {
   final String videoUrl;
   final String? jwtToken;
-  const FullScreenVideoPlayer({Key? key, required this.videoUrl, this.jwtToken}) : super(key: key);
+  const FullScreenVideoPlayer({Key? key, required this.videoUrl, this.jwtToken})
+      : super(key: key);
 
   @override
   State<FullScreenVideoPlayer> createState() => _FullScreenVideoPlayerState();
@@ -7332,7 +8070,7 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer> {
           dio.options.headers['Authorization'] = 'Bearer ${widget.jwtToken}';
         }
         await dio.download(
-          widget.videoUrl, 
+          widget.videoUrl,
           tempFile.path,
           onReceiveProgress: (count, total) {
             if (total != -1 && mounted) {
@@ -7347,7 +8085,7 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer> {
       _videoPlayerController = VideoPlayerController.file(tempFile);
       await _videoPlayerController.initialize();
       _videoPlayerController.addListener(_onVideoEvent);
-      
+
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -7418,7 +8156,11 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer> {
       ),
       child: Row(
         children: [
-          Text(_formatDuration(position), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+          Text(_formatDuration(position),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500)),
           const SizedBox(width: 8),
           Expanded(
             child: SliderTheme(
@@ -7432,16 +8174,23 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer> {
               ),
               child: Slider(
                 value: position.inMilliseconds.toDouble(),
-                max: duration.inMilliseconds.toDouble() > 0 ? duration.inMilliseconds.toDouble() : 1.0,
+                max: duration.inMilliseconds.toDouble() > 0
+                    ? duration.inMilliseconds.toDouble()
+                    : 1.0,
                 onChanged: (v) {
-                  _videoPlayerController.seekTo(Duration(milliseconds: v.toInt()));
+                  _videoPlayerController
+                      .seekTo(Duration(milliseconds: v.toInt()));
                   _startHideTimer();
                 },
               ),
             ),
           ),
           const SizedBox(width: 8),
-          Text('-${_formatDuration(remaining)}', style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
+          Text('-${_formatDuration(remaining)}',
+              style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500)),
         ],
       ),
     );
@@ -7458,7 +8207,7 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer> {
             if (_downloadProgress > 0) ...[
               const SizedBox(height: 16),
               Text(
-                'Загрузка: ${(_downloadProgress * 100).toInt()}%',
+                '${AppLocalizations.of(context)?.preparingDownload ?? 'Downloading'} ${(_downloadProgress * 100).toInt()}%',
                 style: const TextStyle(color: Colors.white70),
               ),
             ]
@@ -7491,7 +8240,9 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer> {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      _videoPlayerController.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                      _videoPlayerController.value.isPlaying
+                          ? Icons.pause
+                          : Icons.play_arrow,
                       color: Colors.white,
                       size: 48,
                     ),
@@ -7502,7 +8253,9 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer> {
           ),
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
-            bottom: _showControls ? MediaQuery.paddingOf(context).bottom + 90 : -100,
+            bottom: _showControls
+                ? MediaQuery.paddingOf(context).bottom + 90
+                : -100,
             left: 24,
             right: 24,
             child: AnimatedOpacity(
@@ -7514,13 +8267,16 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer> {
         ],
       );
     } else {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.error_outline, color: Colors.white54, size: 64),
             SizedBox(height: 16),
-            Text('Ошибка воспроизведения', style: TextStyle(color: Colors.white54)),
+            Text(
+                (AppLocalizations.of(context)?.oshibkaVosproizvedeniya_ac8a ??
+                    'Fallback'),
+                style: TextStyle(color: Colors.white54)),
           ],
         ),
       );
@@ -7566,144 +8322,445 @@ class _VoiceMessagePlayerState extends State<VoiceMessagePlayer> {
     final inactiveTrackColor = Colors.white.withValues(alpha: 0.2);
 
     return Selector<PlaybackProvider, _VoicePlaybackState>(
-        selector: (_, provider) => _VoicePlaybackState(
-          currentAudioUrl: provider.currentAudioUrl,
-          isPlaying: provider.isPlaying,
-          isInitialized: provider.isInitialized,
-          isLoading: provider.isLoading,
-          position: provider.position,
-          duration: provider.duration,
-        ),
-        shouldRebuild: (prev, next) {
-          // Ребилдим только если это наш audioUrl и состояние изменилось
-          final isCurrent = next.currentAudioUrl == widget.audioUrl;
-          final wasCurrent = prev.currentAudioUrl == widget.audioUrl;
-          
-          if (!isCurrent && !wasCurrent) {
-            // Не наш audio - не ребилдим
-            return false;
-          }
-          
-          // Наш audio - проверяем значимые изменения
-          return prev != next;
-        },
-        builder: (context, state, child) {
-          final audioUrl = widget.audioUrl;
-          final isCurrent = state.currentAudioUrl == audioUrl;
-          final isPlaying = isCurrent && state.isPlaying;
-          final isInitialized = isCurrent && state.isInitialized;
-          final isLoading = isCurrent && state.isLoading;
+      selector: (_, provider) => _VoicePlaybackState(
+        currentAudioUrl: provider.currentAudioUrl,
+        isPlaying: provider.isPlaying,
+        isInitialized: provider.isInitialized,
+        isLoading: provider.isLoading,
+        position: provider.position,
+        duration: provider.duration,
+      ),
+      shouldRebuild: (prev, next) {
+        // Ребилдим только если это наш audioUrl и состояние изменилось
+        final isCurrent = next.currentAudioUrl == widget.audioUrl;
+        final wasCurrent = prev.currentAudioUrl == widget.audioUrl;
 
-          final position = isCurrent ? state.position : Duration.zero;
-          final durationVal = isCurrent && state.isInitialized && state.duration > Duration.zero
-              ? state.duration 
-              : Duration(seconds: widget.duration);
+        if (!isCurrent && !wasCurrent) {
+          // Не наш audio - не ребилдим
+          return false;
+        }
 
-          final displayDuration = isPlaying || (isCurrent && position > Duration.zero) ? position : durationVal;
+        // Наш audio - проверяем значимые изменения
+        return prev != next;
+      },
+      builder: (context, state, child) {
+        final audioUrl = widget.audioUrl;
+        final isCurrent = state.currentAudioUrl == audioUrl;
+        final isPlaying = isCurrent && state.isPlaying;
+        final isInitialized = isCurrent && state.isInitialized;
+        final isLoading = isCurrent && state.isLoading;
 
-          return Container(
-            constraints: const BoxConstraints(maxWidth: 240),
-            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Play/Pause circular button
-                GestureDetector(
-                  onTap: () {
-                    if (isLoading) return;
-                    final playbackProvider = context.read<PlaybackProvider>();
-                    playbackProvider.play(
-                      audioUrl,
-                      'Голосовое сообщение',
-                      isMe ? 'Вы' : widget.senderName,
-                      mimeType: widget.mimeType,
-                      duration: Duration(seconds: widget.duration),
-                    );
-                  },
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: playBtnColor,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: playBtnColor.withValues(alpha: 0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: isLoading
-                          ? SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(iconColor.withValues(alpha: 0.5)),
-                              ),
-                            )
-                          : Icon(
-                              isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                              color: iconColor,
-                              size: 26,
-                            ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                // Progress & Duration column
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Waveform Slider
-                      VoiceWaveformSlider(
-                        position: position,
-                        duration: durationVal,
-                        isActive: isCurrent && isInitialized,
-                        // Финальный seek — один раз, когда палец отпущен.
-                        // Тяжёлая операция: пересоздаёт AudioSource.
-                        onSeek: isCurrent && isInitialized
-                            ? (newPosition) {
-                                context.read<PlaybackProvider>().seek(newPosition);
-                              }
-                            : null,
-                        // Превью во время драга — на каждое движение пальца.
-                        // Лёгкая операция: просто двигает позицию в UI,
-                        // не трогает плеер. Без этого guard _isSeeking в
-                        // провайдере отбрасывал бы почти все промежуточные
-                        // вызовы seek(), и слайдер выглядел нерабочим.
-                        onSeekPreview: isCurrent && isInitialized
-                            ? (newPosition) {
-                                context.read<PlaybackProvider>().seekPreview(newPosition);
-                              }
-                            : null,
-                        activeColor: activeTrackColor,
-                        inactiveColor: inactiveTrackColor,
-                      ),
-                      const SizedBox(height: 2),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: Text(
-                          _formatDuration(displayDuration),
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5),
-                            fontSize: 10.5,
-                            fontFamily: AppStyles.fontFamily,
-                          ),
-                        ),
+        final position = isCurrent ? state.position : Duration.zero;
+        final durationVal =
+            isCurrent && state.isInitialized && state.duration > Duration.zero
+                ? state.duration
+                : Duration(seconds: widget.duration);
+
+        final displayDuration =
+            isPlaying || (isCurrent && position > Duration.zero)
+                ? position
+                : durationVal;
+
+        return Container(
+          constraints: const BoxConstraints(maxWidth: 240),
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Play/Pause circular button
+              GestureDetector(
+                onTap: () {
+                  if (isLoading) return;
+                  final playbackProvider = context.read<PlaybackProvider>();
+                  playbackProvider.play(
+                    audioUrl,
+                    (AppLocalizations.of(context)?.golosovoeSoobschenie_33d5 ??
+                        'Fallback'),
+                    isMe
+                        ? (AppLocalizations.of(context)?.vy_0101 ?? 'Fallback')
+                        : widget.senderName,
+                    mimeType: widget.mimeType,
+                    duration: Duration(seconds: widget.duration),
+                  );
+                },
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: playBtnColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: playBtnColor.withValues(alpha: 0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
+                  child: Center(
+                    child: isLoading
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  iconColor.withValues(alpha: 0.5)),
+                            ),
+                          )
+                        : Icon(
+                            isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            color: iconColor,
+                            size: 26,
+                          ),
+                  ),
                 ),
-              ],
-            ),
-          );
-        },
+              ),
+              const SizedBox(width: 14),
+              // Progress & Duration column
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Waveform Slider
+                    VoiceWaveformSlider(
+                      position: position,
+                      duration: durationVal,
+                      isActive: isCurrent && isInitialized,
+                      // Финальный seek — один раз, когда палец отпущен.
+                      // Тяжёлая операция: пересоздаёт AudioSource.
+                      onSeek: isCurrent && isInitialized
+                          ? (newPosition) {
+                              context
+                                  .read<PlaybackProvider>()
+                                  .seek(newPosition);
+                            }
+                          : null,
+                      // Превью во время драга — на каждое движение пальца.
+                      // Лёгкая операция: просто двигает позицию в UI,
+                      // не трогает плеер. Без этого guard _isSeeking в
+                      // провайдере отбрасывал бы почти все промежуточные
+                      // вызовы seek(), и слайдер выглядел нерабочим.
+                      onSeekPreview: isCurrent && isInitialized
+                          ? (newPosition) {
+                              context
+                                  .read<PlaybackProvider>()
+                                  .seekPreview(newPosition);
+                            }
+                          : null,
+                      activeColor: activeTrackColor,
+                      inactiveColor: inactiveTrackColor,
+                    ),
+                    const SizedBox(height: 2),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Text(
+                        _formatDuration(displayDuration),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          fontSize: 10.5,
+                          fontFamily: AppStyles.fontFamily,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class MusicMessagePlayer extends StatefulWidget {
+  final String audioUrl;
+  final String fileName;
+  final int fileSize;
+  final int duration;
+  final String? jwtToken;
+  final bool isMe;
+  final String? mimeType;
+  final VoidCallback? onDownload;
+
+  const MusicMessagePlayer({
+    super.key,
+    required this.audioUrl,
+    required this.fileName,
+    required this.fileSize,
+    required this.duration,
+    required this.jwtToken,
+    required this.isMe,
+    this.mimeType,
+    this.onDownload,
+  });
+
+  @override
+  State<MusicMessagePlayer> createState() => _MusicMessagePlayerState();
+}
+
+class _MusicMessagePlayerState extends State<MusicMessagePlayer> {
+  double? _dragValue;
+
+  String _formatDuration(Duration d) {
+    final s = d.inSeconds % 60;
+    final m = d.inMinutes;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes <= 0)
+      return (AppLocalizations.of(context)?.loc_0B_5a4d ?? 'Fallback');
+    var suffixes = [
+      (AppLocalizations.of(context)?.b_3b67 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.kb_419d ?? 'Fallback'),
+      (AppLocalizations.of(context)?.mb_b808 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.gb_e572 ?? 'Fallback')
+    ];
+    var i = (log(bytes) / log(1024)).floor();
+    if (i >= suffixes.length) i = suffixes.length - 1;
+    return ((bytes / pow(1024, i)).toStringAsFixed(1)) + ' ' + suffixes[i];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMe = widget.isMe;
+    final playBtnColor = isMe ? const Color(0xFF4ADE80) : Colors.white;
+    final iconColor = Colors.black;
+    final fallbackDuration = Duration(seconds: widget.duration);
+
+    return Selector<PlaybackProvider, _VoicePlaybackState>(
+      selector: (_, provider) => _VoicePlaybackState(
+        currentAudioUrl: provider.currentAudioUrl,
+        isPlaying: provider.isPlaying,
+        isInitialized: provider.isInitialized,
+        isLoading: provider.isLoading,
+        position: provider.position,
+        duration: provider.duration,
+      ),
+      shouldRebuild: (prev, next) {
+        final isCurrent = next.currentAudioUrl == widget.audioUrl;
+        final wasCurrent = prev.currentAudioUrl == widget.audioUrl;
+        if (!isCurrent && !wasCurrent) return false;
+        return prev != next;
+      },
+      builder: (context, state, child) {
+        final audioUrl = widget.audioUrl;
+        final isCurrent = state.currentAudioUrl == audioUrl;
+        final isPlaying = isCurrent && state.isPlaying;
+        final isInitialized = isCurrent && state.isInitialized;
+        final isLoading = isCurrent && state.isLoading;
+
+        final position = isCurrent ? state.position : Duration.zero;
+        final totalDuration =
+            isCurrent && state.isInitialized && state.duration > Duration.zero
+                ? state.duration
+                : fallbackDuration;
+
+        final currentSliderPos = _dragValue ??
+            (totalDuration > Duration.zero
+                ? (position.inMilliseconds / totalDuration.inMilliseconds)
+                    .clamp(0.0, 1.0)
+                : 0.0);
+
+        final displayPos = _dragValue != null && totalDuration > Duration.zero
+            ? Duration(
+                milliseconds:
+                    (_dragValue! * totalDuration.inMilliseconds).round())
+            : position;
+
+        return Container(
+          constraints: const BoxConstraints(maxWidth: 280),
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      if (isLoading) return;
+                      final playbackProvider = context.read<PlaybackProvider>();
+                      playbackProvider.play(
+                        audioUrl,
+                        widget.fileName,
+                        _formatBytes(widget.fileSize),
+                        mimeType: widget.mimeType,
+                        duration: totalDuration > Duration.zero
+                            ? totalDuration
+                            : null,
+                      );
+                    },
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: playBtnColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: playBtnColor.withValues(alpha: 0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: isLoading
+                            ? SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      iconColor.withValues(alpha: 0.5)),
+                                ),
+                              )
+                            : Icon(
+                                isPlaying
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded,
+                                color: iconColor,
+                                size: 26,
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.fileName,
+                          style: TextStyle(
+                            color: isMe
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.9),
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.music_note_rounded,
+                              size: 12,
+                              color: isMe ? Colors.white70 : Colors.white60,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _formatBytes(widget.fileSize),
+                              style: TextStyle(
+                                color: isMe ? Colors.white70 : Colors.white60,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (widget.onDownload != null) ...[
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: Icon(
+                        Icons.download_rounded,
+                        color: isMe ? Colors.white70 : Colors.white60,
+                        size: 18,
+                      ),
+                      onPressed: widget.onDownload,
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints.tightFor(width: 32, height: 32),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderThemeData(
+                        trackHeight: 4,
+                        thumbShape:
+                            const RoundSliderThumbShape(enabledThumbRadius: 6),
+                        overlayShape:
+                            const RoundSliderOverlayShape(overlayRadius: 14),
+                        activeTrackColor:
+                            isMe ? const Color(0xFF4ADE80) : Colors.white,
+                        inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
+                        thumbColor:
+                            isMe ? const Color(0xFF4ADE80) : Colors.white,
+                      ),
+                      child: Slider(
+                        value: currentSliderPos.clamp(0.0, 1.0),
+                        onChanged: (val) {
+                          setState(() {
+                            _dragValue = val;
+                          });
+                          if (isInitialized && totalDuration > Duration.zero) {
+                            final targetMs =
+                                (val * totalDuration.inMilliseconds).round();
+                            context
+                                .read<PlaybackProvider>()
+                                .seekPreview(Duration(milliseconds: targetMs));
+                          }
+                        },
+                        onChangeEnd: (val) async {
+                          final targetVal = val;
+                          setState(() {
+                            _dragValue = null;
+                          });
+                          if (totalDuration > Duration.zero) {
+                            final targetMs =
+                                (targetVal * totalDuration.inMilliseconds)
+                                    .round();
+                            final targetDuration =
+                                Duration(milliseconds: targetMs);
+                            if (!isInitialized || !isCurrent) {
+                              await context.read<PlaybackProvider>().play(
+                                    audioUrl,
+                                    widget.fileName,
+                                    _formatBytes(widget.fileSize),
+                                    mimeType: widget.mimeType,
+                                    duration: totalDuration,
+                                  );
+                            }
+                            context
+                                .read<PlaybackProvider>()
+                                .seek(targetDuration);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    totalDuration > Duration.zero
+                        ? '${_formatDuration(displayPos)} / ${_formatDuration(totalDuration)}'
+                        : _formatDuration(displayPos),
+                    style: TextStyle(
+                      color: isMe ? Colors.white70 : Colors.white60,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -7715,7 +8772,8 @@ class _BlinkingRedDot extends StatefulWidget {
   State<_BlinkingRedDot> createState() => _BlinkingRedDotState();
 }
 
-class _BlinkingRedDotState extends State<_BlinkingRedDot> with SingleTickerProviderStateMixin {
+class _BlinkingRedDotState extends State<_BlinkingRedDot>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -7744,6 +8802,226 @@ class _BlinkingRedDotState extends State<_BlinkingRedDot> with SingleTickerProvi
           color: Colors.red,
           shape: BoxShape.circle,
         ),
+      ),
+    );
+  }
+}
+
+class TopChatAudioMiniPlayer extends StatefulWidget {
+  final PlaybackProvider playbackProvider;
+  final VoidCallback onTapTitle;
+
+  const TopChatAudioMiniPlayer({
+    super.key,
+    required this.playbackProvider,
+    required this.onTapTitle,
+  });
+
+  @override
+  State<TopChatAudioMiniPlayer> createState() => _TopChatAudioMiniPlayerState();
+}
+
+class _TopChatAudioMiniPlayerState extends State<TopChatAudioMiniPlayer> {
+  double? _dragValue;
+
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes;
+    final s = d.inSeconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final playback = widget.playbackProvider;
+    final isPlaying = playback.isPlaying;
+    final title = playback.title.isEmpty
+        ? (AppLocalizations.of(context)?.golosovoeSoobschenie_33d5 ??
+            'Fallback')
+        : playback.title;
+    final subtitle = playback.subtitle;
+    final position = playback.position;
+    final duration = playback.duration;
+
+    final sliderValue = _dragValue ??
+        (duration > Duration.zero
+            ? (position.inMilliseconds / duration.inMilliseconds)
+                .clamp(0.0, 1.0)
+            : 0.0);
+
+    final displayPos = _dragValue != null && duration > Duration.zero
+        ? Duration(
+            milliseconds: (_dragValue! * duration.inMilliseconds).round())
+        : position;
+
+    return Container(
+      key: const ValueKey('mini_player_visible'),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xF0141416), // frosted look
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              // Previous button
+              IconButton(
+                icon: Icon(
+                  Icons.skip_previous_rounded,
+                  color: playback.hasPrevious ? Colors.white : Colors.white24,
+                  size: 18,
+                ),
+                onPressed:
+                    playback.hasPrevious ? () => playback.playPrevious() : null,
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints.tightFor(width: 26, height: 26),
+              ),
+              const SizedBox(width: 2),
+              // Play/Pause button
+              GestureDetector(
+                onTap: () {
+                  if (isPlaying) {
+                    playback.pause();
+                  } else {
+                    playback.resume();
+                  }
+                },
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF4ADE80),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    color: Colors.black,
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 2),
+              // Next button
+              IconButton(
+                icon: Icon(
+                  Icons.skip_next_rounded,
+                  color: playback.hasNext ? Colors.white : Colors.white24,
+                  size: 18,
+                ),
+                onPressed: playback.hasNext ? () => playback.playNext() : null,
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints.tightFor(width: 26, height: 26),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: widget.onTapTitle,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: AppStyles.fontFamily,
+                        ),
+                      ),
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 1),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.5),
+                            fontSize: 10.5,
+                            fontFamily: AppStyles.fontFamily,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                duration > Duration.zero
+                    ? '${_formatDuration(displayPos)} / ${_formatDuration(duration)}'
+                    : _formatDuration(displayPos),
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: AppStyles.fontFamily,
+                ),
+              ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => playback.stop(),
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(
+                    Icons.close_rounded,
+                    color: Colors.white.withOpacity(0.4),
+                    size: 18,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 3.5,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5.5),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              activeTrackColor: const Color(0xFF4ADE80),
+              inactiveTrackColor: Colors.white.withOpacity(0.18),
+              thumbColor: const Color(0xFF4ADE80),
+            ),
+            child: Slider(
+              value: sliderValue.clamp(0.0, 1.0),
+              onChanged: (val) {
+                setState(() {
+                  _dragValue = val;
+                });
+                if (duration > Duration.zero) {
+                  final targetMs = (val * duration.inMilliseconds).round();
+                  playback.seekPreview(Duration(milliseconds: targetMs));
+                }
+              },
+              onChangeEnd: (val) {
+                setState(() {
+                  _dragValue = null;
+                });
+                if (duration > Duration.zero) {
+                  final targetMs = (val * duration.inMilliseconds).round();
+                  playback.seek(Duration(milliseconds: targetMs));
+                }
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

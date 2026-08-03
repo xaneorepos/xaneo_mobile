@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../services/webrtc/call_manager.dart';
 import '../../widgets/common/avatar_widget.dart';
 import 'active_call_screen.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 class IncomingCallScreen extends StatefulWidget {
   const IncomingCallScreen({super.key});
@@ -82,7 +83,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Spacer(flex: 3),
+              Spacer(flex: 3),
 
               // Аватар собеседника
               AvatarWidget(
@@ -97,7 +98,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
 
               // Текст статуса звонка
               Text(
-                isVideo ? 'Входящий видеозвонок' : 'Входящий звонок',
+                isVideo ? (AppLocalizations.of(context)?.vhodyaschiyVideozvonok_14d4 ?? 'Fallback') : (AppLocalizations.of(context)?.vhodyaschiyZvonok_5ce9 ?? 'Fallback'),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 24,
@@ -109,7 +110,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
 
               // Имя звонящего
               Text(
-                callManager.targetName ?? 'Неизвестный',
+                callManager.targetName ?? (AppLocalizations.of(context)?.neizvestnyy_be89 ?? 'Fallback'),
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 16,
@@ -137,7 +138,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
                             height: 72,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: const Color(0xFFEF4444),
+                              color: Color(0xFFEF4444),
                               boxShadow: [
                                 BoxShadow(
                                   color: const Color(0xFFEF4444).withValues(alpha: 0.3),
@@ -155,8 +156,8 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
                             ),
                           ),
                           const SizedBox(height: 12),
-                          const Text(
-                            'Отклонить',
+                          Text(
+                            (AppLocalizations.of(context)?.otklonit_8b0d ?? 'Fallback'),
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 13,
@@ -188,7 +189,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
                             height: 72,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: const Color(0xFF10B981),
+                              color: Color(0xFF10B981),
                               boxShadow: [
                                 BoxShadow(
                                   color: const Color(0xFF10B981).withValues(alpha: 0.3),
@@ -206,8 +207,8 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
                             ),
                           ),
                           const SizedBox(height: 12),
-                          const Text(
-                            'Принять',
+                          Text(
+                            (AppLocalizations.of(context)?.prinyat_5dc5 ?? 'Fallback'),
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 13,

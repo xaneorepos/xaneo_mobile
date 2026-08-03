@@ -9,6 +9,22 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+# These files belong to the retired, pre-v2 desktop implementation. The
+# application uses the feature-based screens and services under
+# `screens/auth`, `screens/main`, and `services/*/` instead. Keeping the old
+# sources available is useful while the migration is being completed, but
+# analyzing them produces hundreds of cascading errors for dependencies that
+# intentionally no longer exist in the mobile app.
+analyzer:
+  exclude:
+    - lib/screens/login_screen.dart
+    - lib/screens/register_screen.dart
+    - lib/screens/messenger_screen.dart
+    - lib/services/api_service.dart
+    - lib/widgets/base_custom_modal.dart
+    - lib/widgets/global_search_modal.dart
+    - lib/widgets/update_modal.dart
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/webrtc/call_manager.dart';
 import '../../config/app_config.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Базовый экран звонков для мобильного приложения (одиночный и групповой)
 abstract class BaseCallScreen extends StatefulWidget {
@@ -47,7 +48,7 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T> wi
               Container(
                 width: 8,
                 height: 8,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: Color(0xFF10B981),
                   shape: BoxShape.circle,
                 ),
@@ -79,7 +80,7 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T> wi
             IconButton(
               onPressed: onMinimize,
               icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 28),
-              tooltip: 'Свернуть',
+              tooltip: (AppLocalizations.of(context)?.svernut_ca9f ?? 'Fallback'),
             ),
         ],
       ),

@@ -2,16 +2,21 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../models/chat/chat_model.dart';
 import '../../services/api/api_client.dart';
 import '../../services/chat/chat_service.dart';
 import '../../services/chat/chat_local_repository.dart';
 import '../../styles/app_styles.dart';
+import '../../utils/chat_name_localizer.dart';
 import '../../widgets/common/avatar_widget.dart';
+import '../../widgets/common/chat_context_menu.dart';
 import 'chat_screen.dart';
 import '../../widgets/common/premium_page_route.dart';
+import 'package:xaneo/l10n/app_localizations.dart';
 
 class ArchivedChatsScreen extends StatefulWidget {
   const ArchivedChatsScreen({super.key});
@@ -24,7 +29,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
   late final ChatService _chatService;
   late final LocalChatRepository _localChatRepo;
   Timer? _relativeTimeTimer;
-  
+
   // Поиск
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -38,7 +43,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
     super.initState();
     _localChatRepo = context.read<LocalChatRepository>();
     _chatService = ChatService(apiClient: context.read<ApiClient>());
-    
+
     // Defer rendering of complex UI and lists until route transition completes
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) {
@@ -69,16 +74,17 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
   Future<void> _unarchiveChat(ChatModel chat) async {
     // 1. Оптимистичное обновление UI локально
     await _localChatRepo.updateArchiveStatus(chat.id, false);
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Чат "${chat.name}" возвращен из архива'),
-          duration: const Duration(seconds: 2),
+          content: Text(
+              '${AppLocalizations.of(context)?.unarchive ?? 'Unarchive'}: "${localizedChatName(context, chat)}"'),
+          duration: Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
           backgroundColor: const Color(0xFF1E1E2E),
           action: SnackBarAction(
-            label: 'Отмена',
+            label: (AppLocalizations.of(context)?.otmena_987b ?? 'Fallback'),
             textColor: Colors.white,
             onPressed: () async {
               await _localChatRepo.updateArchiveStatus(chat.id, true);
@@ -96,13 +102,109 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
       await _localChatRepo.updateArchiveStatus(chat.id, true);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Не удалось разархивировать чат на сервере'),
+          SnackBar(
+            content: Text((AppLocalizations.of(context)
+                    ?.neUdalosRazarhivirovatChatNa_b6f6 ??
+                'Fallback')),
             backgroundColor: AppStyles.errorColor,
           ),
         );
       }
     }
+  }
+
+  Future<void> _showChatContextMenu(ChatModel chat) async {
+    HapticFeedback.selectionClick();
+    final action = await ChatContextMenu.show(
+      context: context,
+      isPinned: chat.isPinned,
+      isArchived: true,
+      isMuted: chat.isMuted,
+      canDelete: !chat.isFavorites,
+    );
+    if (!mounted || action == null) return;
+
+    switch (action) {
+      case ChatContextAction.archive:
+        await _unarchiveChat(chat);
+      case ChatContextAction.mute:
+        final success = await _chatService.muteChat(chat.id, !chat.isMuted);
+        if (success) {
+          await _localChatRepo.updateChatSettings(
+            chat.id,
+            isMuted: !chat.isMuted,
+          );
+        } else {
+          _showActionError();
+        }
+      case ChatContextAction.clearHistory:
+        await _confirmClearHistory(chat);
+      case ChatContextAction.delete:
+        await _confirmDeleteChat(chat);
+      case ChatContextAction.pin:
+        break;
+    }
+  }
+
+  String _chatType(ChatModel chat) {
+    if (chat.isFavorites) return 'favorites';
+    if (chat.isChannel) return 'channel';
+    if (chat.isGroup) return 'group';
+    return 'personal';
+  }
+
+  String _chatIdForDestructiveApi(ChatModel chat) {
+    if (chat.id != 'favorites') return chat.id;
+    final userId = context.read<AuthProvider>().user?.id;
+    return userId == null ? chat.id : 'favorites_user_$userId';
+  }
+
+  Future<void> _confirmClearHistory(ChatModel chat) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await ChatActionConfirmationModal.confirm(
+      context: context,
+      title: l10n.clearHistory,
+      message: '${l10n.clearHistory}: "${localizedChatName(context, chat)}"?',
+      confirmLabel: l10n.clearHistory,
+    );
+    if (!confirmed || !mounted) return;
+    final success = await _chatService.clearChatHistory(
+      _chatIdForDestructiveApi(chat),
+      _chatType(chat),
+    );
+    if (!success) {
+      _showActionError();
+      return;
+    }
+    await _localChatRepo.clearHistoryByServerChatId(chat.id);
+  }
+
+  Future<void> _confirmDeleteChat(ChatModel chat) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await ChatActionConfirmationModal.confirm(
+      context: context,
+      title: l10n.deleteChat,
+      message: '${l10n.deleteChat}: "${localizedChatName(context, chat)}". '
+          '${l10n.irreversibleAction}.',
+      confirmLabel: l10n.delete,
+    );
+    if (!confirmed || !mounted) return;
+    final success = await _chatService.deleteChat(chat.id);
+    if (!success) {
+      _showActionError();
+      return;
+    }
+    await _localChatRepo.deleteChatByServerId(chat.id);
+  }
+
+  void _showActionError() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(AppLocalizations.of(context)!.serverError),
+        backgroundColor: AppStyles.errorColor,
+      ),
+    );
   }
 
   @override
@@ -130,7 +232,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
 
   Widget _buildPinnedGlassHeader() {
     final statusBarHeight = MediaQuery.of(context).padding.top;
-    
+
     // BackdropFilter is extremely heavy during page transitions.
     // Use a solid color without blur while transitioning.
     if (_isTransitioning) {
@@ -194,7 +296,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
         // Обычный заголовок с кнопкой назад
         AnimatedOpacity(
           opacity: _isSearching ? 0.0 : 1.0,
-          duration: const Duration(milliseconds: 200),
+          duration: Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           child: IgnorePointer(
             ignoring: _isSearching,
@@ -209,8 +311,8 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                   onTap: () => Navigator.of(context).pop(),
                 ),
                 const SizedBox(width: 12),
-                const Text(
-                  'Архив',
+                Text(
+                  (AppLocalizations.of(context)?.arhiv_56aa ?? 'Fallback'),
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -240,7 +342,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
 
         // Поисковая строка
         AnimatedPositioned(
-          duration: const Duration(milliseconds: 250),
+          duration: Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
           left: _isSearching ? 0 : MediaQuery.of(context).size.width - 40,
           right: 0,
@@ -284,8 +386,10 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                                 fontWeight: FontWeight.w500,
                               ),
                               cursorColor: Colors.white,
-                              decoration: const InputDecoration(
-                                hintText: 'Поиск в архиве...',
+                              decoration: InputDecoration(
+                                hintText: (AppLocalizations.of(context)
+                                        ?.poiskVArhive_c5d8 ??
+                                    'Fallback'),
                                 hintStyle: TextStyle(
                                   color: AppStyles.textMutedColor,
                                   fontSize: 15,
@@ -293,18 +397,20 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                                 border: InputBorder.none,
                                 enabledBorder: InputBorder.none,
                                 focusedBorder: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(vertical: 11),
+                                contentPadding:
+                                    EdgeInsets.symmetric(vertical: 11),
                               ),
                               onChanged: (val) {
                                 setState(() {
-                                    _searchQuery = val;
+                                  _searchQuery = val;
                                 });
                               },
                             ),
                           ),
                           if (_searchQuery.isNotEmpty)
                             IconButton(
-                              icon: const Icon(Icons.clear_rounded, color: AppStyles.textMutedColor, size: 18),
+                              icon: const Icon(Icons.clear_rounded,
+                                  color: AppStyles.textMutedColor, size: 18),
                               onPressed: () {
                                 _searchController.clear();
                                 setState(() {
@@ -321,7 +427,8 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                   ),
                   const SizedBox(width: 8),
                   _buildHeaderButton(
-                    child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                    child: const Icon(Icons.close_rounded,
+                        color: Colors.white, size: 20),
                     onTap: () {
                       _searchController.clear();
                       _searchFocusNode.unfocus();
@@ -392,7 +499,8 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
           final query = _searchQuery.toLowerCase();
           filteredChats = filteredChats.where((c) {
             final nameMatch = c.name.toLowerCase().contains(query);
-            final msgMatch = c.lastMessage?.toLowerCase().contains(query) ?? false;
+            final msgMatch =
+                c.lastMessage?.toLowerCase().contains(query) ?? false;
             return nameMatch || msgMatch;
           }).toList();
         }
@@ -404,23 +512,32 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const FaIcon(
+                  FaIcon(
                     FontAwesomeIcons.boxArchive,
                     size: 50,
                     color: AppStyles.textMutedColor,
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    _searchQuery.isNotEmpty ? 'Ничего не найдено' : 'Архив пуст',
+                    _searchQuery.isNotEmpty
+                        ? (AppLocalizations.of(context)
+                                ?.nichegoNeNaydeno_8767 ??
+                            'Fallback')
+                        : (AppLocalizations.of(context)?.arhivPust_3e22 ??
+                            'Fallback'),
                     style: AppStyles.titleLarge.copyWith(
                       color: AppStyles.textMutedColor,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _searchQuery.isNotEmpty 
-                        ? 'Попробуйте изменить запрос' 
-                        : 'Здесь будут находиться ваши архивированные чаты',
+                    _searchQuery.isNotEmpty
+                        ? (AppLocalizations.of(context)
+                                ?.poprobuyteIzmenitZapros_52ea ??
+                            'Fallback')
+                        : (AppLocalizations.of(context)
+                                ?.zdesBudutNahoditsyaVashiArhivirovannye_7359 ??
+                            'Fallback'),
                     style: AppStyles.bodyMedium.copyWith(
                       color: AppStyles.textMutedColor,
                       fontSize: 14,
@@ -448,14 +565,14 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
               direction: DismissDirection.endToStart,
               onDismissed: (direction) => _unarchiveChat(chat),
               background: Container(
-                color: const Color(0xFF10B981), // Emerald/Premium green
+                color: Color(0xFF10B981), // Emerald/Premium green
                 alignment: Alignment.centerRight,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
-                      'Вернуть',
+                      (AppLocalizations.of(context)?.vernut_54aa ?? 'Fallback'),
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -501,117 +618,123 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
             ),
           );
         },
+        onLongPress: () => _showChatContextMenu(chat),
         splashColor: Colors.white.withOpacity(0.03),
         highlightColor: Colors.white.withOpacity(0.01),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: IgnorePointer(
             child: Row(
-            children: [
-              _buildAvatar(chat),
-              const SizedBox(width: 14),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        if (chat.isFavorites) ...[
-                          FaIcon(
-                            FontAwesomeIcons.solidBookmark,
-                            size: 11,
-                            color: Colors.white.withOpacity(0.5),
-                          ),
-                          const SizedBox(width: 5),
-                        ] else if (chat.isGroup) ...[
-                          FaIcon(
-                            FontAwesomeIcons.users,
-                            size: 11,
-                            color: Colors.white.withOpacity(0.5),
-                          ),
-                          const SizedBox(width: 5),
-                        ] else if (chat.isChannel) ...[
-                          FaIcon(
-                            FontAwesomeIcons.bullhorn,
-                            size: 11,
-                            color: Colors.white.withOpacity(0.5),
-                          ),
-                          const SizedBox(width: 5),
-                        ] else if (chat.isPersonal) ...[
-                          FaIcon(
-                            FontAwesomeIcons.shieldHalved,
-                            size: 11,
-                            color: Colors.white.withOpacity(0.4),
-                          ),
-                          const SizedBox(width: 5),
-                        ],
-                        Expanded(
-                          child: Text(
-                            chat.name,
-                            style: TextStyle(
-                              fontSize: 15.5,
-                              fontWeight: chat.unreadCount > 0 ? FontWeight.w600 : FontWeight.w500,
-                              color: AppStyles.textPrimaryColor,
-                              letterSpacing: -0.2,
+              children: [
+                _buildAvatar(chat),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          if (chat.isFavorites) ...[
+                            FaIcon(
+                              FontAwesomeIcons.solidBookmark,
+                              size: 11,
+                              color: Colors.white.withOpacity(0.5),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            const SizedBox(width: 5),
+                          ] else if (chat.isGroup) ...[
+                            FaIcon(
+                              FontAwesomeIcons.users,
+                              size: 11,
+                              color: Colors.white.withOpacity(0.5),
+                            ),
+                            const SizedBox(width: 5),
+                          ] else if (chat.isChannel) ...[
+                            FaIcon(
+                              FontAwesomeIcons.bullhorn,
+                              size: 11,
+                              color: Colors.white.withOpacity(0.5),
+                            ),
+                            const SizedBox(width: 5),
+                          ] else if (chat.isPersonal) ...[
+                            FaIcon(
+                              FontAwesomeIcons.shieldHalved,
+                              size: 11,
+                              color: Colors.white.withOpacity(0.4),
+                            ),
+                            const SizedBox(width: 5),
+                          ],
+                          Expanded(
+                            child: Text(
+                              localizedChatName(context, chat),
+                              style: TextStyle(
+                                fontSize: 15.5,
+                                fontWeight: chat.unreadCount > 0
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                                color: AppStyles.textPrimaryColor,
+                                letterSpacing: -0.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      _buildMessageText(chat),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (chat.lastMessageTime != null)
+                      Text(
+                        chat.formattedTime,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: chat.unreadCount > 0
+                              ? FontWeight.w500
+                              : FontWeight.w400,
+                          color: chat.unreadCount > 0
+                              ? Colors.white
+                              : AppStyles.textMutedColor,
+                        ),
+                      ),
+                    if (chat.unreadCount > 0) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        constraints: const BoxConstraints(
+                          minWidth: 20,
+                          minHeight: 20,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppStyles.textPrimaryColor,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          chat.unreadCount > 99
+                              ? '99+'
+                              : chat.unreadCount.toString(),
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppStyles.backgroundColor,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    _buildMessageText(chat),
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 28),
+                    ],
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (chat.lastMessageTime != null)
-                    Text(
-                      chat.formattedTime,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: chat.unreadCount > 0 ? FontWeight.w500 : FontWeight.w400,
-                        color: chat.unreadCount > 0
-                            ? Colors.white
-                            : AppStyles.textMutedColor,
-                      ),
-                    ),
-                  if (chat.unreadCount > 0) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      constraints: const BoxConstraints(
-                        minWidth: 20,
-                        minHeight: 20,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppStyles.textPrimaryColor,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        chat.unreadCount > 99 ? '99+' : chat.unreadCount.toString(),
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppStyles.backgroundColor,
-                        ),
-                      ),
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 28),
-                  ],
-                ],
-              ),
-            ],
-          ),
+              ],
+            ),
           ), // Close IgnorePointer
         ),
       ),
@@ -619,8 +742,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
   }
 
   Widget _buildAvatar(ChatModel chat) {
-    final hasRealAvatar = chat.avatar != null &&
-        chat.avatar!.isNotEmpty;
+    final hasRealAvatar = chat.avatar != null && chat.avatar!.isNotEmpty;
 
     final icon = chat.isFavorites ? FontAwesomeIcons.solidBookmark : null;
 
@@ -628,7 +750,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
       avatar: chat.avatar,
       avatarGradient: chat.avatarGradient,
       hasAvatar: hasRealAvatar,
-      username: chat.name,
+      username: localizedChatName(context, chat),
       size: 50,
       icon: icon,
     );
@@ -639,16 +761,20 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
     // 1. Оно помечено как зашифрованное
     // 2. И отображаемый текст это действительно "Зашифрованное сообщение"
     //    (а не конкретный тип вроде "📊 Опрос" или "✅ Список задач")
-    final isEncrypted = chat.isEncryptedMessage && 
-        chat.displayMessage == 'Зашифрованное сообщение';
-    
+    final isEncrypted = chat.isEncryptedMessage &&
+        chat.displayMessage ==
+            (AppLocalizations.of(context)?.zashifrovannoeSoobschenie_c9ab ??
+                'Fallback');
+
     return Row(
       children: [
         if (isEncrypted) ...[
           FaIcon(
             FontAwesomeIcons.lock,
             size: 10,
-            color: chat.unreadCount > 0 ? Colors.white.withOpacity(0.5) : AppStyles.textMutedColor,
+            color: chat.unreadCount > 0
+                ? Colors.white.withOpacity(0.5)
+                : AppStyles.textMutedColor,
           ),
           const SizedBox(width: 5),
         ],
@@ -657,7 +783,8 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
             chat.displayMessage,
             style: TextStyle(
               fontSize: 13.5,
-              fontWeight: chat.unreadCount > 0 ? FontWeight.w500 : FontWeight.w400,
+              fontWeight:
+                  chat.unreadCount > 0 ? FontWeight.w500 : FontWeight.w400,
               color: chat.unreadCount > 0
                   ? Colors.white.withOpacity(0.7)
                   : AppStyles.textMutedColor,
