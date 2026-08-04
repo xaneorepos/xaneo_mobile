@@ -142,7 +142,7 @@ jobs:
           cache: true
 
       - name: Prepare Swift Package Manager directories
-        run: mkdir -p build/ios/SourcePackages
+        run: mkdir -p build/ios/SourcePackages build/macos/SourcePackages
 
       - name: Install dependencies
         run: flutter pub get
@@ -175,6 +175,7 @@ jobs:
       # Сборка без подписи (идеально для CI/CD, подпись выполняется при релизе с помощью сертификатов)
       - name: Build iOS App (No Codesign)
         run: |
+          mkdir -p build/ios/SourcePackages build/macos/SourcePackages
           flutter build ios --no-codesign --release \
             --build-name="$APP_VERSION" \
             --build-number="$BUILD_NUMBER" \
