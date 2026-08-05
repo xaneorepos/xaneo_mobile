@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../models/update/app_version_info.dart';
+import '../update_modal.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
 
-/// Стильный кастомный плавающий Тост-баннер уведомления об обновлении
+/// Компактный плавающий Тост-баннер уведомления об обновлении (выезжает из навигационной панели)
 class CustomUpdateToast extends StatefulWidget {
   final AppVersionInfo updateInfo;
   final VoidCallback onDismiss;
@@ -14,21 +14,26 @@ class CustomUpdateToast extends StatefulWidget {
     required this.onDismiss,
   });
 
-  /// Вспомогательный метод для показа тоста через Overlay
+  /// Вспомогательный метод для показа тоста из навигационной панели через Overlay
   static OverlayEntry show(BuildContext context, AppVersionInfo updateInfo) {
     late OverlayEntry entry;
+    final bottomOffset = MediaQuery.of(context).padding.bottom + 84;
+
     entry = OverlayEntry(
       builder: (context) => Positioned(
-        top: MediaQuery.of(context).padding.top + 12,
-        left: 16,
-        right: 16,
-        child: Material(
-          color: Colors.transparent,
-          child: CustomUpdateToast(
-            updateInfo: updateInfo,
-            onDismiss: () {
-              entry.remove();
-            },
+        bottom: bottomOffset,
+        left: 0,
+        right: 0,
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: Material(
+            color: Colors.transparent,
+            child: CustomUpdateToast(
+              updateInfo: updateInfo,
+              onDismiss: () {
+                entry.remove();
+              },
+            ),
           ),
         ),
       ),
@@ -56,7 +61,8 @@ class _CustomUpdateToastState extends State<CustomUpdateToast>
       duration: const Duration(milliseconds: 400),
     );
 
-    _slideAnimation = Tween<double>(begin: -50, end: 0).animate(
+    // Анимация выезда снизу из-за навигационной панели
+    _slideAnimation = Tween<double>(begin: 40, end: 0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
     _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
@@ -75,17 +81,18 @@ class _CustomUpdateToastState extends State<CustomUpdateToast>
     widget.onDismiss();
   }
 
-  Future<void> _openUpdateUrl() async {
-    final urlStr = widget.updateInfo.downloadUrl ?? widget.updateInfo.htmlUrl;
-    final uri = Uri.parse(urlStr);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+  Future<void> _handleTap() async {
+    final navigatorState = Navigator.of(context);
+    final updateInfo = widget.updateInfo;
+    await _dismiss();
+    XaneoUpdateModal.open(navigatorState.context, updateInfo);
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleText =
+        AppLocalizations.of(context)?.updateAvailable ?? 'Доступно обновление';
 
     return AnimatedBuilder(
       animation: _controller,
@@ -96,114 +103,60 @@ class _CustomUpdateToastState extends State<CustomUpdateToast>
             opacity: _fadeAnimation.value,
             child: Dismissible(
               key: UniqueKey(),
-              direction: DismissDirection.up,
+              direction: DismissDirection.down,
               onDismissed: (_) {
                 widget.onDismiss();
               },
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isDark ? Color(0xFF1E212B) : const Color(0xFF2D3748),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(80),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
+              child: GestureDetector(
+                onTap: _handleTap,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xF2141416)
+                        : const Color(0xF21F2937),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      width: 1,
                     ),
-                  ],
-                  border: Border.all(
-                    color: Colors.white.withAlpha(25),
                   ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF2563EB),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.rocket_launch_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${AppLocalizations.of(context)?.updateAvailable ?? 'Update available'} v${widget.updateInfo.version}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            widget.updateInfo.releaseNotes.isNotEmpty
-                                ? widget.updateInfo.releaseNotes
-                                    .split('\n')
-                                    .first
-                                : (AppLocalizations.of(context)
-                                        ?.nazhmiteChtobyZagruzitNovuyuVersiyu_8b2a ??
-                                    'Fallback'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white.withAlpha(180),
-                              fontSize: 12,
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: _openUpdateUrl,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black87,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Черно-белый логотип / иконка
+                      Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.system_update_rounded,
+                          color: Colors.black,
+                          size: 14,
                         ),
                       ),
-                      child: Text(
-                        (AppLocalizations.of(context)?.obnovit_dbe5 ??
-                            'Fallback'),
-                        style: TextStyle(
-                          fontSize: 12,
+                      const SizedBox(width: 8),
+                      Text(
+                        '$titleText v${widget.updateInfo.version}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.bold,
                           fontFamily: 'Inter',
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: Icon(
-                        Icons.close,
-                        color: Colors.white.withAlpha(150),
-                        size: 18,
-                      ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () {
-                        _dismiss();
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

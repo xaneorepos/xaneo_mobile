@@ -18,6 +18,7 @@ import '../../widgets/common/mobile_language_modal.dart';
 import '../../widgets/common/avatar_widget.dart';
 import '../../services/notifications/notification_service.dart';
 import '../../services/update/update_service.dart';
+import '../../models/update/app_version_info.dart';
 import '../../widgets/common/custom_update_toast.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
 
@@ -53,8 +54,15 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _checkAppUpdate() async {
-    final update = await UpdateService().checkForUpdates();
-    if (mounted && update != null) {
+    var update = await UpdateService().checkForUpdates(force: true);
+    update ??= AppVersionInfo(
+      version: '2.1.0',
+      downloadUrl:
+          'https://github.com/xaneorepos/xaneo_mobile/releases/latest/download/xaneo.apk',
+      htmlUrl: 'https://github.com/xaneorepos/xaneo_mobile/releases/latest',
+      releaseNotes: 'Тестовое обновление',
+    );
+    if (mounted) {
       CustomUpdateToast.show(context, update);
     }
   }

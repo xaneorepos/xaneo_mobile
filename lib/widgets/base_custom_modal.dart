@@ -73,10 +73,8 @@ abstract class BaseCustomModalState<T extends BaseCustomModal> extends State<T> 
   }
 
   @override
-  Widget build(BuildContext context) {
+    const double scale = 1.0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scaleProvider = Provider.of<ScaleProvider>(context, listen: false);
-    final scale = scaleProvider.scale;
     final screenSize = MediaQuery.of(context).size;
 
     final bgColor = isDark ? const Color(0xFF0C0C0C) : Colors.white;
