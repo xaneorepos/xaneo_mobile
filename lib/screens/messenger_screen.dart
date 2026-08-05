@@ -5454,9 +5454,22 @@ class _MessengerScreenState extends State<MessengerScreen> {
   }
 
   String _formatBytes(int bytes) {
-    if (bytes <= 0) return (AppLocalizations.of(context)?.loc_0B_5a4d ?? 'Fallback');
-    var suffixes = [(AppLocalizations.of(context)?.b_3b67 ?? 'Fallback'), (AppLocalizations.of(context)?.kb_419d ?? 'Fallback'), (AppLocalizations.of(context)?.mb_b808 ?? 'Fallback'), (AppLocalizations.of(context)?.gb_e572 ?? 'Fallback')];
+    if (bytes <= 0) {
+      final loc = AppLocalizations.of(context)?.loc_0B_5a4d;
+      return (loc != null && loc != 'Fallback') ? loc : '0 B';
+    }
+    final locB = AppLocalizations.of(context)?.b_3b67;
+    final locKB = AppLocalizations.of(context)?.kb_419d;
+    final locMB = AppLocalizations.of(context)?.mb_b808;
+    final locGB = AppLocalizations.of(context)?.gb_e572;
+    var suffixes = [
+      (locB != null && locB != 'Fallback') ? locB : 'B',
+      (locKB != null && locKB != 'Fallback') ? locKB : 'KB',
+      (locMB != null && locMB != 'Fallback') ? locMB : 'MB',
+      (locGB != null && locGB != 'Fallback') ? locGB : 'GB',
+    ];
     var i = (log(bytes) / log(1024)).floor();
+    if (i < 0) i = 0;
     if (i >= suffixes.length) i = suffixes.length - 1;
     return ((bytes / pow(1024, i)).toStringAsFixed(1)) + ' ' + suffixes[i];
   }
@@ -5727,8 +5740,9 @@ class _MessengerScreenState extends State<MessengerScreen> {
         ?? msg['author_username']?.toString()
         ?? (AppLocalizations.of(context)?.polzovatel_f154 ?? 'Fallback');
     final authorAvatar = authorProfile?['avatar']?.toString() ?? msg['author_avatar']?.toString();
-    final authorGradient = authorProfile?['avatar_gradient']?.toString() ?? msg['author_avatar_gradient']?.toString();
-    final isGroup = _selectedChat!['chat_type'] == 'group' || _selectedChat!['chat_type'] == 'channel';
+    final isChannel = _selectedChat?['chat_type'] == 'channel';
+    final isGroup = _selectedChat?['chat_type'] == 'group';
+    final effectiveIsMe = isChannel ? false : isMe;
 
     if (customPayload != null && customPayload['type'] == 'video_message') {
       return Align(
@@ -5784,7 +5798,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
             maxWidth: MediaQuery.of(context).size.width * 0.6,
           ),
           decoration: BoxDecoration(
-            gradient: isMe
+            gradient: effectiveIsMe
                 ? LinearGradient(
                     colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                     begin: Alignment.topLeft,
@@ -5798,11 +5812,11 @@ class _MessengerScreenState extends State<MessengerScreen> {
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(16),
               topRight: const Radius.circular(16),
-              bottomLeft: Radius.circular(isMe ? 16 : 2),
-              bottomRight: Radius.circular(isMe ? 2 : 16),
+              bottomLeft: Radius.circular(effectiveIsMe ? 16 : 2),
+              bottomRight: Radius.circular(effectiveIsMe ? 2 : 16),
             ),
             border: Border.all(
-              color: isMe 
+              color: effectiveIsMe 
                   ? Colors.transparent 
                   : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05)),
             ),
@@ -5810,16 +5824,16 @@ class _MessengerScreenState extends State<MessengerScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Sender name (for group chats if not me)
-              if (!isMe && isGroup)
+              // Sender name (for group chats if not me or for channels)
+              if ((!effectiveIsMe && isGroup) || isChannel)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
-                    authorFirstName,
+                    isChannel ? _getChatName(_selectedChat!) : authorFirstName,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
-                      color: Color(0xFF2563EB),
+                      color: Color(0xFF60A5FA),
                     ),
                   ),
                 ),
@@ -5989,7 +6003,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
       ),
     );
 
-    if (!isMe && isGroup) {
+    if (!effectiveIsMe && isGroup && !isChannel) {
       return Align(
         alignment: Alignment.centerLeft,
         child: Padding(
@@ -6008,7 +6022,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
     }
 
     return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: effectiveIsMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
         child: bubbleContent,
@@ -8863,9 +8877,22 @@ class _MusicMessageBubblePlayerState extends State<_MusicMessageBubblePlayer> {
   }
 
   String _formatBytes(int bytes) {
-    if (bytes <= 0) return (AppLocalizations.of(context)?.loc_0B_5a4d ?? 'Fallback');
-    var suffixes = [(AppLocalizations.of(context)?.b_3b67 ?? 'Fallback'), (AppLocalizations.of(context)?.kb_419d ?? 'Fallback'), (AppLocalizations.of(context)?.mb_b808 ?? 'Fallback'), (AppLocalizations.of(context)?.gb_e572 ?? 'Fallback')];
+    if (bytes <= 0) {
+      final loc = AppLocalizations.of(context)?.loc_0B_5a4d;
+      return (loc != null && loc != 'Fallback') ? loc : '0 B';
+    }
+    final locB = AppLocalizations.of(context)?.b_3b67;
+    final locKB = AppLocalizations.of(context)?.kb_419d;
+    final locMB = AppLocalizations.of(context)?.mb_b808;
+    final locGB = AppLocalizations.of(context)?.gb_e572;
+    var suffixes = [
+      (locB != null && locB != 'Fallback') ? locB : 'B',
+      (locKB != null && locKB != 'Fallback') ? locKB : 'KB',
+      (locMB != null && locMB != 'Fallback') ? locMB : 'MB',
+      (locGB != null && locGB != 'Fallback') ? locGB : 'GB',
+    ];
     var i = (log(bytes) / log(1024)).floor();
+    if (i < 0) i = 0;
     if (i >= suffixes.length) i = suffixes.length - 1;
     return ((bytes / pow(1024, i)).toStringAsFixed(1)) + ' ' + suffixes[i];
   }

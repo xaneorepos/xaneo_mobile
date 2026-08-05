@@ -198,10 +198,16 @@ class LocalChatRepository {
   }
 
   /// Обновление serverMessageId существующего (pending) сообщения в локальной БД без пересоздания
-  Future<int> updateMessageServerId(String tempServerId, String newServerId) {
+  Future<int> updateMessageServerId(String tempServerId, String newServerId,
+      {String? fileUrl, String? messageType}) {
     return (_db.update(_db.messages)
           ..where((m) => m.serverMessageId.equals(tempServerId)))
-        .write(MessagesCompanion(serverMessageId: Value(newServerId)));
+        .write(MessagesCompanion(
+      serverMessageId: Value(newServerId),
+      fileUrl: fileUrl != null ? Value(fileUrl) : const Value.absent(),
+      messageType:
+          messageType != null ? Value(messageType) : const Value.absent(),
+    ));
   }
 
   /// Пакетное сохранение чатов из API в локальную БД

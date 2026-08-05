@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 import 'package:drift/drift.dart' hide Column;
@@ -30,6 +31,7 @@ import '../../styles/app_styles.dart';
 import '../../utils/chat_name_localizer.dart';
 import '../../widgets/common/chat_info_modal.dart';
 import '../../widgets/common/chat_context_menu.dart';
+import '../../widgets/common/base_custom_modal.dart';
 import '../../widgets/common/music_playlist_modal.dart';
 import '../../services/webrtc/call_manager.dart';
 import '../webrtc/active_call_screen.dart';
@@ -180,6 +182,9 @@ class _ChatScreenState extends State<ChatScreen> {
   int _limit = 20;
   String? _highlightedMessageId;
   List<Message> _loadedMessages = [];
+
+  // In-memory reactions cache: serverMessageId -> list of reaction maps
+  final Map<String, List<dynamic>> _messageReactions = {};
 
   // Typing state variables (sending)
   bool _isTyping = false;
@@ -718,19 +723,40 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     // 3. Check for single attached file
-    final fileId =
-        item['attached_file_id']?.toString() ?? item['file_id']?.toString();
+    Map<String, dynamic>? attachedDict;
+    if (item['attached_file'] is Map) {
+      attachedDict = Map<String, dynamic>.from(item['attached_file']);
+    } else if (item['file'] is Map) {
+      attachedDict = Map<String, dynamic>.from(item['file']);
+    }
+
+    final fileId = item['attached_file_id']?.toString() ??
+        item['file_id']?.toString() ??
+        attachedDict?['file_id']?.toString() ??
+        attachedDict?['id']?.toString();
+
     if (fileId != null && fileId.isNotEmpty) {
       final fileName = item['attached_file_name']?.toString() ??
           item['file_name']?.toString() ??
+          attachedDict?['original_filename']?.toString() ??
+          attachedDict?['file_name']?.toString() ??
+          attachedDict?['name']?.toString() ??
           'file';
-      final fileSize =
-          item['attached_file_size'] as int? ?? item['file_size'] as int? ?? 0;
+      final fileSize = item['attached_file_size'] as int? ??
+          item['file_size'] as int? ??
+          attachedDict?['file_size'] as int? ??
+          attachedDict?['size'] as int? ??
+          0;
       final fileType = item['attached_file_type']?.toString() ??
           item['mime_type']?.toString() ??
+          item['file_type']?.toString() ??
+          attachedDict?['mime_type']?.toString() ??
+          attachedDict?['file_type']?.toString() ??
           'application/octet-stream';
       String fileUrlSuffix = item['attached_file_url']?.toString() ??
           item['file_url']?.toString() ??
+          attachedDict?['file_url']?.toString() ??
+          attachedDict?['url']?.toString() ??
           '';
       if (fileUrlSuffix.isEmpty) {
         fileUrlSuffix = '/api/files/download/$fileId/';
@@ -1456,6 +1482,63 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
+    if (type == 'reaction_update') {
+      final msgIdRaw = event['message_id'];
+      final msgId =
+          msgIdRaw is int ? msgIdRaw : int.tryParse(msgIdRaw?.toString() ?? '');
+      final action = event['action']?.toString();
+      final emoji = event['emoji']?.toString();
+      final userIdRaw = event['user_id'];
+      final userId = userIdRaw is int
+          ? userIdRaw
+          : int.tryParse(userIdRaw?.toString() ?? '');
+
+      if (msgId != null && emoji != null && userId != null) {
+        if (mounted) {
+          setState(() {
+            // Find the matching message in _loadedMessages by numeric server id
+            final match = _loadedMessages.cast<Message?>().firstWhere(
+              (m) {
+                final parsed =
+                    int.tryParse(m!.serverMessageId) ?? m.id;
+                return parsed == msgId;
+              },
+              orElse: () => null,
+            );
+            if (match != null) {
+              final key = match.serverMessageId;
+              final reactions =
+                  List<dynamic>.from(_messageReactions[key] ?? []);
+
+              reactions.removeWhere((r) {
+                final rUserIdRaw = r['user_id'];
+                final rUserId = rUserIdRaw is int
+                    ? rUserIdRaw
+                    : int.tryParse(rUserIdRaw?.toString() ?? '');
+                return rUserId == userId &&
+                    (action == 'remove' ? r['emoji'] == emoji : true);
+              });
+
+              if (action == 'add') {
+                reactions.add({
+                  'user_id': userId,
+                  'user_username': event['user_username'] ?? '',
+                  'user_first_name': event['user_first_name'] ?? '',
+                  'user_avatar': event['user_avatar'] ?? '',
+                  'user_avatar_gradient': event['user_avatar_gradient'] ?? '',
+                  'emoji': emoji,
+                  'created_at':
+                      event['timestamp'] ?? DateTime.now().toIso8601String(),
+                });
+              }
+              _messageReactions[key] = reactions;
+            }
+          });
+        }
+      }
+      return;
+    }
+
     if (type == 'messages_read' ||
         type == 'message_read' ||
         type == 'read_event' ||
@@ -1574,7 +1657,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
       if (_pendingTextTempIds.isNotEmpty) {
         final tempId = _pendingTextTempIds.removeAt(0);
-        await _localChatRepo.updateMessageServerId(tempId, msgId);
+        await _localChatRepo.updateMessageServerId(
+          tempId,
+          msgId,
+          fileUrl: fileInfoJson,
+          messageType: messageType,
+        );
         _messagesToAnimate.remove(tempId);
         _animatedMessageIds.add(msgId);
       } else {
@@ -2352,6 +2440,14 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
+    if (_attachments.any((a) => a.status == 'error' || a.fileId == null || a.fileId!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Ошибка загрузки файла. Попробуйте прикрепить файл заново.')),
+      );
+      return;
+    }
+
     final localAttachments = List<AttachmentComposition>.from(_attachments);
     _messageController.clear();
     setState(() {
@@ -2426,6 +2522,35 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     }
 
+    String? optimisticFileInfoJson;
+    if (localAttachments.isNotEmpty) {
+      if (localAttachments.length == 1) {
+        final att = localAttachments[0];
+        optimisticFileInfoJson = jsonEncode({
+          'file_id': att.fileId,
+          'file_name': att.fileName,
+          'file_size': att.fileSize,
+          'type': att.fileType,
+          'mime_type': att.fileType,
+          if (att.file.path.isNotEmpty) 'local_path': att.file.path,
+        });
+      } else {
+        optimisticFileInfoJson = jsonEncode({
+          'type': 'collage',
+          'files': localAttachments
+              .map((att) => {
+                    'file_id': att.fileId,
+                    'file_name': att.fileName,
+                    'file_size': att.fileSize,
+                    'type': att.fileType,
+                    'mime_type': att.fileType,
+                    if (att.file.path.isNotEmpty) 'local_path': att.file.path,
+                  })
+              .toList(),
+        });
+      }
+    }
+
     final tempId = 'temp_text_${timestamp.millisecondsSinceEpoch}';
     final currentUser = context.read<AuthProvider>().user;
     final currentSenderId =
@@ -2438,6 +2563,8 @@ class _ChatScreenState extends State<ChatScreen> {
         senderId: Value(currentSenderId),
         textContent: Value(text),
         timestamp: Value(timestamp),
+        fileUrl: Value(optimisticFileInfoJson),
+        messageType: Value(previewMessageType ?? (optimisticFileInfoJson != null ? 'file' : null)),
         isRead: const Value(false),
         replyToId: Value(replyToId),
         replyText: Value(replyText),
@@ -2469,65 +2596,26 @@ class _ChatScreenState extends State<ChatScreen> {
         return;
       }
 
-      if (text.isNotEmpty && localAttachments.isNotEmpty) {
-        final allFilesList = localAttachments
-            .map((file) => {
-                  'file_id': file.fileId,
-                  'name': file.fileName,
-                  'size': file.fileSize,
-                  'type': file.fileType,
-                  'mime_type': file.fileType,
-                })
-            .toList();
+      final String? firstFileId =
+          localAttachments.isNotEmpty ? localAttachments[0].fileId : null;
 
+      final allFilesList = localAttachments
+          .map((file) => {
+                'file_id': file.fileId,
+                'name': file.fileName,
+                'size': file.fileSize,
+                'type': file.fileType,
+                'mime_type': file.fileType,
+              })
+          .toList();
+
+      if (localAttachments.isNotEmpty) {
         await _chatWebSocketService.send({
           'type': 'encrypted_message',
           'chat_id': widget.chat.id,
           'encrypted_text': encryptedText,
-          'images': allFilesList,
-          if (replyToId != null) 'reply_to_id': replyToId,
-        });
-      } else if (text.isEmpty && localAttachments.isNotEmpty) {
-        final encryptedEmptyText =
-            await cryptoService.encryptMessage("", widget.chat.id);
-        if (encryptedEmptyText == null) return;
-
-        List<Map<String, dynamic>> compressedImagesList = [];
-        String? firstFileId;
-
-        if (localAttachments.length == 1) {
-          final singleFile = localAttachments[0];
-          firstFileId = singleFile.fileId;
-          if (singleFile.fileType == 'image' ||
-              singleFile.fileType == 'video') {
-            compressedImagesList = [
-              {
-                'file_id': singleFile.fileId,
-                'name': singleFile.fileName,
-                'size': singleFile.fileSize,
-                'type': singleFile.fileType,
-                'mime_type': singleFile.fileType,
-              }
-            ];
-          }
-        } else {
-          compressedImagesList = localAttachments
-              .map((file) => {
-                    'file_id': file.fileId,
-                    'name': file.fileName,
-                    'size': file.fileSize,
-                    'type': file.fileType,
-                    'mime_type': file.fileType,
-                  })
-              .toList();
-        }
-
-        await _chatWebSocketService.send({
-          'type': 'encrypted_message',
-          'chat_id': widget.chat.id,
-          'encrypted_text': encryptedEmptyText,
           'file_id': firstFileId,
-          'images': compressedImagesList,
+          'images': allFilesList,
           if (replyToId != null) 'reply_to_id': replyToId,
         });
       } else {
@@ -2723,16 +2811,25 @@ class _ChatScreenState extends State<ChatScreen> {
         data: formData,
       );
 
-      if (response.statusCode == 201 && response.data['success'] == true) {
-        final fileId = response.data['file_id'] as String;
-        if (mounted) {
-          setState(() {
-            attachment.status = 'success';
-            attachment.fileId = fileId;
-          });
+      final isSuccess = response.statusCode != null &&
+          (response.statusCode == 200 || response.statusCode == 201) &&
+          response.data != null &&
+          (response.data['success'] == true || response.data['file_id'] != null);
+
+      if (isSuccess) {
+        final fileId = (response.data['file_id'] ?? response.data['id'])?.toString();
+        if (fileId != null && fileId.isNotEmpty) {
+          if (mounted) {
+            setState(() {
+              attachment.status = 'success';
+              attachment.fileId = fileId;
+            });
+          }
+        } else {
+          throw Exception('No file_id in response');
         }
       } else {
-        throw Exception('Failed to upload file');
+        throw Exception('Failed to upload file (HTTP ${response.statusCode})');
       }
     } catch (e) {
       debugPrint('Error uploading attachment: $e');
@@ -3646,15 +3743,22 @@ class _ChatScreenState extends State<ChatScreen> {
       Color(0xD9000000); // ~0.85 opacity replaces blur+0.75
 
   String _formatBytes(int bytes) {
-    if (bytes <= 0)
-      return (AppLocalizations.of(context)?.loc_0B_5a4d ?? 'Fallback');
+    if (bytes <= 0) {
+      final loc = AppLocalizations.of(context)?.loc_0B_5a4d;
+      return (loc != null && loc != 'Fallback') ? loc : '0 B';
+    }
+    final locB = AppLocalizations.of(context)?.b_3b67;
+    final locKB = AppLocalizations.of(context)?.kb_419d;
+    final locMB = AppLocalizations.of(context)?.mb_b808;
+    final locGB = AppLocalizations.of(context)?.gb_e572;
     var suffixes = [
-      (AppLocalizations.of(context)?.b_3b67 ?? 'Fallback'),
-      (AppLocalizations.of(context)?.kb_419d ?? 'Fallback'),
-      (AppLocalizations.of(context)?.mb_b808 ?? 'Fallback'),
-      (AppLocalizations.of(context)?.gb_e572 ?? 'Fallback')
+      (locB != null && locB != 'Fallback') ? locB : 'B',
+      (locKB != null && locKB != 'Fallback') ? locKB : 'KB',
+      (locMB != null && locMB != 'Fallback') ? locMB : 'MB',
+      (locGB != null && locGB != 'Fallback') ? locGB : 'GB',
     ];
     var i = (log(bytes) / log(1024)).floor();
+    if (i < 0) i = 0;
     if (i >= suffixes.length) i = suffixes.length - 1;
     return ((bytes / pow(1024, i)).toStringAsFixed(1)) + ' ' + suffixes[i];
   }
@@ -4387,11 +4491,18 @@ class _ChatScreenState extends State<ChatScreen> {
                   message: msg,
                   isMe: isMe,
                   isGroup: widget.chat.isGroup,
+                  isChannel: widget.chat.isChannel,
+                  channelName: widget.chat.name,
                   currentUser: currentUser,
                   jwtToken: _jwtToken,
                   senderRealName: senderRealName,
                   senderAvatar: senderAvatar,
                   senderGradient: senderGradient,
+                  reactions: _messageReactions[msg.serverMessageId] ?? [],
+                  myId: currentUser?.id?.toString(),
+                  onToggleReaction: (emoji) => _toggleReaction(msg, emoji),
+                  onLongPress: (messageToOptions) =>
+                      _showMessageContextMenu(messageToOptions),
                   onReply: (messageToReply) {
                     setState(() {
                       _replyingToMessage = messageToReply;
@@ -5774,6 +5885,86 @@ class _ChatScreenState extends State<ChatScreen> {
     return items;
   }
 
+  void _toggleReaction(Message message, String emoji) {
+    final currentUser = context.read<AuthProvider>().user;
+    final myId = currentUser?.id;
+    if (myId == null) return;
+
+    final key = message.serverMessageId;
+    final reactions = List<dynamic>.from(_messageReactions[key] ?? []);
+    final existingIndex = reactions.indexWhere((r) {
+      final rUserId = r['user_id'] is int
+          ? r['user_id']
+          : int.tryParse(r['user_id']?.toString() ?? '');
+      return rUserId == myId && r['emoji'] == emoji;
+    });
+
+    final msgId = int.tryParse(message.serverMessageId) ?? message.id;
+
+    if (existingIndex != -1) {
+      _chatWebSocketService.send({
+        'type': 'remove_reaction',
+        'message_id': msgId,
+      });
+    } else {
+      _chatWebSocketService.send({
+        'type': 'add_reaction',
+        'message_id': msgId,
+        'emoji': emoji,
+      });
+    }
+  }
+
+  Set<String> _getMyReactionEmojis(Message message) {
+    final currentUser = context.read<AuthProvider>().user;
+    final myId = currentUser?.id;
+    if (myId == null) return {};
+
+    final key = message.serverMessageId;
+    final reactions = List<dynamic>.from(_messageReactions[key] ?? []);
+    final myReactionEmojis = <String>{};
+
+    for (final r in reactions) {
+      if (r is Map) {
+        final uId = r['user_id'] is int
+            ? r['user_id']
+            : int.tryParse(r['user_id']?.toString() ?? '');
+        if (uId == myId) {
+          final emoji = r['emoji']?.toString();
+          if (emoji != null) myReactionEmojis.add(emoji);
+        }
+      }
+    }
+    return myReactionEmojis;
+  }
+
+  void _showMessageContextMenu(Message message) {
+    final myReactionEmojis = _getMyReactionEmojis(message);
+
+    ChatMessageContextMenuModal.show(
+      context: context,
+      message: message,
+      myReactionEmojis: myReactionEmojis,
+      onSelectEmoji: (emoji) => _toggleReaction(message, emoji),
+      onReply: (msg) {
+        setState(() {
+          _replyingToMessage = msg;
+        });
+      },
+      onShowFullEmojiPicker: (msg) => _showFullEmojiPicker(msg),
+    );
+  }
+
+  void _showFullEmojiPicker(Message message) {
+    final myReactionEmojis = _getMyReactionEmojis(message);
+
+    FullEmojiPickerModal.show(
+      context: context,
+      myReactionEmojis: myReactionEmojis,
+      onSelectEmoji: (emoji) => _toggleReaction(message, emoji),
+    );
+  }
+
   void _handleMenuAction(String value) {
     switch (value) {
       case 'search':
@@ -6316,6 +6507,8 @@ class MessageBubble extends StatelessWidget {
   final Message message;
   final bool isMe;
   final bool isGroup;
+  final bool isChannel;
+  final String? channelName;
   final UserModel? currentUser;
   final String? jwtToken;
   final String senderRealName;
@@ -6323,12 +6516,18 @@ class MessageBubble extends StatelessWidget {
   final String? senderGradient;
   final void Function(Message)? onReply;
   final void Function(String replyToId)? onTapReplyQuote;
+  final List<dynamic> reactions;
+  final String? myId;
+  final void Function(String emoji)? onToggleReaction;
+  final void Function(Message message)? onLongPress;
 
   const MessageBubble({
     super.key,
     required this.message,
     required this.isMe,
     this.isGroup = false,
+    this.isChannel = false,
+    this.channelName,
     required this.currentUser,
     required this.jwtToken,
     required this.senderRealName,
@@ -6336,6 +6535,10 @@ class MessageBubble extends StatelessWidget {
     this.senderGradient,
     this.onReply,
     this.onTapReplyQuote,
+    this.reactions = const [],
+    this.myId,
+    this.onToggleReaction,
+    this.onLongPress,
   });
 
   Widget _buildReplyQuote(BuildContext context) {
@@ -6532,7 +6735,7 @@ class MessageBubble extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _formatFileSize(fileSize),
+                      _formatFileSize(fileSize, fileName),
                       style:
                           const TextStyle(color: Colors.white54, fontSize: 10),
                     ),
@@ -6842,16 +7045,23 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  String _formatFileSize(int bytes) {
-    if (bytes <= 0) return 'Fallback';
-    var suffixes = ['Fallback', 'Fallback', 'Fallback', 'Fallback'];
+  String _formatFileSize(int bytes, [String? fileName]) {
+    String extensionPrefix = '';
+    if (fileName != null && fileName.contains('.') && !fileName.startsWith('.')) {
+      final ext = fileName.split('.').last.trim().toUpperCase();
+      if (ext.isNotEmpty && ext.length <= 12) {
+        extensionPrefix = '$ext • ';
+      }
+    }
+    if (bytes <= 0) return '${extensionPrefix}0 B';
+    var suffixes = ['B', 'KB', 'MB', 'GB', 'TB'];
     var i = 0;
     double size = bytes.toDouble();
     while (size >= 1024 && i < suffixes.length - 1) {
       size /= 1024;
       i++;
     }
-    return '${size.toStringAsFixed(1)} ${suffixes[i]}';
+    return '$extensionPrefix${size.toStringAsFixed(1)} ${suffixes[i]}';
   }
 
   Widget _buildDroplet({
@@ -7041,26 +7251,41 @@ class MessageBubble extends StatelessWidget {
       );
 
       Directory? dir;
-      if (Platform.isAndroid) {
-        dir = Directory('/storage/emulated/0/Download/Xaneo');
-        if (!await dir.exists()) {
-          await dir.create(recursive: true);
-        }
-      } else {
-        dir = await getDownloadsDirectory();
-        if (dir != null) {
-          dir = Directory('${dir.path}/Xaneo');
-          if (!await dir.exists()) {
-            await dir.create(recursive: true);
+      try {
+        if (Platform.isAndroid) {
+          try {
+            dir = Directory('/storage/emulated/0/Download/Xaneo');
+            if (!await dir.exists()) {
+              await dir.create(recursive: true);
+            }
+          } catch (_) {
+            final extDir = await getExternalStorageDirectory();
+            if (extDir != null) {
+              dir = Directory('${extDir.path}/Xaneo');
+              if (!await dir.exists()) {
+                await dir.create(recursive: true);
+              }
+            }
           }
         } else {
-          dir = await getApplicationDocumentsDirectory();
+          final downloadsDir = await getDownloadsDirectory();
+          if (downloadsDir != null) {
+            dir = Directory('${downloadsDir.path}/Xaneo');
+            if (!await dir.exists()) {
+              await dir.create(recursive: true);
+            }
+          }
         }
+      } catch (_) {}
+
+      dir ??= await getApplicationDocumentsDirectory();
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
       }
 
-      final savePath = '${dir!.path}/$fileName';
+      final savePath = '${dir.path}/$fileName';
       final dio = Dio();
-      if (jwtToken != null) {
+      if (jwtToken != null && jwtToken!.isNotEmpty) {
         dio.options.headers['Authorization'] = 'Bearer $jwtToken';
       }
       await dio.download(url, savePath);
@@ -7444,9 +7669,11 @@ class MessageBubble extends StatelessWidget {
             jwtToken: jwtToken,
             duration: duration,
             localPath: localPath,
-            senderName: isMe
-                ? (AppLocalizations.of(context)?.vy_0101 ?? 'Fallback')
-                : senderRealName,
+            senderName: isChannel
+                ? ((channelName != null && channelName!.isNotEmpty) ? channelName! : senderRealName)
+                : (isMe
+                    ? (AppLocalizations.of(context)?.vy_0101 ?? 'Fallback')
+                    : senderRealName),
             messageId: message.serverMessageId,
           );
 
@@ -7712,7 +7939,7 @@ class MessageBubble extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              _formatFileSize(fileSize),
+                              _formatFileSize(fileSize, fileName),
                               style: const TextStyle(
                                   color: Colors.white54, fontSize: 10),
                             ),
@@ -7763,7 +7990,7 @@ class MessageBubble extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          _formatFileSize(fileSize),
+                          _formatFileSize(fileSize, fileName),
                           style: const TextStyle(
                               color: Colors.white54, fontSize: 10),
                         ),
@@ -7780,18 +8007,25 @@ class MessageBubble extends StatelessWidget {
       }
     }
 
-    final showGroupSenderInfo = !isMe && isGroup;
-    final senderNameColor = _getSenderNameColor(senderRealName, senderGradient);
+    final effectiveIsMe = isChannel ? false : isMe;
+    final showGroupSenderInfo = !effectiveIsMe && isGroup && !isChannel;
+    final showChannelSenderHeader = isChannel;
+    final displayName = isChannel
+        ? ((channelName != null && channelName!.isNotEmpty) ? channelName! : senderRealName)
+        : senderRealName;
+    final senderNameColor = isChannel
+        ? const Color(0xFF60A5FA)
+        : _getSenderNameColor(senderRealName, senderGradient);
 
     return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: effectiveIsMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2.5, horizontal: 12),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisAlignment:
-              isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+              effectiveIsMe ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
             if (showGroupSenderInfo) ...[
               AvatarWidget(
@@ -7808,6 +8042,7 @@ class MessageBubble extends StatelessWidget {
               ),
               child: GestureDetector(
                 onTap: () => onReply?.call(message),
+                onLongPress: () => onLongPress?.call(message),
                 child: Container(
                   padding: isOnlyMedia
                       ? EdgeInsets.zero
@@ -7815,17 +8050,17 @@ class MessageBubble extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isOnlyMedia
                         ? Colors.transparent
-                        : (isMe ? _myBubbleColor : _otherBubbleColor),
-                    borderRadius: isMe ? _myCorners : _otherCorners,
+                        : (effectiveIsMe ? _myBubbleColor : _otherBubbleColor),
+                    borderRadius: effectiveIsMe ? _myCorners : _otherCorners,
                     border:
                         isOnlyMedia ? null : Border.all(color: _borderColor),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (showGroupSenderInfo) ...[
+                      if (showGroupSenderInfo || showChannelSenderHeader) ...[
                         Text(
-                          senderRealName,
+                          displayName,
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
@@ -7839,26 +8074,99 @@ class MessageBubble extends StatelessWidget {
                           _parseReplyField(message.replyAuthorName) != null)
                         _buildReplyQuote(context),
                       if (attachmentWidget != null) attachmentWidget,
-                      if (displayContent.isNotEmpty)
-                        FormattedText(
-                          content: displayContent,
-                          baseStyle: _bodyStyle,
-                        ),
-                      if (!isOnlyMedia) const SizedBox(height: 3),
-                      if (!isOnlyMedia)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _formatTime(message.timestamp),
-                              style: _timeStyle,
-                            ),
-                            if (isMe) ...[
-                              const SizedBox(width: 4),
-                              _buildMessageStatusIcon(message),
+                      if (reactions.isNotEmpty) ...[
+                        if (displayContent.isNotEmpty)
+                          FormattedText(
+                            content: displayContent,
+                            baseStyle: _bodyStyle,
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: _buildReactionsRow(context),
+                              ),
+                              const SizedBox(width: 8),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _formatTime(message.timestamp),
+                                    style: _timeStyle,
+                                  ),
+                                  if (effectiveIsMe) ...[
+                                    const SizedBox(width: 4),
+                                    _buildMessageStatusIcon(message),
+                                  ],
+                                ],
+                              ),
                             ],
-                          ],
+                          ),
                         ),
+                      ] else ...[
+                        if (attachmentWidget == null &&
+                            !showGroupSenderInfo &&
+                            !showChannelSenderHeader &&
+                            _parseReplyField(message.replyToId) == null &&
+                            _parseReplyField(message.replyText) == null &&
+                            _parseReplyField(message.replyAuthorName) == null &&
+                            displayContent.isNotEmpty &&
+                            !isOnlyMedia)
+                          Wrap(
+                            alignment: WrapAlignment.end,
+                            crossAxisAlignment: WrapCrossAlignment.end,
+                            children: [
+                              FormattedText(
+                                content: displayContent,
+                                baseStyle: _bodyStyle,
+                              ),
+                              const SizedBox(width: 8),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 1),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _formatTime(message.timestamp),
+                                      style: _timeStyle,
+                                    ),
+                                    if (effectiveIsMe) ...[
+                                      const SizedBox(width: 4),
+                                      _buildMessageStatusIcon(message),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )
+                        else ...[
+                          if (displayContent.isNotEmpty)
+                            FormattedText(
+                              content: displayContent,
+                              baseStyle: _bodyStyle,
+                            ),
+                          if (!isOnlyMedia)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    _formatTime(message.timestamp),
+                                    style: _timeStyle,
+                                  ),
+                                  if (effectiveIsMe) ...[
+                                    const SizedBox(width: 4),
+                                    _buildMessageStatusIcon(message),
+                                  ],
+                                ],
+                              ),
+                            ),
+                        ],
+                      ],
                     ],
                   ),
                 ),
@@ -7866,6 +8174,146 @@ class MessageBubble extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildReactionsRow(BuildContext context) {
+    if (reactions.isEmpty) return const SizedBox.shrink();
+
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (var r in reactions) {
+      if (r is Map<String, dynamic>) {
+        final emoji = r['emoji']?.toString() ?? '👍';
+        grouped.putIfAbsent(emoji, () => []).add(r);
+      }
+    }
+
+    if (grouped.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: EdgeInsets.zero,
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: grouped.entries.map((entry) {
+          final emoji = entry.key;
+          final users = entry.value;
+          final count = users.length;
+
+          final hasMyReaction = myId != null &&
+              users.any((u) {
+                final uId = u['user_id']?.toString();
+                return uId == myId;
+              });
+
+          final String userNames = users.map((u) {
+            final name = u['user_first_name']?.toString();
+            return (name != null && name.isNotEmpty)
+                ? name
+                : (u['user_username']?.toString() ?? '');
+          }).join(', ');
+
+          return Tooltip(
+            message: userNames,
+            child: InkWell(
+              onTap: () => onToggleReaction?.call(emoji),
+              borderRadius: BorderRadius.circular(12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: hasMyReaction
+                      ? Colors.white
+                      : const Color(0x99000000),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: hasMyReaction
+                        ? const Color(0x66C8C8C8)
+                        : const Color(0xB3000000),
+                    width: 1,
+                  ),
+                  boxShadow: hasMyReaction
+                      ? [
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.3),
+                            blurRadius: 6,
+                            spreadRadius: 1,
+                          )
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (users.isNotEmpty) ...[
+                      SizedBox(
+                        height: 16,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children:
+                              users.take(3).toList().asMap().entries.map((e) {
+                            final idx = e.key;
+                            final u = e.value;
+                            final avatarUrl = u['user_avatar']?.toString();
+                            final avatarGradient =
+                                u['user_avatar_gradient']?.toString();
+                            final name = u['user_first_name']?.toString() ??
+                                u['user_username']?.toString() ??
+                                'U';
+                            return Transform.translate(
+                              offset: Offset(-4.0 * idx, 0),
+                              child: Container(
+                                width: 16,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: hasMyReaction
+                                        ? Colors.black.withOpacity(0.2)
+                                        : Colors.white.withOpacity(0.4),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: AvatarWidget(
+                                  username: name,
+                                  avatar: avatarUrl,
+                                  avatarGradient: avatarGradient,
+                                  size: 16,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      SizedBox(
+                        width: (4 - (users.take(3).length - 1) * 4).toDouble(),
+                      ),
+                    ],
+                    Text(
+                      emoji,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    if (count > 1) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        count.toString(),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: hasMyReaction ? Colors.black : Colors.white,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -7985,7 +8433,6 @@ class MessageBubble extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      constraints: const BoxConstraints(minWidth: 200),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -8005,29 +8452,27 @@ class MessageBubble extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  callTitle,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                callTitle,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  callSubtext,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                  ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                callSubtext,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -8514,15 +8959,22 @@ class _MusicMessagePlayerState extends State<MusicMessagePlayer> {
   }
 
   String _formatBytes(int bytes) {
-    if (bytes <= 0)
-      return (AppLocalizations.of(context)?.loc_0B_5a4d ?? 'Fallback');
+    if (bytes <= 0) {
+      final loc = AppLocalizations.of(context)?.loc_0B_5a4d;
+      return (loc != null && loc != 'Fallback') ? loc : '0 B';
+    }
+    final locB = AppLocalizations.of(context)?.b_3b67;
+    final locKB = AppLocalizations.of(context)?.kb_419d;
+    final locMB = AppLocalizations.of(context)?.mb_b808;
+    final locGB = AppLocalizations.of(context)?.gb_e572;
     var suffixes = [
-      (AppLocalizations.of(context)?.b_3b67 ?? 'Fallback'),
-      (AppLocalizations.of(context)?.kb_419d ?? 'Fallback'),
-      (AppLocalizations.of(context)?.mb_b808 ?? 'Fallback'),
-      (AppLocalizations.of(context)?.gb_e572 ?? 'Fallback')
+      (locB != null && locB != 'Fallback') ? locB : 'B',
+      (locKB != null && locKB != 'Fallback') ? locKB : 'KB',
+      (locMB != null && locMB != 'Fallback') ? locMB : 'MB',
+      (locGB != null && locGB != 'Fallback') ? locGB : 'GB',
     ];
     var i = (log(bytes) / log(1024)).floor();
+    if (i < 0) i = 0;
     if (i >= suffixes.length) i = suffixes.length - 1;
     return ((bytes / pow(1024, i)).toStringAsFixed(1)) + ' ' + suffixes[i];
   }
@@ -9043,4 +9495,375 @@ class AttachmentComposition {
     required this.fileSize,
     required this.fileName,
   });
+}
+
+class ChatMessageContextMenuModal extends BaseCustomModal {
+  final Message message;
+  final Set<String> myReactionEmojis;
+  final void Function(String emoji) onSelectEmoji;
+  final void Function(Message message) onReply;
+  final void Function(Message message) onShowFullEmojiPicker;
+
+  const ChatMessageContextMenuModal({
+    super.key,
+    required this.message,
+    required this.myReactionEmojis,
+    required this.onSelectEmoji,
+    required this.onReply,
+    required this.onShowFullEmojiPicker,
+  });
+
+  static Future<void> show({
+    required BuildContext context,
+    required Message message,
+    required Set<String> myReactionEmojis,
+    required void Function(String emoji) onSelectEmoji,
+    required void Function(Message message) onReply,
+    required void Function(Message message) onShowFullEmojiPicker,
+  }) {
+    return BaseCustomModal.show<void>(
+      context: context,
+      enableDrag: true,
+      child: ChatMessageContextMenuModal(
+        message: message,
+        myReactionEmojis: myReactionEmojis,
+        onSelectEmoji: onSelectEmoji,
+        onReply: onReply,
+        onShowFullEmojiPicker: onShowFullEmojiPicker,
+      ),
+    );
+  }
+
+  @override
+  State<ChatMessageContextMenuModal> createState() =>
+      _ChatMessageContextMenuModalState();
+}
+
+class _ChatMessageContextMenuModalState
+    extends BaseCustomModalState<ChatMessageContextMenuModal> {
+  static const popularEmojis = [
+    '👍', '❤️', '🔥', '😂', '😮', '😢', '🤡', '👏', '🎉', '💩'
+  ];
+
+  @override
+  bool get fitContent => true;
+
+  @override
+  Widget buildContent(
+      BuildContext context, ScrollController scrollController) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              ...popularEmojis.map((emoji) {
+                final hasMyReaction =
+                    widget.myReactionEmojis.contains(emoji);
+
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      widget.onSelectEmoji(emoji);
+                    },
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: hasMyReaction
+                            ? const Color(0xFF2563EB).withValues(alpha: 0.25)
+                            : Colors.white.withValues(alpha: 0.06),
+                        shape: BoxShape.circle,
+                        border: hasMyReaction
+                            ? Border.all(
+                                color: const Color(0xFF2563EB),
+                                width: 1.5)
+                            : null,
+                      ),
+                      child: Center(
+                        child: Text(
+                          emoji,
+                          style: const TextStyle(fontSize: 22),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              InkWell(
+                onTap: () {
+                  Navigator.pop(context);
+                  widget.onShowFullEmojiPicker(widget.message);
+                },
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: FaIcon(
+                      FontAwesomeIcons.circlePlus,
+                      size: 20,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+        const SizedBox(height: 8),
+        ListTile(
+          leading: const FaIcon(FontAwesomeIcons.reply,
+              size: 16, color: Colors.white70),
+          title: const Text(
+            'Ответить',
+            style: TextStyle(color: Colors.white, fontSize: 15),
+          ),
+          onTap: () {
+            Navigator.pop(context);
+            widget.onReply(widget.message);
+          },
+        ),
+        if (widget.message.textContent.isNotEmpty)
+          ListTile(
+            leading: const FaIcon(FontAwesomeIcons.copy,
+                size: 16, color: Colors.white70),
+            title: const Text(
+              'Копировать',
+              style: TextStyle(color: Colors.white, fontSize: 15),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              Clipboard.setData(
+                  ClipboardData(text: widget.message.textContent));
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class FullEmojiPickerModal extends BaseCustomModal {
+  final Set<String> myReactionEmojis;
+  final void Function(String emoji) onSelectEmoji;
+
+  const FullEmojiPickerModal({
+    super.key,
+    required this.myReactionEmojis,
+    required this.onSelectEmoji,
+  });
+
+  static Future<void> show({
+    required BuildContext context,
+    required Set<String> myReactionEmojis,
+    required void Function(String emoji) onSelectEmoji,
+  }) {
+    return BaseCustomModal.show<void>(
+      context: context,
+      enableDrag: true,
+      child: FullEmojiPickerModal(
+        myReactionEmojis: myReactionEmojis,
+        onSelectEmoji: onSelectEmoji,
+      ),
+    );
+  }
+
+  @override
+  State<FullEmojiPickerModal> createState() => _FullEmojiPickerModalState();
+}
+
+class _FullEmojiPickerModalState
+    extends BaseCustomModalState<FullEmojiPickerModal> {
+  static const Map<String, List<String>> _emojiCategories = {
+    'Эмоции': [
+      '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇',
+      '🥰', '😍', '🤩', '😘', '😗', '😚', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗',
+      '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥',
+      '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶',
+      '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐', '😕', '😟', '🙁', '😮', '😯',
+      '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣',
+      '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️',
+      '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖'
+    ],
+    'Жесты и тело': [
+      '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈',
+      '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌',
+      '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶', '👂',
+      '🦻', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁️', '👅', '👄'
+    ],
+    'Сердца и символы': [
+      '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞',
+      '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '<ctrl42>',
+      '🕎', '☯️', '☦️', '🛐', '<ctrl42>', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐',
+      '♑', '♒', '♓', '🎯', '💯', '🔥', '💥', '✨', '⚡', '🌟', '💫', '⭐️'
+    ],
+    'Еда и предметы': [
+      '🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑',
+      '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '🫑', '🌽',
+      '🥕', '🫒', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🍳',
+      '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🌭', '🍔', '🍟', '🍕', '🥪', '🥙', '🧆',
+      '🌮', '🌯', '🥗', '🥘', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🍤', '🍙',
+      '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '<ctrl42>', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩'
+    ],
+  };
+
+  String _searchQuery = '';
+
+  @override
+  double get initialExtent => 0.70;
+  @override
+  double get minExtent => 0.40;
+  @override
+  double get maxExtent => 0.90;
+
+  @override
+  Widget buildContent(
+      BuildContext context, ScrollController scrollController) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Все реакции',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const FaIcon(
+                FontAwesomeIcons.xmark,
+                size: 16,
+                color: Colors.white54,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          onChanged: (val) {
+            setState(() {
+              _searchQuery = val.trim();
+            });
+          },
+          style: const TextStyle(fontSize: 14, color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'Поиск эмодзи...',
+            hintStyle: TextStyle(
+              color: Colors.white.withValues(alpha: 0.38),
+              fontSize: 14,
+            ),
+            prefixIcon: const Icon(
+              Icons.search,
+              size: 18,
+              color: Colors.white54,
+            ),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.06),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Expanded(
+          child: ListView.builder(
+            controller: scrollController,
+            itemCount: _emojiCategories.length,
+            itemBuilder: (context, catIdx) {
+              final entry = _emojiCategories.entries.elementAt(catIdx);
+              final categoryTitle = entry.key;
+              final emojis = entry.value
+                  .where((e) =>
+                      _searchQuery.isEmpty || e.contains(_searchQuery))
+                  .toList();
+
+              if (emojis.isEmpty) return const SizedBox.shrink();
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Text(
+                      categoryTitle,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white54,
+                      ),
+                    ),
+                  ),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 7,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 1,
+                    ),
+                    itemCount: emojis.length,
+                    itemBuilder: (context, emojiIdx) {
+                      final emoji = emojis[emojiIdx];
+                      final hasMyReaction =
+                          widget.myReactionEmojis.contains(emoji);
+
+                      return InkWell(
+                        onTap: () {
+                          Navigator.pop(context);
+                          widget.onSelectEmoji(emoji);
+                        },
+                        borderRadius: BorderRadius.circular(24),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: hasMyReaction
+                                ? const Color(0xFF2563EB).withValues(alpha: 0.25)
+                                : Colors.white.withValues(alpha: 0.06),
+                            shape: BoxShape.circle,
+                            border: hasMyReaction
+                                ? Border.all(
+                                    color: const Color(0xFF2563EB),
+                                    width: 1.5)
+                                : null,
+                          ),
+                          child: Center(
+                            child: Text(
+                              emoji,
+                              style: const TextStyle(fontSize: 20),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
 }
