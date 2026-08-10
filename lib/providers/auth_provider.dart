@@ -46,6 +46,8 @@ class AuthProvider extends ChangeNotifier {
         _xsec2Service = xsec2Service,
         _cryptoService = cryptoService;
 
+  AuthService get authService => _authService;
+
   void setCryptoService(CryptoService cryptoService) {
     _cryptoService = cryptoService;
   }

@@ -15,7 +15,9 @@ import '../services/account_service.dart';
 import '../services/logger_service.dart';
 import '../widgets/settings_modal.dart';
 import '../widgets/custom_toast.dart';
+import '../config/app_config.dart';
 import 'register_screen.dart';
+import 'qr_scan_screen.dart';
 
 /// Экран входа в систему с продвинутыми 3D эффектами
 class LoginScreen extends StatefulWidget {
@@ -607,9 +609,6 @@ class _LoginScreenState extends State<LoginScreen>
                             decoration: TextDecoration.underline,
                             fontFamily: 'Inter',
                           ),
-                        ),
-                      ),
-                    ),
                   ),
           ),
         ],

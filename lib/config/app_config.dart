@@ -7,11 +7,28 @@
 class AppConfig {
 // ========== API Configuration ==========
 
-  /// Базовый URL API сервера (настраивается через --dart-define=API_BASE_URL=...)
+  /// Базовый URL API сервера (настраивается через --dart-define=API_BASE_URL=... или --dart-define=BASE_URL=...)
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://xaneo.ru/api/v1',
+    defaultValue: String.fromEnvironment(
+      'BASE_URL',
+      defaultValue: 'https://xaneo.ru/api/v1',
+    ),
   );
+
+  /// Флаг режима AUTH_v2.
+  /// Активируется тогда и только тогда когда base url сервера содержит 192.168.1.42
+  static bool get isAuthV2 {
+    const bool authV2Bool = bool.fromEnvironment('AUTH_V2', defaultValue: false);
+    const String authV2Str = String.fromEnvironment('AUTH_V2', defaultValue: 'false');
+    const envApi = String.fromEnvironment('API_BASE_URL');
+    const envBase = String.fromEnvironment('BASE_URL');
+    final bool authV2Flag = authV2Bool || authV2Str.toLowerCase() == 'true';
+    return authV2Flag ||
+           apiBaseUrl.contains('192.168.1.42') ||
+           envApi.contains('192.168.1.42') ||
+           envBase.contains('192.168.1.42');
+  }
 
   /// Версия приложения из Git-тега (передаётся CI через --dart-define).
   static const String appVersion = String.fromEnvironment(
@@ -58,6 +75,9 @@ class AppConfig {
   /// - IsMobileAppPermission
   /// - Возвращает auth_success + user_info (БЕЗ JWT токенов!)
   static const String authMobileLogin = '/auth/mobile-login/';
+
+  /// Подтверждение сканирования QR-кода для входа
+  static const String authQrApprove = '/auth/qr-approve/';
 
   /// Стандартный вход (возвращает JWT токены)
   /// - Rate limiting: 5 попыток / 5 минут

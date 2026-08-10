@@ -2187,4 +2187,21 @@ class AppLocalizationsRu extends AppLocalizations {
   String get noMessagesTitle => 'Нет сообщений';
   @override
   String get noMessagesSubtitle => 'Напишите первыми, чтобы начать общение в Xaneo Connect!';
+
+  @override
+  String get qrScanTitle => 'Авторизация устройства';
+  @override
+  String get qrScanSubtitle => 'Наведите камеру на QR-код на экране веб-версии или ПК-клиента Xaneo';
+  @override
+  String get qrScanSuccessTitle => 'Устройство авторизовано';
+  @override
+  String get qrScanSuccessDesc => 'Авторизация прошла успешно. Ключи сквозного шифрования (E2EE) переданы на новое устройство.';
+  @override
+  String get qrScanInputHint => 'Вставьте токен или payload...';
+  @override
+  String get qrScanPasteTooltip => 'Вставить из буфера';
+  @override
+  String get qrScanConfirmButton => 'Подтвердить авторизацию';
+  @override
+  String get qrScanProcessing => 'Авторизация устройства...';
 }

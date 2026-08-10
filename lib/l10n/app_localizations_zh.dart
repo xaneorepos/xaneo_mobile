@@ -2172,4 +2172,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noMessagesTitle => '暂无消息';
   @override
   String get noMessagesSubtitle => '发送一条消息，在 Xaneo Connect 上开启对话吧！';
+
+  @override
+  String get qrScanTitle => '设备授权';
+  @override
+  String get qrScanSubtitle =>
+      '请将相机对准 Xaneo 网页版或 PC 客户端屏幕上的二维码';
+  @override
+  String get qrScanSuccessTitle => '设备已授权';
+  @override
+  String get qrScanSuccessDesc =>
+      '授权成功。端到端加密（E2EE）密钥已传输到新设备。';
+  @override
+  String get qrScanInputHint => '粘贴 Token 或 Payload...';
+  @override
+  String get qrScanPasteTooltip => '从剪贴板粘贴';
+  @override
+  String get qrScanConfirmButton => '确认授权';
+  @override
+  String get qrScanProcessing => '正在授权设备...';
 }

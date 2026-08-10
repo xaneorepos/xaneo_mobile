@@ -594,4 +594,27 @@ class AuthService {
       debugPrint('FCM: Unexpected error registering token with backend: $e');
     }
   }
+
+  /// Подтверждение входа по QR-коду
+  Future<bool> approveQrLogin({
+    required String token,
+    Map<String, dynamic>? transferPayload,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        AppConfig.authQrApprove,
+        data: {
+          'token': token,
+          'transfer_payload': transferPayload,
+        },
+      );
+      return response.data['status'] == 'ok';
+    } on DioException catch (e) {
+      debugPrint('QR Approve DioException: ${e.message}');
+      throw _handleDioError(e);
+    } catch (e) {
+      debugPrint('QR Approve unexpected error: $e');
+      return false;
+    }
+  }
 }

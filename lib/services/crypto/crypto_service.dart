@@ -2747,6 +2747,55 @@ class CryptoService {
     }
   }
 
+  /// Создает зашифрованный payload для передачи E2EE ключей через QR-код на веб-клиент.
+  Future<Map<String, dynamic>?> createQrTransferPayload(String webPublicKeyHex) async {
+    try {
+      if (_userKeys == null) {
+        await _loadUserKeys();
+      }
+      if (_userKeys == null) {
+        debugPrint('XSEC-2: createQrTransferPayload error: _userKeys is null');
+        return null;
+      }
+
+      final keysToTransfer = Map<String, dynamic>.from(_userKeys!);
+      final jsonPayloadStr = jsonEncode(keysToTransfer);
+
+      final ephemeralKeyPair = await crypto.X25519().newKeyPair();
+      final ephemeralPubKey = await ephemeralKeyPair.extractPublicKey();
+
+      final webPubKeyBytes = _hexToBytes(webPublicKeyHex);
+      final webPublicKey = crypto.SimplePublicKey(webPubKeyBytes, type: crypto.KeyPairType.x25519);
+
+      final sharedSecretBytes = await crypto.X25519().sharedSecretKey(
+        keyPair: ephemeralKeyPair,
+        remotePublicKey: webPublicKey,
+      );
+      final sharedSecretKeyBytes = Uint8List.fromList(await sharedSecretBytes.extractBytes());
+
+      final algorithm = crypto.AesGcm.with256bits();
+      final nonce = algorithm.newNonce();
+      final secretKey = crypto.SecretKey(sharedSecretKeyBytes);
+
+      final secretBox = await algorithm.encrypt(
+        utf8.encode(jsonPayloadStr),
+        secretKey: secretKey,
+        nonce: nonce,
+      );
+
+      final combinedCiphertext = Uint8List.fromList([...secretBox.cipherText, ...secretBox.mac.bytes]);
+
+      return {
+        'ciphertext': _bytesToHex(combinedCiphertext),
+        'nonce': _bytesToHex(Uint8List.fromList(nonce)),
+        'sender_pub': _bytesToHex(Uint8List.fromList(ephemeralPubKey.bytes)),
+      };
+    } catch (e) {
+      debugPrint('XSEC-2: createQrTransferPayload error: $e');
+      return null;
+    }
+  }
+
   Map<String, dynamic>? _tryDecodeBase64Json(String data) {
     try {
       final bytes = _normalizeBase64Decode(data);

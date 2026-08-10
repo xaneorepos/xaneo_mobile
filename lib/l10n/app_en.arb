@@ -363,5 +363,37 @@
   "viewOnGitHub": "View on GitHub",
   "@viewOnGitHub": {
     "description": "View on GitHub link text"
+  },
+  "qrScanTitle": "Device Authorization",
+  "@qrScanTitle": {
+    "description": "QR scan screen title"
+  },
+  "qrScanSubtitle": "Point your camera at the QR code on the Xaneo web or PC client screen",
+  "@qrScanSubtitle": {
+    "description": "QR scan subtitle"
+  },
+  "qrScanSuccessTitle": "Device Authorized",
+  "@qrScanSuccessTitle": {
+    "description": "QR success title"
+  },
+  "qrScanSuccessDesc": "Authorization successful. End-to-end encryption (E2EE) keys transferred to the new device.",
+  "@qrScanSuccessDesc": {
+    "description": "QR success description"
+  },
+  "qrScanInputHint": "Paste token or payload...",
+  "@qrScanInputHint": {
+    "description": "QR input hint"
+  },
+  "qrScanPasteTooltip": "Paste from clipboard",
+  "@qrScanPasteTooltip": {
+    "description": "Paste tooltip"
+  },
+  "qrScanConfirmButton": "Confirm Authorization",
+  "@qrScanConfirmButton": {
+    "description": "QR confirm button"
+  },
+  "qrScanProcessing": "Authorizing device...",
+  "@qrScanProcessing": {
+    "description": "QR processing text"
   }
 }

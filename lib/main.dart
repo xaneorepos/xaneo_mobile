@@ -308,6 +308,7 @@ class XaneoApp extends StatelessWidget {
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                   letterSpacing: -0.4,
+                  fontFamily: 'Inter',
                 ),
               ),
               inputDecorationTheme: InputDecorationTheme(

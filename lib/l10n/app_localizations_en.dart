@@ -2289,4 +2289,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get noMessagesSubtitle =>
       'Send a message to start the conversation on Xaneo Connect!';
+
+  @override
+  String get qrScanTitle => 'Device Authorization';
+  @override
+  String get qrScanSubtitle => 'Point your camera at the QR code on the Xaneo web or PC client screen';
+  @override
+  String get qrScanSuccessTitle => 'Device Authorized';
+  @override
+  String get qrScanSuccessDesc => 'Authorization successful. End-to-end encryption (E2EE) keys transferred to the new device.';
+  @override
+  String get qrScanInputHint => 'Paste token or payload...';
+  @override
+  String get qrScanPasteTooltip => 'Paste from clipboard';
+  @override
+  String get qrScanConfirmButton => 'Confirm Authorization';
+  @override
+  String get qrScanProcessing => 'Authorizing device...';
 }

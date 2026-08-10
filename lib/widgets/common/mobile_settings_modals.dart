@@ -10,6 +10,8 @@ import '../../services/update/update_service.dart';
 import '../../models/update/app_version_info.dart';
 import 'base_custom_modal.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
+import '../../config/app_config.dart';
+import '../../screens/qr_scan_screen.dart';
 
 // ─── 1. Личные данные (Personal Modal) ───────────────────────────────────────
 
@@ -974,6 +976,25 @@ class _MobileSecurityModalState
               activeTrackColor: const Color(0x734ADE80),
             ),
           ),
+          if (AppConfig.isAuthV2) ...[
+            const SizedBox(height: 12),
+            _tile(
+              FontAwesomeIcons.qrcode,
+              l10n?.qrScanTitle ??
+                  _text('Авторизация устройства', 'Device Authorization'),
+              l10n?.qrScanSubtitle ??
+                  _text(
+                      'Наведите камеру на QR-код на экране веб-версии или ПК-клиента Xaneo',
+                      'Point your camera at the QR code on the Xaneo web or PC client screen'),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const QrScanScreen()),
+                );
+              },
+              action: const Icon(Icons.arrow_forward_ios_rounded,
+                  color: Colors.white, size: 16),
+            ),
+          ],
           if (_pendingTfaAction != null) ...[
             const SizedBox(height: 10),
             TextField(

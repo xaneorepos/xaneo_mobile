@@ -1524,6 +1524,15 @@ abstract class AppLocalizations {
 
   String membersCount(int count);
   String subscribersCount(int count);
+
+  String get qrScanTitle;
+  String get qrScanSubtitle;
+  String get qrScanSuccessTitle;
+  String get qrScanSuccessDesc;
+  String get qrScanInputHint;
+  String get qrScanPasteTooltip;
+  String get qrScanConfirmButton;
+  String get qrScanProcessing;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

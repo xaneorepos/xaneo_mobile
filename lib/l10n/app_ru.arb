@@ -363,5 +363,37 @@
   "viewOnGitHub": "Посмотреть на GitHub",
   "@viewOnGitHub": {
     "description": "Текст ссылки на GitHub"
+  },
+  "qrScanTitle": "Авторизация устройства",
+  "@qrScanTitle": {
+    "description": "Заголовок экрана сканирования QR"
+  },
+  "qrScanSubtitle": "Наведите камеру на QR-код на экране веб-версии или ПК-клиента Xaneo",
+  "@qrScanSubtitle": {
+    "description": "Подзаголовок сканирования QR"
+  },
+  "qrScanSuccessTitle": "Устройство авторизовано",
+  "@qrScanSuccessTitle": {
+    "description": "Заголовок успешной авторизации QR"
+  },
+  "qrScanSuccessDesc": "Авторизация прошла успешно. Ключи сквозного шифрования (E2EE) переданы на новое устройство.",
+  "@qrScanSuccessDesc": {
+    "description": "Описание успешной авторизации QR"
+  },
+  "qrScanInputHint": "Вставьте токен или payload...",
+  "@qrScanInputHint": {
+    "description": "Подсказка для ввода QR"
+  },
+  "qrScanPasteTooltip": "Вставить из буфера",
+  "@qrScanPasteTooltip": {
+    "description": "Подсказка кнопки вставки из буфера"
+  },
+  "qrScanConfirmButton": "Подтвердить авторизацию",
+  "@qrScanConfirmButton": {
+    "description": "Кнопка подтверждения QR"
+  },
+  "qrScanProcessing": "Авторизация устройства...",
+  "@qrScanProcessing": {
+    "description": "Текст во время обработки QR"
   }
 }

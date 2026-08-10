@@ -2203,4 +2203,23 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noMessagesTitle => '메시지가 없습니다';
   @override
   String get noMessagesSubtitle => 'Xaneo Connect에서 메시지를 보내 대화를 시작해보세요!';
+
+  @override
+  String get qrScanTitle => '장치 인증';
+  @override
+  String get qrScanSubtitle =>
+      'Xaneo 웹 또는 PC 클라이언트 화면의 QR 코드를 카메라로 비춰주세요';
+  @override
+  String get qrScanSuccessTitle => '장치 인증됨';
+  @override
+  String get qrScanSuccessDesc =>
+      '인증이 완료되었습니다. 종단간 암호화(E2EE) 키가 새 장치로 전송되었습니다.';
+  @override
+  String get qrScanInputHint => '토큰 또는 페이로드 붙여넣기...';
+  @override
+  String get qrScanPasteTooltip => '클립보드에서 붙여넣기';
+  @override
+  String get qrScanConfirmButton => '인증 확인';
+  @override
+  String get qrScanProcessing => '장치 인증 중...';
 }
