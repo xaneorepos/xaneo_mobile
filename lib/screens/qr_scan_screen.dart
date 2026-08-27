@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../services/crypto/crypto_service.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/common/qr_authorization_modal.dart';
 
 /// Экран сканирования и авторизации устройств по QR-коду
 class QrScanScreen extends StatefulWidget {
@@ -150,41 +151,64 @@ class _QrScanScreenState extends State<QrScanScreen>
       try {
         final decoded = jsonDecode(code.trim());
         if (decoded is Map<String, dynamic>) {
-          token = decoded['token']?.toString() ?? decoded['t']?.toString();
-          webPub = decoded['web_pub']?.toString() ?? decoded['k']?.toString();
+          if (decoded['type'] != 'xaneo_qr_login' || decoded['version'] != 2) {
+            throw const FormatException('Неподдерживаемый тип QR-кода');
+          }
+          token = decoded['token']?.toString();
+          webPub = decoded['web_pub']?.toString();
         }
+      } on FormatException {
+        rethrow;
       } catch (_) {
-        final uri = Uri.tryParse(code.trim());
-        if (uri != null && uri.queryParameters.containsKey('token')) {
-          token = uri.queryParameters['token'];
-          webPub = uri.queryParameters['web_pub'] ?? uri.queryParameters['k'];
-        } else {
-          token = code.trim();
-        }
+        throw const FormatException('Неверный формат QR-кода');
       }
 
-      if (token == null || token.isEmpty) {
-        throw Exception('Неверный формат токена авторизации');
+      if (token == null || !RegExp(r'^[0-9a-fA-F]{32}$').hasMatch(token)) {
+        throw const FormatException('Неверный токен QR-авторизации');
+      }
+      if (webPub == null || !RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(webPub)) {
+        throw const FormatException('Неверный публичный ключ QR-авторизации');
       }
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final authService = authProvider.authService;
+      final scanReported = await authService.updateQrScanState(
+        token: token,
+        action: 'scanned',
+      );
+      if (!scanReported) {
+        throw Exception('Не удалось сообщить серверу о сканировании QR-кода');
+      }
+
+      if (!mounted) return;
+      final confirmed = await QrAuthorizationConfirmationModal.confirm(
+        context: context,
+        deviceCode: token.substring(token.length - 6).toUpperCase(),
+      );
+      if (!confirmed) {
+        await authService.updateQrScanState(token: token, action: 'rejected');
+        return;
+      }
+      if (!mounted) return;
+
       final cryptoService = Provider.of<CryptoService?>(context, listen: false);
 
       Map<String, dynamic>? transferPayload;
-      if (webPub != null && webPub.isNotEmpty && cryptoService != null) {
-        transferPayload = await cryptoService.createQrTransferPayload(webPub);
+      if (cryptoService != null) {
+        transferPayload =
+            await cryptoService.createQrTransferPayload(webPub, token);
       }
 
-      final authService = authProvider.authService;
       final success = await authService.approveQrLogin(
         token: token,
+        confirmed: true,
         transferPayload: transferPayload,
       );
 
       if (!mounted) return;
 
       if (success) {
-        await _showSuccessDialog();
+        await QrAuthorizationSuccessModal.show(context: context);
         if (mounted) Navigator.of(context).pop(true);
       } else {
         throw Exception('Не удалось подтвердить авторизацию по QR-коду');
@@ -206,67 +230,6 @@ class _QrScanScreenState extends State<QrScanScreen>
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
-  }
-
-  Future<void> _showSuccessDialog() async {
-    final l10n = AppLocalizations.of(context);
-    final titleText = l10n?.qrScanSuccessTitle ?? 'Устройство авторизовано';
-    final descText = l10n?.qrScanSuccessDesc ??
-        'Авторизация прошла успешно. Ключи сквозного шифрования (E2EE) переданы на новое устройство.';
-
-    return showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF18181B),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF27272A)),
-        ),
-        title: Row(
-          children: [
-            const Icon(Icons.check_circle_outline_rounded,
-                color: Colors.white, size: 26),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                titleText,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          descText,
-          style: const TextStyle(
-            color: Color(0xFFA1A1AA),
-            fontSize: 14,
-            fontFamily: 'Inter',
-          ),
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text(
-              'Готово',
-              style:
-                  TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Inter'),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -396,7 +359,7 @@ class _QrScanScreenState extends State<QrScanScreen>
                           child: FilledButton.icon(
                             onPressed: _startCamera,
                             icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('Повторить'),
+                            label: Text(AppLocalizations.of(context)?.povtorit_b914 ?? 'Повторить'),
                           ),
                         ),
 

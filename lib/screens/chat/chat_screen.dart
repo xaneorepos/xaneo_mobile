@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
@@ -28,6 +27,7 @@ import '../../services/crypto/crypto_service.dart';
 import '../../services/grpc_service.dart';
 import '../../services/database/app_database.dart';
 import '../../styles/app_styles.dart';
+import '../../utils/audio_metadata.dart';
 import '../../utils/chat_name_localizer.dart';
 import '../../widgets/common/chat_info_modal.dart';
 import '../../widgets/common/chat_context_menu.dart';
@@ -52,6 +52,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../providers/playback_provider.dart';
 import '../../widgets/voice_waveform_slider.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
+import '../../services/runtime_translations.dart';
 
 /// Immutable state class для оптимизации Selector
 String? _parseReplyField(dynamic val) {
@@ -186,6 +187,40 @@ class _ChatScreenState extends State<ChatScreen> {
   // In-memory reactions cache: serverMessageId -> list of reaction maps
   final Map<String, List<dynamic>> _messageReactions = {};
 
+  Future<void> _loadCachedReactions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'chat_reactions_${widget.chat.id}';
+      final jsonStr = prefs.getString(key);
+      if (jsonStr != null && jsonStr.isNotEmpty) {
+        final decoded = jsonDecode(jsonStr);
+        if (decoded is Map) {
+          if (mounted) {
+            setState(() {
+              decoded.forEach((k, v) {
+                if (v is List) {
+                  _messageReactions[k.toString()] = List<dynamic>.from(v);
+                }
+              });
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading cached reactions: $e');
+    }
+  }
+
+  Future<void> _saveCachedReactions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'chat_reactions_${widget.chat.id}';
+      await prefs.setString(key, jsonEncode(_messageReactions));
+    } catch (e) {
+      debugPrint('Error saving cached reactions: $e');
+    }
+  }
+
   // Typing state variables (sending)
   bool _isTyping = false;
   Timer? _typingRepeatTimer;
@@ -261,16 +296,23 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _chatName;
   Message? _replyingToMessage;
 
-  Future<void> _ensureChatSavedLocally() async {
-    if (_localChatId != null && !_isEphemeralPreview) return;
-    await _localChatRepo.saveChat(widget.chat);
-    final localId = await _localChatRepo.getLocalChatId(widget.chat.id);
+  Future<int?> _ensureLocalChatId({ChatModel? overrideChat}) async {
+    final chatToSave = overrideChat ?? widget.chat;
+    await _localChatRepo.saveChat(chatToSave);
+    final localId = await _localChatRepo.getLocalChatId(chatToSave.id);
     if (mounted && localId != null) {
-      setState(() {
-        _localChatId = localId;
-        _isEphemeralPreview = false;
-      });
+      if (_localChatId != localId || _isEphemeralPreview) {
+        setState(() {
+          _localChatId = localId;
+          _isEphemeralPreview = false;
+        });
+      }
     }
+    return localId ?? _localChatId;
+  }
+
+  Future<void> _ensureChatSavedLocally() async {
+    await _ensureLocalChatId();
   }
 
   // Оптимистичная отправка голосовых: temp-сообщение показывается сразу,
@@ -447,6 +489,9 @@ class _ChatScreenState extends State<ChatScreen> {
         _canWrite = widget.chat.otherUser!['can_write'] == true;
       }
     }
+
+    // 0. Сначала восстанавливаем кэшированные реакции для чата
+    await _loadCachedReactions();
 
     // 1. Check if chat exists locally
     var localId = await _localChatRepo.getLocalChatId(widget.chat.id);
@@ -674,7 +719,11 @@ class _ChatScreenState extends State<ChatScreen> {
         final parsed = jsonDecode(decrypted);
         if (parsed is Map &&
             (parsed['type'] == 'file' ||
+                parsed['type'] == 'audio' ||
+                parsed['type'] == 'music' ||
                 parsed['type'] == 'voice' ||
+                parsed['type'] == 'video' ||
+                parsed['type'] == 'image' ||
                 parsed['type'] == 'video_message') &&
             parsed['file_id'] != null &&
             parsed['file_id'].toString().isNotEmpty) {
@@ -686,39 +735,106 @@ class _ChatScreenState extends State<ChatScreen> {
     // 2. Check if we have multiple images (collage)
     final imagesList = item['images'];
     if (imagesList is List && imagesList.isNotEmpty) {
-      final List<Map<String, dynamic>> files = [];
-      for (final img in imagesList) {
-        if (img is Map) {
-          final fId = img['file_id']?.toString();
+      if (imagesList.length > 1) {
+        final List<Map<String, dynamic>> files = [];
+        for (final img in imagesList) {
+          if (img is Map) {
+            final fId = img['file_id']?.toString();
+            if (fId != null && fId.isNotEmpty) {
+              final fName = img['name']?.toString() ??
+                  img['file_name']?.toString() ??
+                  'file';
+              final fSize =
+                  img['size'] as int? ?? img['file_size'] as int? ?? 0;
+              final fType = img['mime_type']?.toString() ??
+                  img['file_type']?.toString() ??
+                  'image/jpeg';
+              String fUrl =
+                  img['url']?.toString() ?? img['file_url']?.toString() ?? '';
+              if (fUrl.isEmpty) {
+                fUrl = '/api/files/download/$fId/';
+              }
+              files.add({
+                'file_id': fId,
+                'file_name': fName,
+                'file_size': fSize,
+                'mime_type': fType,
+                'file_url': fUrl,
+                'blur_hash': img['blur_hash']?.toString(),
+              });
+            }
+          }
+        }
+        if (files.isNotEmpty) {
+          return jsonEncode({
+            'type': 'collage',
+            'files': files,
+          });
+        }
+      } else {
+        // Одиночный файл внутри списка images (отправленный сокета)
+        final first = imagesList.first;
+        if (first is Map) {
+          final fId =
+              first['file_id']?.toString() ?? item['file_id']?.toString();
           if (fId != null && fId.isNotEmpty) {
-            final fName = img['name']?.toString() ??
-                img['file_name']?.toString() ??
+            final fName = first['name']?.toString() ??
+                first['file_name']?.toString() ??
                 'file';
-            final fSize = img['size'] as int? ?? img['file_size'] as int? ?? 0;
-            final fType = img['mime_type']?.toString() ??
-                img['file_type']?.toString() ??
-                'image/jpeg';
+            final fSize =
+                first['size'] as int? ?? first['file_size'] as int? ?? 0;
+            final fType = first['mime_type']?.toString() ??
+                first['file_type']?.toString() ??
+                first['type']?.toString() ??
+                'application/octet-stream';
             String fUrl =
-                img['url']?.toString() ?? img['file_url']?.toString() ?? '';
+                first['url']?.toString() ?? first['file_url']?.toString() ?? '';
             if (fUrl.isEmpty) {
               fUrl = '/api/files/download/$fId/';
             }
-            files.add({
+            final lowerName = fName.toLowerCase();
+            String detectedType = 'file';
+            if (fType == 'audio' ||
+                fType == 'music' ||
+                fType.startsWith('audio/') ||
+                lowerName.endsWith('.mp3') ||
+                lowerName.endsWith('.wav') ||
+                lowerName.endsWith('.ogg') ||
+                lowerName.endsWith('.m4a') ||
+                lowerName.endsWith('.flac') ||
+                lowerName.endsWith('.aac') ||
+                lowerName.endsWith('.wma') ||
+                lowerName.endsWith('.opus') ||
+                lowerName.endsWith('.aiff') ||
+                lowerName.endsWith('.alac')) {
+              detectedType = 'audio';
+            } else if (fType == 'video' ||
+                fType.startsWith('video/') ||
+                lowerName.endsWith('.mp4') ||
+                lowerName.endsWith('.mov') ||
+                lowerName.endsWith('.avi') ||
+                lowerName.endsWith('.mkv') ||
+                lowerName.endsWith('.webm')) {
+              detectedType = 'video';
+            } else if (fType == 'image' ||
+                fType.startsWith('image/') ||
+                lowerName.endsWith('.jpg') ||
+                lowerName.endsWith('.jpeg') ||
+                lowerName.endsWith('.png') ||
+                lowerName.endsWith('.gif') ||
+                lowerName.endsWith('.webp')) {
+              detectedType = 'image';
+            }
+            return jsonEncode({
+              'type': detectedType,
               'file_id': fId,
               'file_name': fName,
               'file_size': fSize,
               'mime_type': fType,
               'file_url': fUrl,
-              'blur_hash': img['blur_hash']?.toString(),
             });
           }
         }
-      }
-      if (files.isNotEmpty) {
-        return jsonEncode({
-          'type': 'collage',
-          'files': files,
-        });
       }
     }
 
@@ -761,7 +877,43 @@ class _ChatScreenState extends State<ChatScreen> {
       if (fileUrlSuffix.isEmpty) {
         fileUrlSuffix = '/api/files/download/$fileId/';
       }
+
+      final lowerName = fileName.toLowerCase();
+      String detectedType = 'file';
+      if (fileType == 'audio' ||
+          fileType == 'music' ||
+          fileType.startsWith('audio/') ||
+          lowerName.endsWith('.mp3') ||
+          lowerName.endsWith('.wav') ||
+          lowerName.endsWith('.ogg') ||
+          lowerName.endsWith('.m4a') ||
+          lowerName.endsWith('.flac') ||
+          lowerName.endsWith('.aac') ||
+          lowerName.endsWith('.wma') ||
+          lowerName.endsWith('.opus') ||
+          lowerName.endsWith('.aiff') ||
+          lowerName.endsWith('.alac')) {
+        detectedType = 'audio';
+      } else if (fileType == 'video' ||
+          fileType.startsWith('video/') ||
+          lowerName.endsWith('.mp4') ||
+          lowerName.endsWith('.mov') ||
+          lowerName.endsWith('.avi') ||
+          lowerName.endsWith('.mkv') ||
+          lowerName.endsWith('.webm')) {
+        detectedType = 'video';
+      } else if (fileType == 'image' ||
+          fileType.startsWith('image/') ||
+          lowerName.endsWith('.jpg') ||
+          lowerName.endsWith('.jpeg') ||
+          lowerName.endsWith('.png') ||
+          lowerName.endsWith('.gif') ||
+          lowerName.endsWith('.webp')) {
+        detectedType = 'image';
+      }
+
       return jsonEncode({
+        'type': detectedType,
         'file_id': fileId,
         'file_name': fileName,
         'file_size': fileSize,
@@ -805,8 +957,13 @@ class _ChatScreenState extends State<ChatScreen> {
         for (final item in results) {
           _cacheUserProfileFromMap(Map<String, dynamic>.from(item));
           final msgId = item['id']?.toString() ?? '';
-          if (msgId.isNotEmpty && !existingMap.containsKey(msgId)) {
-            newMessagesCount++;
+          if (msgId.isNotEmpty) {
+            if (!existingMap.containsKey(msgId)) {
+              newMessagesCount++;
+            }
+            if (item['reactions'] != null && item['reactions'] is List) {
+              _messageReactions[msgId] = List<dynamic>.from(item['reactions']);
+            }
           }
           final senderId = item['author_username']?.toString() ?? 'unknown';
           final encryptedText = item['encrypted_text']?.toString() ?? '';
@@ -886,11 +1043,14 @@ class _ChatScreenState extends State<ChatScreen> {
           await _localChatRepo.saveMessagesBatch(companions);
         }
 
-        if (mounted && newMessagesCount > 0) {
+        if (mounted) {
           setState(() {
-            _limit += newMessagesCount;
-            _updateStream();
+            if (newMessagesCount > 0) {
+              _limit += newMessagesCount;
+              _updateStream();
+            }
           });
+          _saveCachedReactions();
         }
       }
     } catch (e) {
@@ -1225,6 +1385,11 @@ class _ChatScreenState extends State<ChatScreen> {
         for (final item in results) {
           _cacheUserProfileFromMap(Map<String, dynamic>.from(item));
           final msgId = item['id']?.toString() ?? '';
+          if (msgId.isNotEmpty &&
+              item['reactions'] != null &&
+              item['reactions'] is List) {
+            _messageReactions[msgId] = List<dynamic>.from(item['reactions']);
+          }
           final senderId = item['author_username']?.toString() ?? 'unknown';
           final encryptedText = item['encrypted_text']?.toString() ?? '';
           final timestamp =
@@ -1312,6 +1477,7 @@ class _ChatScreenState extends State<ChatScreen> {
             if (results.length < 20) _hasMoreMessages = false;
             _isHistoryLoading = false;
           });
+          _saveCachedReactions();
         }
       } else {
         if (mounted) {
@@ -1334,152 +1500,146 @@ class _ChatScreenState extends State<ChatScreen> {
           '[READ_STATUS_LOG] Incoming WS Event with read/mark: type=$type, payload=$event');
     }
 
-    // Handle server-side error responses
-    if (type == 'error') {
-      debugPrint('WS_ERROR: ${event['message']}');
-      return;
-    }
+    if (type == 'user_typing' || type == 'typing') {
+      final userId =
+          event['user_id']?.toString() ?? event['username']?.toString();
+      if (userId != null && userId.isNotEmpty) {
+        final eventIsTyping = event['is_typing'] == true;
+        final action = event['action']?.toString() ?? 'typing';
 
-    if (type == 'typing') {
-      final userId = event['user_id']?.toString() ?? '';
-      final eventIsTyping = event['is_typing'] == true;
-      final action = event['action']?.toString() ?? 'typing';
-
-      // 🟢 Игнорируем собственные события "печатает"
-      final currentUser = context.read<AuthProvider>().user;
-      final currentUserId = currentUser?.id.toString();
-      final currentUsername = currentUser?.username;
-      if ((currentUserId != null &&
-              currentUserId.isNotEmpty &&
-              userId == currentUserId) ||
-          (currentUsername != null &&
-              currentUsername.isNotEmpty &&
-              event['username']?.toString() == currentUsername)) {
-        return;
-      }
-
-      String getActionText(String? action) {
-        switch (action) {
-          case 'recording_voice':
-            return (AppLocalizations.of(context)?.zapisyvaetGolosovoe_2a5c ??
-                'Fallback');
-          case 'sending_photo':
-            return (AppLocalizations.of(context)?.otpravlyaetFoto_67c1 ??
-                'Fallback');
-          case 'sending_video':
-            return (AppLocalizations.of(context)?.otpravlyaetVideo_ce80 ??
-                'Fallback');
-          case 'sending_file':
-            return (AppLocalizations.of(context)?.otpravlyaetFayl_5e88 ??
-                'Fallback');
-          case 'typing':
-          default:
-            return (AppLocalizations.of(context)?.pechataet_812c ?? 'Fallback');
+        // 🟢 Игнорируем собственные события "печатает"
+        final currentUser = context.read<AuthProvider>().user;
+        final currentUserId = currentUser?.id.toString();
+        final currentUsername = currentUser?.username;
+        if ((currentUserId != null &&
+                currentUserId.isNotEmpty &&
+                userId == currentUserId) ||
+            (currentUsername != null &&
+                currentUsername.isNotEmpty &&
+                event['username']?.toString() == currentUsername)) {
+          return;
         }
-      }
 
-      String getLottieAsset(String? action) {
-        switch (action) {
-          case 'recording_voice':
-            return 'assets/animations/recording_voice.json';
-          case 'sending_photo':
-            return 'assets/animations/sending_photo.json';
-          case 'sending_video':
-            return 'assets/animations/sending_video.json';
-          case 'sending_file':
-            return 'assets/animations/sending_file.json';
-          case 'typing':
-          default:
-            return 'assets/animations/typing.json';
+        String getActionText(String? action) {
+          switch (action) {
+            case 'recording_voice':
+              return (AppLocalizations.of(context)?.zapisyvaetGolosovoe_2a5c ??
+                  'Fallback');
+            case 'sending_photo':
+              return (AppLocalizations.of(context)?.otpravlyaetFoto_67c1 ??
+                  'Fallback');
+            case 'sending_video':
+              return (AppLocalizations.of(context)?.otpravlyaetVideo_ce80 ??
+                  'Fallback');
+            case 'sending_file':
+              return (AppLocalizations.of(context)?.otpravlyaetFayl_5e88 ??
+                  'Fallback');
+            case 'typing':
+            default:
+              return (AppLocalizations.of(context)?.pechataet_812c ??
+                  'Fallback');
+          }
         }
-      }
 
-      if (widget.chat.isPersonal) {
-        final otherId = _otherUser?['id']?.toString();
-        final otherUsername = _otherUser?['username']?.toString();
-        if (userId == otherId ||
-            event['username']?.toString() == otherUsername) {
+        String getLottieAsset(String? action) {
+          switch (action) {
+            case 'recording_voice':
+              return 'assets/animations/recording_voice.json';
+            case 'sending_photo':
+              return 'assets/animations/sending_photo.json';
+            case 'sending_video':
+              return 'assets/animations/sending_video.json';
+            case 'sending_file':
+              return 'assets/animations/sending_file.json';
+            case 'typing':
+            default:
+              return 'assets/animations/typing.json';
+          }
+        }
+
+        if (widget.chat.isPersonal) {
+          final otherId = _otherUser?['id']?.toString();
+          final otherUsername = _otherUser?['username']?.toString();
+          if (userId == otherId ||
+              event['username']?.toString() == otherUsername) {
+            if (eventIsTyping) {
+              setState(() {
+                _typingText = getActionText(action);
+                _activeLottiePath = getLottieAsset(action);
+              });
+              _typingTimer?.cancel();
+              _typingTimer = Timer(const Duration(seconds: 5), () {
+                if (mounted) {
+                  setState(() {
+                    _typingText = null;
+                    _activeLottiePath = null;
+                  });
+                }
+              });
+            } else {
+              setState(() {
+                _typingText = null;
+                _activeLottiePath = null;
+              });
+              _typingTimer?.cancel();
+            }
+          }
+        } else {
+          // Для групповых чатов
           if (eventIsTyping) {
             setState(() {
-              _typingText = getActionText(action);
-              _activeLottiePath = getLottieAsset(action);
+              _typingUsers[userId] = getActionText(action);
+              _typingLottiePaths[userId] = getLottieAsset(action);
             });
-            _typingTimer?.cancel();
-            _typingTimer = Timer(const Duration(seconds: 5), () {
+            _typingTimers[userId]?.cancel();
+            _typingTimers[userId] = Timer(const Duration(seconds: 5), () {
               if (mounted) {
                 setState(() {
-                  _typingText = null;
-                  _activeLottiePath = null;
+                  _typingUsers.remove(userId);
+                  _typingLottiePaths.remove(userId);
                 });
               }
             });
           } else {
             setState(() {
-              _typingText = null;
-              _activeLottiePath = null;
+              _typingUsers.remove(userId);
+              _typingLottiePaths.remove(userId);
             });
-            _typingTimer?.cancel();
+            _typingTimers[userId]?.cancel();
           }
         }
-      } else {
-        final name = event['first_name']?.toString() ??
-            event['username']?.toString() ??
-            (AppLocalizations.of(context)?.ktoTo_8405 ?? 'Fallback');
-        final actionText = getActionText(action);
-        final lottieAsset = getLottieAsset(action);
-
-        if (eventIsTyping) {
-          setState(() {
-            _typingUsers[userId] = '$name $actionText';
-            _typingLottiePaths[userId] = lottieAsset;
-          });
-          _typingTimers[userId]?.cancel();
-          _typingTimers[userId] = Timer(const Duration(seconds: 5), () {
-            if (mounted) {
-              setState(() {
-                _typingUsers.remove(userId);
-                _typingLottiePaths.remove(userId);
-              });
-            }
-          });
-        } else {
-          setState(() {
-            _typingUsers.remove(userId);
-            _typingLottiePaths.remove(userId);
-          });
-          _typingTimers[userId]?.cancel();
-        }
+        return;
       }
-      return;
-    }
 
-    if (type == 'user_status_update') {
-      if (mounted && widget.chat.isPersonal && _otherUser != null) {
-        final eventUserId = event['user_id']?.toString();
-        final eventUsername = event['username']?.toString();
-        final otherId = _otherUser!['id']?.toString();
-        final otherUsername = _otherUser!['username']?.toString();
+      if (type == 'user_status_update') {
+        if (mounted && widget.chat.isPersonal && _otherUser != null) {
+          final eventUserId = event['user_id']?.toString();
+          final eventUsername = event['username']?.toString();
+          final otherId = _otherUser!['id']?.toString();
+          final otherUsername = _otherUser!['username']?.toString();
 
-        if ((eventUserId != null && eventUserId == otherId) ||
-            (eventUsername != null && eventUsername == otherUsername)) {
+          if ((eventUserId != null && eventUserId == otherId) ||
+              (eventUsername != null && eventUsername == otherUsername)) {
+            setState(() {
+              _otherUser!['is_online'] = event['is_online'];
+              _otherUser!['online'] =
+                  event['is_online']; // Sync both properties
+              _otherUser!['last_seen'] = event['timestamp'];
+            });
+          }
+        }
+        return;
+      }
+
+      if (type == 'chat_user_status') {
+        if (mounted) {
           setState(() {
-            _otherUser!['is_online'] = event['is_online'];
-            _otherUser!['online'] = event['is_online']; // Sync both properties
-            _otherUser!['last_seen'] = event['timestamp'];
+            _otherUser ??= {};
+            _otherUser!['online_count'] = event['online_count'];
           });
         }
+        return;
       }
-      return;
-    }
-
-    if (type == 'chat_user_status') {
-      if (mounted) {
-        setState(() {
-          _otherUser ??= {};
-          _otherUser!['online_count'] = event['online_count'];
-        });
-      }
-      return;
     }
 
     if (type == 'reaction_update') {
@@ -1499,41 +1659,38 @@ class _ChatScreenState extends State<ChatScreen> {
             // Find the matching message in _loadedMessages by numeric server id
             final match = _loadedMessages.cast<Message?>().firstWhere(
               (m) {
-                final parsed =
-                    int.tryParse(m!.serverMessageId) ?? m.id;
+                final parsed = int.tryParse(m!.serverMessageId) ?? m.id;
                 return parsed == msgId;
               },
               orElse: () => null,
             );
-            if (match != null) {
-              final key = match.serverMessageId;
-              final reactions =
-                  List<dynamic>.from(_messageReactions[key] ?? []);
+            final key = match?.serverMessageId ?? msgId.toString();
+            final reactions = List<dynamic>.from(_messageReactions[key] ?? []);
 
-              reactions.removeWhere((r) {
-                final rUserIdRaw = r['user_id'];
-                final rUserId = rUserIdRaw is int
-                    ? rUserIdRaw
-                    : int.tryParse(rUserIdRaw?.toString() ?? '');
-                return rUserId == userId &&
-                    (action == 'remove' ? r['emoji'] == emoji : true);
+            reactions.removeWhere((r) {
+              final rUserIdRaw = r['user_id'];
+              final rUserId = rUserIdRaw is int
+                  ? rUserIdRaw
+                  : int.tryParse(rUserIdRaw?.toString() ?? '');
+              return rUserId == userId &&
+                  (action == 'remove' ? r['emoji'] == emoji : true);
+            });
+
+            if (action == 'add') {
+              reactions.add({
+                'user_id': userId,
+                'user_username': event['user_username'] ?? '',
+                'user_first_name': event['user_first_name'] ?? '',
+                'user_avatar': event['user_avatar'] ?? '',
+                'user_avatar_gradient': event['user_avatar_gradient'] ?? '',
+                'emoji': emoji,
+                'created_at':
+                    event['timestamp'] ?? DateTime.now().toIso8601String(),
               });
-
-              if (action == 'add') {
-                reactions.add({
-                  'user_id': userId,
-                  'user_username': event['user_username'] ?? '',
-                  'user_first_name': event['user_first_name'] ?? '',
-                  'user_avatar': event['user_avatar'] ?? '',
-                  'user_avatar_gradient': event['user_avatar_gradient'] ?? '',
-                  'emoji': emoji,
-                  'created_at':
-                      event['timestamp'] ?? DateTime.now().toIso8601String(),
-                });
-              }
-              _messageReactions[key] = reactions;
             }
+            _messageReactions[key] = reactions;
           });
+          _saveCachedReactions();
         }
       }
       return;
@@ -1657,11 +1814,40 @@ class _ChatScreenState extends State<ChatScreen> {
 
       if (_pendingTextTempIds.isNotEmpty) {
         final tempId = _pendingTextTempIds.removeAt(0);
+        String? finalFileUrl = fileInfoJson;
+        String? finalMessageType = messageType;
+        try {
+          final existing =
+              await _localChatRepo.getMessagesByServerIds([tempId]);
+          if (existing.isNotEmpty && existing.first.fileUrl != null) {
+            final oldParsed = jsonDecode(existing.first.fileUrl!);
+            if (oldParsed is Map) {
+              final newParsed =
+                  finalFileUrl != null ? jsonDecode(finalFileUrl) : null;
+              final Map<String, dynamic> merged = newParsed is Map
+                  ? Map<String, dynamic>.from(newParsed)
+                  : Map<String, dynamic>.from(oldParsed);
+              if (oldParsed['local_path'] != null) {
+                merged['local_path'] = oldParsed['local_path'];
+              }
+              if (oldParsed['type'] != null &&
+                  (merged['type'] == null || merged['type'] == 'file')) {
+                merged['type'] = oldParsed['type'];
+              }
+              finalFileUrl = jsonEncode(merged);
+              if (existing.first.messageType != null &&
+                  (finalMessageType == null || finalMessageType == 'file')) {
+                finalMessageType = existing.first.messageType;
+              }
+            }
+          }
+        } catch (_) {}
+
         await _localChatRepo.updateMessageServerId(
           tempId,
           msgId,
-          fileUrl: fileInfoJson,
-          messageType: messageType,
+          fileUrl: finalFileUrl,
+          messageType: finalMessageType,
         );
         _messagesToAnimate.remove(tempId);
         _animatedMessageIds.add(msgId);
@@ -2440,10 +2626,15 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    if (_attachments.any((a) => a.status == 'error' || a.fileId == null || a.fileId!.isEmpty)) {
+    if (_attachments.any(
+        (a) => a.status == 'error' || a.fileId == null || a.fileId!.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Ошибка загрузки файла. Попробуйте прикрепить файл заново.')),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)?.oshibkaZagruzkiFayla_86e5 ??
+                'File upload error',
+          ),
+        ),
       );
       return;
     }
@@ -2461,10 +2652,6 @@ class _ChatScreenState extends State<ChatScreen> {
         curve: Curves.easeOut,
       );
     }
-
-    await _ensureChatSavedLocally();
-    final localId = _localChatId;
-    if (localId == null) return;
 
     final cryptoService = context.read<CryptoService>();
     final timestamp = DateTime.now();
@@ -2485,7 +2672,7 @@ class _ChatScreenState extends State<ChatScreen> {
             switch (localAttachments.first.fileType.toLowerCase()) {
           'image' => 'image',
           'video' => 'video',
-          'audio' => 'file',
+          'audio' => 'audio',
           'document' => 'file',
           final type => type.isEmpty ? 'file' : type,
         };
@@ -2512,7 +2699,8 @@ class _ChatScreenState extends State<ChatScreen> {
       archivedAt: widget.chat.archivedAt,
       lastMessageType: previewMessageType,
     );
-    await _localChatRepo.saveChat(updatedChat);
+    final localId = await _ensureLocalChatId(overrideChat: updatedChat);
+    if (localId == null) return;
 
     final replyToId = _replyingToMessage?.serverMessageId;
     final replyText = _replyingToMessage?.textContent;
@@ -2564,7 +2752,8 @@ class _ChatScreenState extends State<ChatScreen> {
         textContent: Value(text),
         timestamp: Value(timestamp),
         fileUrl: Value(optimisticFileInfoJson),
-        messageType: Value(previewMessageType ?? (optimisticFileInfoJson != null ? 'file' : null)),
+        messageType: Value(previewMessageType ??
+            (optimisticFileInfoJson != null ? 'file' : null)),
         isRead: const Value(false),
         replyToId: Value(replyToId),
         replyText: Value(replyText),
@@ -2733,7 +2922,12 @@ class _ChatScreenState extends State<ChatScreen> {
         lowerPath.endsWith('.wav') ||
         lowerPath.endsWith('.ogg') ||
         lowerPath.endsWith('.m4a') ||
-        lowerPath.endsWith('.opus')) {
+        lowerPath.endsWith('.flac') ||
+        lowerPath.endsWith('.aac') ||
+        lowerPath.endsWith('.wma') ||
+        lowerPath.endsWith('.opus') ||
+        lowerPath.endsWith('.aiff') ||
+        lowerPath.endsWith('.alac')) {
       return 'audio';
     }
     return 'document';
@@ -2814,10 +3008,12 @@ class _ChatScreenState extends State<ChatScreen> {
       final isSuccess = response.statusCode != null &&
           (response.statusCode == 200 || response.statusCode == 201) &&
           response.data != null &&
-          (response.data['success'] == true || response.data['file_id'] != null);
+          (response.data['success'] == true ||
+              response.data['file_id'] != null);
 
       if (isSuccess) {
-        final fileId = (response.data['file_id'] ?? response.data['id'])?.toString();
+        final fileId =
+            (response.data['file_id'] ?? response.data['id'])?.toString();
         if (fileId != null && fileId.isNotEmpty) {
           if (mounted) {
             setState(() {
@@ -3344,7 +3540,7 @@ class _ChatScreenState extends State<ChatScreen> {
   /// Вставляет локальное "temp" голосовое сообщение, которое отображается мгновенно
   /// и проигрывается прямо из записанного файла. Возвращает его serverMessageId (temp).
   Future<String?> _insertOptimisticVoice(String path, int duration) async {
-    final localId = _localChatId;
+    final localId = await _ensureLocalChatId();
     if (localId == null) return null;
 
     final currentUser = context.read<AuthProvider>().user;
@@ -3701,9 +3897,6 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Consumer<PlaybackProvider>(
         builder: (context, playbackProvider, child) {
           final isVisible = playbackProvider.currentAudioUrl != null;
-          final isPlaying = playbackProvider.isPlaying;
-          final title = playbackProvider.title;
-          final subtitle = playbackProvider.subtitle;
 
           return AnimatedSwitcher(
             duration: const Duration(milliseconds: 280),
@@ -3741,27 +3934,6 @@ class _ChatScreenState extends State<ChatScreen> {
   static const _glowFuchsiaT = Color(0x00D946EF); // 0.0 opacity
   static const _glassTint =
       Color(0xD9000000); // ~0.85 opacity replaces blur+0.75
-
-  String _formatBytes(int bytes) {
-    if (bytes <= 0) {
-      final loc = AppLocalizations.of(context)?.loc_0B_5a4d;
-      return (loc != null && loc != 'Fallback') ? loc : '0 B';
-    }
-    final locB = AppLocalizations.of(context)?.b_3b67;
-    final locKB = AppLocalizations.of(context)?.kb_419d;
-    final locMB = AppLocalizations.of(context)?.mb_b808;
-    final locGB = AppLocalizations.of(context)?.gb_e572;
-    var suffixes = [
-      (locB != null && locB != 'Fallback') ? locB : 'B',
-      (locKB != null && locKB != 'Fallback') ? locKB : 'KB',
-      (locMB != null && locMB != 'Fallback') ? locMB : 'MB',
-      (locGB != null && locGB != 'Fallback') ? locGB : 'GB',
-    ];
-    var i = (log(bytes) / log(1024)).floor();
-    if (i < 0) i = 0;
-    if (i >= suffixes.length) i = suffixes.length - 1;
-    return ((bytes / pow(1024, i)).toStringAsFixed(1)) + ' ' + suffixes[i];
-  }
 
   Map<String, dynamic>? _getAttachmentData(Message msg) {
     if (msg.fileUrl != null && msg.fileUrl!.isNotEmpty) {
@@ -3822,12 +3994,25 @@ class _ChatScreenState extends State<ChatScreen> {
               '$hostUrl$prefix$fileUrlSuffix${tokenToUse != null ? "?token=$tokenToUse" : ""}';
         }
 
+        final coverUriStr = audioTrackCoverUri(fileData);
+        final artUri = coverUriStr != null && coverUriStr.isNotEmpty
+            ? Uri.tryParse(coverUriStr.startsWith('http')
+                ? coverUriStr
+                : '$hostUrl${coverUriStr.startsWith('/') ? '' : '/'}$coverUriStr')
+            : null;
+
+        final trackDurationSec = audioTrackDuration(fileData);
+        final localPath = fileData['local_path']?.toString();
         playlist.add(PlaybackItem(
-          url: absoluteUrl,
-          title: fileName,
-          subtitle: _formatBytes(
-              fileData['file_size'] as int? ?? fileData['size'] as int? ?? 0),
+          url: localPath != null && localPath.isNotEmpty
+              ? localPath
+              : absoluteUrl,
+          title: audioTrackTitle(fileData, fileName),
+          subtitle: audioTrackArtist(fileData, fileName),
           mimeType: mime,
+          duration:
+              trackDurationSec > 0 ? Duration(seconds: trackDurationSec) : null,
+          artUri: artUri,
         ));
       }
     }
@@ -3835,13 +4020,14 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showMusicPlaylistModal(BuildContext context) {
-    final playlist = _getMusicPlaylistFromChat();
     final playbackProvider = context.read<PlaybackProvider>();
-    if (playlist.isNotEmpty && playbackProvider.playlist.isEmpty) {
-      playbackProvider.setPlaylist(playlist,
-          initialUrl: playbackProvider.currentAudioUrl);
-    }
-    MusicPlaylistModal.show(context, _loadedMessages, _jwtToken);
+    MusicPlaylistModal.show(
+      context,
+      chatServerId: widget.chat.id,
+      initialMessages: _loadedMessages,
+      initialPlaylist: playbackProvider.playlist,
+      jwtToken: _jwtToken,
+    );
   }
 
   Widget _buildGlassBackground() {
@@ -4511,6 +4697,11 @@ class _ChatScreenState extends State<ChatScreen> {
                   onTapReplyQuote: (replyServerId) {
                     _scrollToReplyMessage(replyServerId);
                   },
+                  onPlayMusicRequested: (selectedUrl) =>
+                      context.read<PlaybackProvider>().playFromPlaylist(
+                            _getMusicPlaylistFromChat(),
+                            selectedUrl: selectedUrl,
+                          ),
                 ),
               ),
             );
@@ -5888,7 +6079,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void _toggleReaction(Message message, String emoji) {
     final currentUser = context.read<AuthProvider>().user;
     final myId = currentUser?.id;
-    if (myId == null) return;
+    if (currentUser == null || myId == null) return;
 
     final key = message.serverMessageId;
     final reactions = List<dynamic>.from(_messageReactions[key] ?? []);
@@ -5899,20 +6090,59 @@ class _ChatScreenState extends State<ChatScreen> {
       return rUserId == myId && r['emoji'] == emoji;
     });
 
-    final msgId = int.tryParse(message.serverMessageId) ?? message.id;
+    final isRemove = existingIndex != -1;
 
-    if (existingIndex != -1) {
-      _chatWebSocketService.send({
-        'type': 'remove_reaction',
-        'message_id': msgId,
-      });
-    } else {
-      _chatWebSocketService.send({
-        'type': 'add_reaction',
-        'message_id': msgId,
-        'emoji': emoji,
-      });
-    }
+    // 1. Оптимистичное обновление UI
+    setState(() {
+      if (isRemove) {
+        reactions.removeAt(existingIndex);
+      } else {
+        reactions.add({
+          'user_id': myId,
+          'user_username': currentUser.username,
+          'user_first_name': currentUser.firstName ?? currentUser.username,
+          'user_avatar': currentUser.avatar ?? '',
+          'user_avatar_gradient': currentUser.avatarGradient ?? '',
+          'emoji': emoji,
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      }
+      _messageReactions[key] = reactions;
+    });
+    _saveCachedReactions();
+
+    final parsedServerMsgId = int.tryParse(message.serverMessageId);
+    final msgId = parsedServerMsgId ?? message.id;
+    final chatIdParsed = int.tryParse(widget.chat.id);
+
+    // 2. Отправка через WebSocket с полными параметрами
+    _chatWebSocketService.send({
+      'type': isRemove ? 'remove_reaction' : 'add_reaction',
+      'action': isRemove ? 'remove' : 'add',
+      'message_id': msgId,
+      'chat_id': chatIdParsed ?? widget.chat.id,
+      'emoji': emoji,
+    });
+
+    // 3. Fallback через REST API
+    try {
+      final apiClient = context.read<ApiClient>();
+      () async {
+        try {
+          if (isRemove) {
+            await apiClient.delete(
+              '/chats/${widget.chat.id}/messages/$msgId/reactions/',
+              data: {'emoji': emoji},
+            );
+          } else {
+            await apiClient.post(
+              '/chats/${widget.chat.id}/messages/$msgId/reactions/',
+              data: {'emoji': emoji},
+            );
+          }
+        } catch (_) {}
+      }();
+    } catch (_) {}
   }
 
   Set<String> _getMyReactionEmojis(Message message) {
@@ -6520,6 +6750,7 @@ class MessageBubble extends StatelessWidget {
   final String? myId;
   final void Function(String emoji)? onToggleReaction;
   final void Function(Message message)? onLongPress;
+  final Future<void> Function(String selectedUrl)? onPlayMusicRequested;
 
   const MessageBubble({
     super.key,
@@ -6539,6 +6770,7 @@ class MessageBubble extends StatelessWidget {
     this.myId,
     this.onToggleReaction,
     this.onLongPress,
+    this.onPlayMusicRequested,
   });
 
   Widget _buildReplyQuote(BuildContext context) {
@@ -7047,7 +7279,9 @@ class MessageBubble extends StatelessWidget {
 
   String _formatFileSize(int bytes, [String? fileName]) {
     String extensionPrefix = '';
-    if (fileName != null && fileName.contains('.') && !fileName.startsWith('.')) {
+    if (fileName != null &&
+        fileName.contains('.') &&
+        !fileName.startsWith('.')) {
       final ext = fileName.split('.').last.trim().toUpperCase();
       if (ext.isNotEmpty && ext.length <= 12) {
         extensionPrefix = '$ext • ';
@@ -7623,21 +7857,28 @@ class MessageBubble extends StatelessWidget {
         }
 
         final isVoice = fileData['type'] == 'voice' ||
+            message.messageType == 'voice' ||
             (mime.startsWith('audio/') &&
                 (fileData['type'] == 'voice' ||
                     lowerName.contains('voice') ||
-                    lowerName.endsWith('.ogg') ||
-                    lowerName.endsWith('.opus')));
+                    lowerName.startsWith('voice_')));
 
         final isAudioMusic = !isVoice &&
             (fileData['type'] == 'audio' ||
+                fileData['type'] == 'music' ||
+                message.messageType == 'audio' ||
+                message.messageType == 'music' ||
                 mime.startsWith('audio/') ||
                 lowerName.endsWith('.mp3') ||
                 lowerName.endsWith('.wav') ||
                 lowerName.endsWith('.m4a') ||
                 lowerName.endsWith('.flac') ||
                 lowerName.endsWith('.aac') ||
-                lowerName.endsWith('.wma'));
+                lowerName.endsWith('.wma') ||
+                lowerName.endsWith('.ogg') ||
+                lowerName.endsWith('.opus') ||
+                lowerName.endsWith('.aiff') ||
+                lowerName.endsWith('.alac'));
 
         final isVideoMessage = fileData['type'] == 'video_message';
 
@@ -7670,7 +7911,9 @@ class MessageBubble extends StatelessWidget {
             duration: duration,
             localPath: localPath,
             senderName: isChannel
-                ? ((channelName != null && channelName!.isNotEmpty) ? channelName! : senderRealName)
+                ? ((channelName != null && channelName!.isNotEmpty)
+                    ? channelName!
+                    : senderRealName)
                 : (isMe
                     ? (AppLocalizations.of(context)?.vy_0101 ?? 'Fallback')
                     : senderRealName),
@@ -7731,23 +7974,35 @@ class MessageBubble extends StatelessWidget {
             senderName: senderRealName,
           );
         } else if (isAudioMusic) {
-          final duration = fileData['duration'] is num
-              ? (fileData['duration'] as num).toInt()
-              : int.tryParse(fileData['duration']?.toString() ?? '') ?? 0;
+          final duration = audioTrackDuration(fileData);
           final localPath = fileData['local_path']?.toString();
           final audioSource = (localPath != null && localPath.isNotEmpty)
               ? localPath
               : absoluteUrl;
+          final coverUriStr = audioTrackCoverUri(fileData);
+          final artUri = coverUriStr != null && coverUriStr.isNotEmpty
+              ? Uri.tryParse(coverUriStr.startsWith('http')
+                  ? coverUriStr
+                  : '$hostUrl${coverUriStr.startsWith('/') ? '' : '/'}$coverUriStr')
+              : null;
+          final fileMap = fileData;
+          final titleStr =
+              fileMap != null ? audioTrackTitle(fileMap, fileName) : fileName;
+          final artistStr =
+              fileMap != null ? audioTrackArtist(fileMap, fileName) : '';
+          final mimeStr =
+              (fileMap != null ? fileMap['mime_type']?.toString() : null) ??
+                  mime;
           attachmentWidget = MusicMessagePlayer(
             audioUrl: audioSource,
-            fileName: fileName,
-            fileSize: fileSize,
+            title: titleStr,
+            artist: artistStr,
             duration: duration,
-            jwtToken: jwtToken,
-            isMe: isMe,
-            mimeType: fileData['mime_type']?.toString() ?? mime,
-            onDownload: () =>
-                _downloadFileSilent(context, absoluteUrl, fileName),
+            mimeType: mimeStr,
+            artUri: artUri,
+            onPlayRequested: onPlayMusicRequested == null
+                ? null
+                : () => onPlayMusicRequested!(audioSource),
           );
         } else if (isImage) {
           attachmentWidget = GestureDetector(
@@ -8011,7 +8266,9 @@ class MessageBubble extends StatelessWidget {
     final showGroupSenderInfo = !effectiveIsMe && isGroup && !isChannel;
     final showChannelSenderHeader = isChannel;
     final displayName = isChannel
-        ? ((channelName != null && channelName!.isNotEmpty) ? channelName! : senderRealName)
+        ? ((channelName != null && channelName!.isNotEmpty)
+            ? channelName!
+            : senderRealName)
         : senderRealName;
     final senderNameColor = isChannel
         ? const Color(0xFF60A5FA)
@@ -8075,32 +8332,41 @@ class MessageBubble extends StatelessWidget {
                         _buildReplyQuote(context),
                       if (attachmentWidget != null) attachmentWidget,
                       if (reactions.isNotEmpty) ...[
-                        if (displayContent.isNotEmpty)
-                          FormattedText(
-                            content: displayContent,
-                            baseStyle: _bodyStyle,
-                          ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                        IntrinsicWidth(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Expanded(
-                                child: _buildReactionsRow(context),
-                              ),
-                              const SizedBox(width: 8),
+                              if (displayContent.isNotEmpty)
+                                FormattedText(
+                                  content: displayContent,
+                                  baseStyle: _bodyStyle,
+                                ),
+                              const SizedBox(height: 4),
                               Row(
-                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  Text(
-                                    _formatTime(message.timestamp),
-                                    style: _timeStyle,
+                                  Flexible(
+                                    child: _buildReactionsRow(context),
                                   ),
-                                  if (effectiveIsMe) ...[
-                                    const SizedBox(width: 4),
-                                    _buildMessageStatusIcon(message),
-                                  ],
+                                  const SizedBox(width: 8),
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 1),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          _formatTime(message.timestamp),
+                                          style: _timeStyle,
+                                        ),
+                                        if (effectiveIsMe) ...[
+                                          const SizedBox(width: 4),
+                                          _buildMessageStatusIcon(message),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
                                 ],
                               ),
                             ],
@@ -8226,9 +8492,7 @@ class MessageBubble extends StatelessWidget {
                   vertical: 3,
                 ),
                 decoration: BoxDecoration(
-                  color: hasMyReaction
-                      ? Colors.white
-                      : const Color(0x99000000),
+                  color: hasMyReaction ? Colors.white : const Color(0x99000000),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: hasMyReaction
@@ -8925,24 +9189,22 @@ class _VoiceMessagePlayerState extends State<VoiceMessagePlayer> {
 
 class MusicMessagePlayer extends StatefulWidget {
   final String audioUrl;
-  final String fileName;
-  final int fileSize;
+  final String title;
+  final String artist;
   final int duration;
-  final String? jwtToken;
-  final bool isMe;
   final String? mimeType;
-  final VoidCallback? onDownload;
+  final Uri? artUri;
+  final Future<void> Function()? onPlayRequested;
 
   const MusicMessagePlayer({
     super.key,
     required this.audioUrl,
-    required this.fileName,
-    required this.fileSize,
+    required this.title,
+    required this.artist,
     required this.duration,
-    required this.jwtToken,
-    required this.isMe,
     this.mimeType,
-    this.onDownload,
+    this.artUri,
+    this.onPlayRequested,
   });
 
   @override
@@ -8952,38 +9214,16 @@ class MusicMessagePlayer extends StatefulWidget {
 class _MusicMessagePlayerState extends State<MusicMessagePlayer> {
   double? _dragValue;
 
-  String _formatDuration(Duration d) {
-    final s = d.inSeconds % 60;
-    final m = d.inMinutes;
-    return '$m:${s.toString().padLeft(2, '0')}';
-  }
-
-  String _formatBytes(int bytes) {
-    if (bytes <= 0) {
-      final loc = AppLocalizations.of(context)?.loc_0B_5a4d;
-      return (loc != null && loc != 'Fallback') ? loc : '0 B';
-    }
-    final locB = AppLocalizations.of(context)?.b_3b67;
-    final locKB = AppLocalizations.of(context)?.kb_419d;
-    final locMB = AppLocalizations.of(context)?.mb_b808;
-    final locGB = AppLocalizations.of(context)?.gb_e572;
-    var suffixes = [
-      (locB != null && locB != 'Fallback') ? locB : 'B',
-      (locKB != null && locKB != 'Fallback') ? locKB : 'KB',
-      (locMB != null && locMB != 'Fallback') ? locMB : 'MB',
-      (locGB != null && locGB != 'Fallback') ? locGB : 'GB',
-    ];
-    var i = (log(bytes) / log(1024)).floor();
-    if (i < 0) i = 0;
-    if (i >= suffixes.length) i = suffixes.length - 1;
-    return ((bytes / pow(1024, i)).toStringAsFixed(1)) + ' ' + suffixes[i];
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds.remainder(60);
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final isMe = widget.isMe;
-    final playBtnColor = isMe ? const Color(0xFF4ADE80) : Colors.white;
-    final iconColor = Colors.black;
+    const foregroundColor = Colors.white;
+    const mutedColor = Colors.white60;
     final fallbackDuration = Duration(seconds: widget.duration);
 
     return Selector<PlaybackProvider, _VoicePlaybackState>(
@@ -9019,192 +9259,175 @@ class _MusicMessagePlayerState extends State<MusicMessagePlayer> {
                 ? (position.inMilliseconds / totalDuration.inMilliseconds)
                     .clamp(0.0, 1.0)
                 : 0.0);
-
-        final displayPos = _dragValue != null && totalDuration > Duration.zero
-            ? Duration(
-                milliseconds:
-                    (_dragValue! * totalDuration.inMilliseconds).round())
-            : position;
+        final displayPosition =
+            _dragValue != null && totalDuration > Duration.zero
+                ? Duration(
+                    milliseconds:
+                        (_dragValue! * totalDuration.inMilliseconds).round(),
+                  )
+                : position;
 
         return Container(
-          constraints: const BoxConstraints(maxWidth: 280),
-          padding: const EdgeInsets.all(8),
+          constraints: const BoxConstraints(maxWidth: 270),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
-                  GestureDetector(
-                    onTap: () {
+                  InkResponse(
+                    onTap: () async {
                       if (isLoading) return;
+                      if (widget.onPlayRequested != null) {
+                        await widget.onPlayRequested!();
+                        return;
+                      }
                       final playbackProvider = context.read<PlaybackProvider>();
                       playbackProvider.play(
                         audioUrl,
-                        widget.fileName,
-                        _formatBytes(widget.fileSize),
+                        widget.title,
+                        widget.artist,
                         mimeType: widget.mimeType,
                         duration: totalDuration > Duration.zero
                             ? totalDuration
                             : null,
+                        artUri: widget.artUri,
                       );
                     },
-                    child: Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: playBtnColor,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: playBtnColor.withValues(alpha: 0.2),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: isLoading
-                            ? SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      iconColor.withValues(alpha: 0.5)),
+                    radius: 20,
+                    child: SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          color: foregroundColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: isLoading
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.black54,
+                                  ),
+                                )
+                              : Icon(
+                                  isPlaying
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded,
+                                  color: Colors.black,
+                                  size: 23,
                                 ),
-                              )
-                            : Icon(
-                                isPlaying
-                                    ? Icons.pause_rounded
-                                    : Icons.play_arrow_rounded,
-                                color: iconColor,
-                                size: 26,
-                              ),
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 9),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.fileName,
-                          style: TextStyle(
-                            color: isMe
-                                ? Colors.white
-                                : Colors.white.withValues(alpha: 0.9),
-                            fontSize: 13.5,
+                          widget.title,
+                          style: const TextStyle(
+                            color: foregroundColor,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.music_note_rounded,
-                              size: 12,
-                              color: isMe ? Colors.white70 : Colors.white60,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              _formatBytes(widget.fileSize),
-                              style: TextStyle(
-                                color: isMe ? Colors.white70 : Colors.white60,
-                                fontSize: 11,
+                        const SizedBox(height: 1),
+                        if (isCurrent)
+                          SizedBox(
+                            height: 16,
+                            child: SliderTheme(
+                              data: const SliderThemeData(
+                                trackHeight: 2,
+                                thumbShape: RoundSliderThumbShape(
+                                    enabledThumbRadius: 4),
+                                overlayShape:
+                                    RoundSliderOverlayShape(overlayRadius: 10),
+                                activeTrackColor: foregroundColor,
+                                inactiveTrackColor: Colors.white24,
+                                thumbColor: foregroundColor,
+                                overlayColor: Colors.white12,
+                              ),
+                              child: Slider(
+                                value: currentSliderPos.clamp(0.0, 1.0),
+                                onChanged: (val) {
+                                  setState(() => _dragValue = val);
+                                  if (isInitialized &&
+                                      totalDuration > Duration.zero) {
+                                    final targetMs =
+                                        (val * totalDuration.inMilliseconds)
+                                            .round();
+                                    context
+                                        .read<PlaybackProvider>()
+                                        .seekPreview(
+                                            Duration(milliseconds: targetMs));
+                                  }
+                                },
+                                onChangeEnd: (val) {
+                                  setState(() => _dragValue = null);
+                                  if (totalDuration <= Duration.zero) return;
+                                  context.read<PlaybackProvider>().seek(
+                                        Duration(
+                                          milliseconds: (val *
+                                                  totalDuration.inMilliseconds)
+                                              .round(),
+                                        ),
+                                      );
+                                },
                               ),
                             ),
-                          ],
-                        ),
+                          )
+                        else
+                          Text(
+                            widget.artist.isNotEmpty
+                                ? widget.artist
+                                : (AppLocalizations.of(context)
+                                        ?.audiozapis_867d ??
+                                    'Audio'),
+                            style: const TextStyle(
+                              color: mutedColor,
+                              fontSize: 10.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                       ],
                     ),
                   ),
-                  if (widget.onDownload != null) ...[
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: Icon(
-                        Icons.download_rounded,
-                        color: isMe ? Colors.white70 : Colors.white60,
-                        size: 18,
-                      ),
-                      onPressed: widget.onDownload,
-                      padding: EdgeInsets.zero,
-                      constraints:
-                          const BoxConstraints.tightFor(width: 32, height: 32),
-                    ),
-                  ],
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 2),
               Row(
                 children: [
+                  const SizedBox(width: 46),
                   Expanded(
-                    child: SliderTheme(
-                      data: SliderThemeData(
-                        trackHeight: 4,
-                        thumbShape:
-                            const RoundSliderThumbShape(enabledThumbRadius: 6),
-                        overlayShape:
-                            const RoundSliderOverlayShape(overlayRadius: 14),
-                        activeTrackColor:
-                            isMe ? const Color(0xFF4ADE80) : Colors.white,
-                        inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
-                        thumbColor:
-                            isMe ? const Color(0xFF4ADE80) : Colors.white,
-                      ),
-                      child: Slider(
-                        value: currentSliderPos.clamp(0.0, 1.0),
-                        onChanged: (val) {
-                          setState(() {
-                            _dragValue = val;
-                          });
-                          if (isInitialized && totalDuration > Duration.zero) {
-                            final targetMs =
-                                (val * totalDuration.inMilliseconds).round();
-                            context
-                                .read<PlaybackProvider>()
-                                .seekPreview(Duration(milliseconds: targetMs));
-                          }
-                        },
-                        onChangeEnd: (val) async {
-                          final targetVal = val;
-                          setState(() {
-                            _dragValue = null;
-                          });
-                          if (totalDuration > Duration.zero) {
-                            final targetMs =
-                                (targetVal * totalDuration.inMilliseconds)
-                                    .round();
-                            final targetDuration =
-                                Duration(milliseconds: targetMs);
-                            if (!isInitialized || !isCurrent) {
-                              await context.read<PlaybackProvider>().play(
-                                    audioUrl,
-                                    widget.fileName,
-                                    _formatBytes(widget.fileSize),
-                                    mimeType: widget.mimeType,
-                                    duration: totalDuration,
-                                  );
-                            }
-                            context
-                                .read<PlaybackProvider>()
-                                .seek(targetDuration);
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    totalDuration > Duration.zero
-                        ? '${_formatDuration(displayPos)} / ${_formatDuration(totalDuration)}'
-                        : _formatDuration(displayPos),
-                    style: TextStyle(
-                      color: isMe ? Colors.white70 : Colors.white60,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w500,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _formatDuration(displayPosition),
+                          style: const TextStyle(
+                            color: mutedColor,
+                            fontSize: 10,
+                            fontFamily: AppStyles.fontFamily,
+                          ),
+                        ),
+                        Text(
+                          _formatDuration(totalDuration),
+                          style: const TextStyle(
+                            color: mutedColor,
+                            fontSize: 10,
+                            fontFamily: AppStyles.fontFamily,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -9259,7 +9482,7 @@ class _BlinkingRedDotState extends State<_BlinkingRedDot>
   }
 }
 
-class TopChatAudioMiniPlayer extends StatefulWidget {
+class TopChatAudioMiniPlayer extends StatelessWidget {
   final PlaybackProvider playbackProvider;
   final VoidCallback onTapTitle;
 
@@ -9270,210 +9493,89 @@ class TopChatAudioMiniPlayer extends StatefulWidget {
   });
 
   @override
-  State<TopChatAudioMiniPlayer> createState() => _TopChatAudioMiniPlayerState();
-}
-
-class _TopChatAudioMiniPlayerState extends State<TopChatAudioMiniPlayer> {
-  double? _dragValue;
-
-  String _formatDuration(Duration d) {
-    final m = d.inMinutes;
-    final s = d.inSeconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final playback = widget.playbackProvider;
+    final playback = playbackProvider;
     final isPlaying = playback.isPlaying;
     final title = playback.title.isEmpty
         ? (AppLocalizations.of(context)?.golosovoeSoobschenie_33d5 ??
             'Fallback')
         : playback.title;
     final subtitle = playback.subtitle;
-    final position = playback.position;
-    final duration = playback.duration;
 
-    final sliderValue = _dragValue ??
-        (duration > Duration.zero
-            ? (position.inMilliseconds / duration.inMilliseconds)
-                .clamp(0.0, 1.0)
-            : 0.0);
-
-    final displayPos = _dragValue != null && duration > Duration.zero
-        ? Duration(
-            milliseconds: (_dragValue! * duration.inMilliseconds).round())
-        : position;
-
-    return Container(
-      key: const ValueKey('mini_player_visible'),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xF0141416), // frosted look
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.1),
-          width: 1,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTapTitle,
+      child: Container(
+        key: const ValueKey('mini_player_visible'),
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF18181B),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppStyles.borderColor),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.4),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              // Previous button
-              IconButton(
-                icon: Icon(
-                  Icons.skip_previous_rounded,
-                  color: playback.hasPrevious ? Colors.white : Colors.white24,
-                  size: 18,
-                ),
-                onPressed:
-                    playback.hasPrevious ? () => playback.playPrevious() : null,
-                padding: EdgeInsets.zero,
-                constraints:
-                    const BoxConstraints.tightFor(width: 26, height: 26),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            IconButton(
+              onPressed: isPlaying ? playback.pause : playback.resume,
+              icon: Icon(
+                isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: AppStyles.textPrimaryColor,
+                size: 24,
               ),
-              const SizedBox(width: 2),
-              // Play/Pause button
-              GestureDetector(
-                onTap: () {
-                  if (isPlaying) {
-                    playback.pause();
-                  } else {
-                    playback.resume();
-                  }
-                },
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF4ADE80),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                    color: Colors.black,
-                    size: 20,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 2),
-              // Next button
-              IconButton(
-                icon: Icon(
-                  Icons.skip_next_rounded,
-                  color: playback.hasNext ? Colors.white : Colors.white24,
-                  size: 18,
-                ),
-                onPressed: playback.hasNext ? () => playback.playNext() : null,
-                padding: EdgeInsets.zero,
-                constraints:
-                    const BoxConstraints.tightFor(width: 26, height: 26),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: widget.onTapTitle,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onTapTitle,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppStyles.textPrimaryColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: AppStyles.fontFamily,
+                      ),
+                    ),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 1),
                       Text(
-                        title,
+                        subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
+                        style: const TextStyle(
+                          color: AppStyles.textSecondaryColor,
+                          fontSize: 10.5,
                           fontFamily: AppStyles.fontFamily,
                         ),
                       ),
-                      if (subtitle.isNotEmpty) ...[
-                        const SizedBox(height: 1),
-                        Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
-                            fontSize: 10.5,
-                            fontFamily: AppStyles.fontFamily,
-                          ),
-                        ),
-                      ],
                     ],
-                  ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 6),
-              Text(
-                duration > Duration.zero
-                    ? '${_formatDuration(displayPos)} / ${_formatDuration(duration)}'
-                    : _formatDuration(displayPos),
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: AppStyles.fontFamily,
-                ),
-              ),
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: () => playback.stop(),
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Icon(
-                    Icons.close_rounded,
-                    color: Colors.white.withOpacity(0.4),
-                    size: 18,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 3.5,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5.5),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-              activeTrackColor: const Color(0xFF4ADE80),
-              inactiveTrackColor: Colors.white.withOpacity(0.18),
-              thumbColor: const Color(0xFF4ADE80),
             ),
-            child: Slider(
-              value: sliderValue.clamp(0.0, 1.0),
-              onChanged: (val) {
-                setState(() {
-                  _dragValue = val;
-                });
-                if (duration > Duration.zero) {
-                  final targetMs = (val * duration.inMilliseconds).round();
-                  playback.seekPreview(Duration(milliseconds: targetMs));
-                }
-              },
-              onChangeEnd: (val) {
-                setState(() {
-                  _dragValue = null;
-                });
-                if (duration > Duration.zero) {
-                  final targetMs = (val * duration.inMilliseconds).round();
-                  playback.seek(Duration(milliseconds: targetMs));
-                }
-              },
+            IconButton(
+              onPressed: playback.stop,
+              icon: const Icon(
+                Icons.close_rounded,
+                color: AppStyles.textMutedColor,
+                size: 20,
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -9542,15 +9644,23 @@ class ChatMessageContextMenuModal extends BaseCustomModal {
 class _ChatMessageContextMenuModalState
     extends BaseCustomModalState<ChatMessageContextMenuModal> {
   static const popularEmojis = [
-    '👍', '❤️', '🔥', '😂', '😮', '😢', '🤡', '👏', '🎉', '💩'
+    '👍',
+    '❤️',
+    '🔥',
+    '😂',
+    '😮',
+    '😢',
+    '🤡',
+    '👏',
+    '🎉',
+    '💩'
   ];
 
   @override
   bool get fitContent => true;
 
   @override
-  Widget buildContent(
-      BuildContext context, ScrollController scrollController) {
+  Widget buildContent(BuildContext context, ScrollController scrollController) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -9560,8 +9670,7 @@ class _ChatMessageContextMenuModalState
           child: Row(
             children: [
               ...popularEmojis.map((emoji) {
-                final hasMyReaction =
-                    widget.myReactionEmojis.contains(emoji);
+                final hasMyReaction = widget.myReactionEmojis.contains(emoji);
 
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -9581,8 +9690,7 @@ class _ChatMessageContextMenuModalState
                         shape: BoxShape.circle,
                         border: hasMyReaction
                             ? Border.all(
-                                color: const Color(0xFF2563EB),
-                                width: 1.5)
+                                color: const Color(0xFF2563EB), width: 1.5)
                             : null,
                       ),
                       child: Center(
@@ -9626,9 +9734,10 @@ class _ChatMessageContextMenuModalState
         ListTile(
           leading: const FaIcon(FontAwesomeIcons.reply,
               size: 16, color: Colors.white70),
-          title: const Text(
-            'Ответить',
-            style: TextStyle(color: Colors.white, fontSize: 15),
+          title: Text(
+            AppLocalizations.of(context)?.reply ??
+                RuntimeTranslations.instance.resolveByText('Ответить'),
+            style: const TextStyle(color: Colors.white, fontSize: 15),
           ),
           onTap: () {
             Navigator.pop(context);
@@ -9639,9 +9748,10 @@ class _ChatMessageContextMenuModalState
           ListTile(
             leading: const FaIcon(FontAwesomeIcons.copy,
                 size: 16, color: Colors.white70),
-            title: const Text(
-              'Копировать',
-              style: TextStyle(color: Colors.white, fontSize: 15),
+            title: Text(
+              AppLocalizations.of(context)?.copy ??
+                  RuntimeTranslations.instance.resolveByText('Копировать'),
+              style: const TextStyle(color: Colors.white, fontSize: 15),
             ),
             onTap: () {
               Navigator.pop(context);
@@ -9687,34 +9797,291 @@ class _FullEmojiPickerModalState
     extends BaseCustomModalState<FullEmojiPickerModal> {
   static const Map<String, List<String>> _emojiCategories = {
     'Эмоции': [
-      '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇',
-      '🥰', '😍', '🤩', '😘', '😗', '😚', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗',
-      '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥',
-      '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶',
-      '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐', '😕', '😟', '🙁', '😮', '😯',
-      '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣',
-      '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️',
-      '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖'
+      '😀',
+      '😃',
+      '😄',
+      '😁',
+      '😆',
+      '😅',
+      '🤣',
+      '😂',
+      '🙂',
+      '🙃',
+      '😉',
+      '😊',
+      '😇',
+      '🥰',
+      '😍',
+      '🤩',
+      '😘',
+      '😗',
+      '😚',
+      '😋',
+      '😛',
+      '😜',
+      '🤪',
+      '😝',
+      '🤑',
+      '🤗',
+      '🤭',
+      '🤫',
+      '🤔',
+      '🤐',
+      '🤨',
+      '😐',
+      '😑',
+      '😶',
+      '😏',
+      '😒',
+      '🙄',
+      '😬',
+      '🤥',
+      '😌',
+      '😔',
+      '😪',
+      '🤤',
+      '😴',
+      '😷',
+      '🤒',
+      '🤕',
+      '🤢',
+      '🤮',
+      '🤧',
+      '🥵',
+      '🥶',
+      '🥴',
+      '😵',
+      '🤯',
+      '🤠',
+      '🥳',
+      '😎',
+      '🤓',
+      '🧐',
+      '😕',
+      '😟',
+      '🙁',
+      '😮',
+      '😯',
+      '😲',
+      '😳',
+      '🥺',
+      '😦',
+      '😧',
+      '😨',
+      '😰',
+      '😥',
+      '😢',
+      '😭',
+      '😱',
+      '😖',
+      '😣',
+      '😞',
+      '😓',
+      '😩',
+      '😫',
+      '🥱',
+      '😤',
+      '😡',
+      '😠',
+      '🤬',
+      '😈',
+      '👿',
+      '💀',
+      '☠️',
+      '💩',
+      '🤡',
+      '👹',
+      '👺',
+      '👻',
+      '👽',
+      '👾',
+      '🤖'
     ],
     'Жесты и тело': [
-      '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈',
-      '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌',
-      '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶', '👂',
-      '🦻', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁️', '👅', '👄'
+      '👋',
+      '🤚',
+      '🖐️',
+      '✋',
+      '🖖',
+      '👌',
+      '🤏',
+      '✌️',
+      '🤞',
+      '🤟',
+      '🤘',
+      '🤙',
+      '👈',
+      '👉',
+      '👆',
+      '🖕',
+      '👇',
+      '☝️',
+      '👍',
+      '👎',
+      '✊',
+      '👊',
+      '🤛',
+      '🤜',
+      '👏',
+      '🙌',
+      '👐',
+      '🤲',
+      '🤝',
+      '🙏',
+      '✍️',
+      '💅',
+      '🤳',
+      '💪',
+      '🦾',
+      '🦿',
+      '🦵',
+      '🦶',
+      '👂',
+      '🦻',
+      '👃',
+      '🧠',
+      '🫀',
+      '🫁',
+      '🦷',
+      '🦴',
+      '👀',
+      '👁️',
+      '👅',
+      '👄'
     ],
     'Сердца и символы': [
-      '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞',
-      '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '<ctrl42>',
-      '🕎', '☯️', '☦️', '🛐', '<ctrl42>', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐',
-      '♑', '♒', '♓', '🎯', '💯', '🔥', '💥', '✨', '⚡', '🌟', '💫', '⭐️'
+      '❤️',
+      '🧡',
+      '💛',
+      '💚',
+      '💙',
+      '💜',
+      '🖤',
+      '🤍',
+      '🤎',
+      '💔',
+      '❣️',
+      '💕',
+      '💞',
+      '💓',
+      '💗',
+      '💖',
+      '💘',
+      '💝',
+      '💟',
+      '☮️',
+      '✝️',
+      '☪️',
+      '🕉️',
+      '☸️',
+      '✡️',
+      '🔯',
+      '🕎',
+      '☯️',
+      '☦️',
+      '🛐',
+      '⛎',
+      '♈',
+      '♉',
+      '♊',
+      '♋',
+      '♌',
+      '♍',
+      '♎',
+      '♏',
+      '♐',
+      '♑',
+      '♒',
+      '♓',
+      '🎯',
+      '💯',
+      '🔥',
+      '💥',
+      '✨',
+      '⚡',
+      '🌟',
+      '💫',
+      '⭐️'
     ],
     'Еда и предметы': [
-      '🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑',
-      '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '🫑', '🌽',
-      '🥕', '🫒', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🍳',
-      '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🌭', '🍔', '🍟', '🍕', '🥪', '🥙', '🧆',
-      '🌮', '🌯', '🥗', '🥘', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🍤', '🍙',
-      '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '<ctrl42>', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩'
+      '🍏',
+      '🍎',
+      '🍐',
+      '🍊',
+      '🍋',
+      '🍌',
+      '🍉',
+      '🍇',
+      '🍓',
+      '🫐',
+      '🍈',
+      '🍒',
+      '🍑',
+      '🥭',
+      '🍍',
+      '🥥',
+      '🥝',
+      '🍅',
+      '🍆',
+      '🥑',
+      '🥦',
+      '🥬',
+      '🥒',
+      '🌶️',
+      '🫑',
+      '🌽',
+      '🥕',
+      '🫒',
+      '🧄',
+      '🧅',
+      '🥔',
+      '🍠',
+      '🥐',
+      '🥯',
+      '🍞',
+      '🥖',
+      '🥨',
+      '🧀',
+      '🍳',
+      '🥞',
+      '🧇',
+      '🥓',
+      '🥩',
+      '🍗',
+      '🍖',
+      '🌭',
+      '🍔',
+      '🍟',
+      '🍕',
+      '🥪',
+      '🥙',
+      '🧆',
+      '🌮',
+      '🌯',
+      '🥗',
+      '🥘',
+      '🍝',
+      '🍜',
+      '🍲',
+      '🍛',
+      '🍣',
+      '🍱',
+      '🥟',
+      '🍤',
+      '🍙',
+      '🍧',
+      '🍨',
+      '🍦',
+      '🥧',
+      '🧁',
+      '🍰',
+      '🎂',
+      '🍮',
+      '🍭',
+      '🍬',
+      '🍫',
+      '🍿',
+      '🍩'
     ],
   };
 
@@ -9728,17 +10095,16 @@ class _FullEmojiPickerModalState
   double get maxExtent => 0.90;
 
   @override
-  Widget buildContent(
-      BuildContext context, ScrollController scrollController) {
+  Widget buildContent(BuildContext context, ScrollController scrollController) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Все реакции',
-              style: TextStyle(
+            Text(
+              RuntimeTranslations.instance.resolveByText('Все реакции'),
+              style: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
@@ -9763,7 +10129,8 @@ class _FullEmojiPickerModalState
           },
           style: const TextStyle(fontSize: 14, color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'Поиск эмодзи...',
+            hintText:
+                RuntimeTranslations.instance.resolveByText('Поиск эмодзи...'),
             hintStyle: TextStyle(
               color: Colors.white.withValues(alpha: 0.38),
               fontSize: 14,
@@ -9794,8 +10161,8 @@ class _FullEmojiPickerModalState
               final entry = _emojiCategories.entries.elementAt(catIdx);
               final categoryTitle = entry.key;
               final emojis = entry.value
-                  .where((e) =>
-                      _searchQuery.isEmpty || e.contains(_searchQuery))
+                  .where(
+                      (e) => _searchQuery.isEmpty || e.contains(_searchQuery))
                   .toList();
 
               if (emojis.isEmpty) return const SizedBox.shrink();
@@ -9806,7 +10173,7 @@ class _FullEmojiPickerModalState
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Text(
-                      categoryTitle,
+                      RuntimeTranslations.instance.resolveByText(categoryTitle),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -9817,7 +10184,8 @@ class _FullEmojiPickerModalState
                   GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 7,
                       mainAxisSpacing: 8,
                       crossAxisSpacing: 8,
@@ -9838,13 +10206,13 @@ class _FullEmojiPickerModalState
                         child: Container(
                           decoration: BoxDecoration(
                             color: hasMyReaction
-                                ? const Color(0xFF2563EB).withValues(alpha: 0.25)
+                                ? const Color(0xFF2563EB)
+                                    .withValues(alpha: 0.25)
                                 : Colors.white.withValues(alpha: 0.06),
                             shape: BoxShape.circle,
                             border: hasMyReaction
                                 ? Border.all(
-                                    color: const Color(0xFF2563EB),
-                                    width: 1.5)
+                                    color: const Color(0xFF2563EB), width: 1.5)
                                 : null,
                           ),
                           child: Center(

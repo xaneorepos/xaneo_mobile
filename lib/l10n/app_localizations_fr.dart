@@ -1889,6 +1889,12 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get zapreschennyh_1f49 => 'interdit';
   @override
+  String get obIspolzovaniiParolya_9739 =>
+      'À propos de l\'utilisation du mot de passe';
+  @override
+  String get parolTolkoDlyaAvariynogoVhoda_b142 =>
+      'Le mot de passe sert uniquement en dernier recours : si vous ne pouvez pas vous connecter avec un code du bot Notifications Xaneo ou avec le code envoyé par e-mail.';
+  @override
   String get sozdatAkkaunt_19ed => 'Créer un compte';
   @override
   String get naprimerIvan_d7cb => 'Par exemple, Ivan';
@@ -2348,4 +2354,120 @@ class AppLocalizationsFr extends AppLocalizations {
   String get qrScanConfirmButton => 'Confirmer l\'autorisation';
   @override
   String get qrScanProcessing => 'Autorisation de l\'appareil...';
+
+  @override
+  String get qrScanConfirmDesc =>
+      'Un autre appareil demande l’accès à votre compte. Vérifiez le code court et confirmez la demande.';
+
+  @override
+  String get qrScanSecurityNote =>
+      'Continuez uniquement si le code QR est affiché sur un appareil que vous contrôlez.';
+
+  @override
+  String get qrScanDoneButton => 'Terminé';
+
+  @override
+  String get authNotificationSendingCode => 'Envoi du code';
+
+  @override
+  String get authNotificationEnterCode => 'Entrez le code';
+
+  @override
+  String get authNotificationConfirmLogin => 'Confirmez la connexion';
+
+  @override
+  String get authNotificationPasswordLogin => 'Connexion par mot de passe';
+
+  @override
+  String get authNotificationSendingSubtitle => 'Le code arrivera dans la discussion « Notifications Xaneo ». Ne fermez pas cet écran.';
+
+  @override
+  String get authNotificationEnterCodeSubtitle => 'Entrez le code à 6 chiffres reçu dans le message.';
+
+  @override
+  String get authNotificationConfirmSubtitle => 'Ouvrez Xaneo sur un appareil déjà autorisé et vérifiez les détails de la demande.';
+
+  @override
+  String get authNotificationPasswordSubtitle => 'Cette méthode est disponible uniquement après un délai d\'attente. Le mot de passe n\'est pas enregistré.';
+
+  @override
+  String get authNotificationBotSource => 'Le code est envoyé par « Notifications Xaneo ».';
+
+  @override
+  String authNotificationCodeSentToEmail(String email) => 'Code envoyé à $email';
+
+  @override
+  String get authNotificationNoBotAccess => 'Pas d\'accès au bot ?';
+
+  @override
+  String get authNotificationGetCodeViaEmail => 'Recevoir le code par e-mail';
+
+  @override
+  String get authNotificationResendCodeViaEmail => 'Renvoyer le code par e-mail';
+
+  @override
+  String get authNotificationEmailUnavailable => 'Code par e-mail indisponible : aucun e-mail vérifié sur le compte.';
+
+  @override
+  String authNotificationEmailAvailableIn(int seconds) => 'Le code par e-mail sera disponible dans $seconds s.';
+
+  @override
+  String get authNotificationLoginWithPassword => 'Se connecter avec le mot de passe';
+
+  @override
+  String authNotificationPasswordAvailableIn(int seconds) => 'La connexion par mot de passe sera disponible dans $seconds s.';
+
+  @override
+  String get authNotificationErrorSendFailed => 'Échec de l\'envoi du code. Veuillez réessayer plus tard.';
+
+  @override
+  String get authNotificationErrorInvalidCode => 'Code invalide ou expiré';
+
+  @override
+  String get authNotificationErrorRequestExpired => 'Demande rejetée ou expirée';
+
+  @override
+  String get authNotificationErrorEmailFailed => 'Échec de l\'envoi du code par e-mail. Veuillez réessayer plus tard.';
+
+  @override
+  String get authNotificationErrorPasswordFailed => 'Échec de la connexion. Vérifiez votre mot de passe ou recommencez.';
+
+  @override
+  String get authNotificationGetCodeBtn => 'Obtenir le code';
+
+  @override
+  String get authRejectedTitle => 'Connexion refusée';
+
+  @override
+  String get authRejectedDesc =>
+      'La demande de connexion a été refusée sur votre autre appareil. Si ce n\'était pas vous, nous vous recommandons de vérifier la sécurité de votre compte.';
+
+  @override
+  String get authRejectedButton => 'Compris';
+
+  @override
+  String get deviceAuthApprovalSubtitle =>
+      'Code vérifié. Autorisez la connexion uniquement si vous avez initié cette demande.';
+
+  @override
+  String get deviceAuthApprovalKeysNotice =>
+      'Les clés de discussion seront transférées vers le nouvel appareil sous forme chiffrée.';
+
+  @override
+  String get deviceAuthApprovalAllow => 'Autoriser la connexion';
+
+  @override
+  String get deviceAuthApprovalDecline => 'Refuser';
+
+  @override
+  String get deviceAuthDevice => 'Appareil';
+
+  @override
+  String get deviceAuthApp => 'Application';
+
+  @override
+  String get deviceAuthIp => 'Adresse IP';
+
+  @override
+  String get importLanguageFromJson => 'Importer une langue depuis un fichier JSON';
 }

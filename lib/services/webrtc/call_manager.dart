@@ -2,12 +2,16 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:proximity_sensor/proximity_sensor.dart';
 
 import '../api/api_client.dart';
 import '../../config/app_config.dart';
 import '../auth/token_storage.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'webrtc_signaling_service.dart';
+import '../runtime_translations.dart';
+
 
 enum CallState {
   idle,
@@ -56,6 +60,14 @@ class CallManager extends ChangeNotifier {
 
   bool _isCameraOff = false;
   bool get isCameraOff => _isCameraOff;
+
+  bool _isNearEar = false;
+  bool get isNearEar => _isNearEar;
+
+  bool _isSpeakerOn = false;
+  bool get isSpeakerOn => _isSpeakerOn;
+
+  StreamSubscription<dynamic>? _proximitySubscription;
 
   bool _isGroupCall = false;
   bool get isGroupCall => _isGroupCall;
@@ -106,7 +118,13 @@ class CallManager extends ChangeNotifier {
     _callType = callType;
     _isMicrophoneMuted = false;
     _isCameraOff = false;
+    _isSpeakerOn = (callType == 'video');
+    try {
+      Helper.setSpeakerphoneOn(_isSpeakerOn);
+    } catch (_) {}
     _groupParticipants.clear();
+    _startRingtone(isIncoming: false);
+    _startProximityListener();
     notifyListeners();
 
     _signalingService.startGroupCall(
@@ -123,7 +141,8 @@ class CallManager extends ChangeNotifier {
     _groupCallId = data['group_call_id']?.toString();
     _activeCallId = _groupCallId;
     _targetUserId = data['group_id']?.toString();
-    _targetName = data['group_name']?.toString() ?? 'Групповой звонок';
+    _targetName = data['group_name']?.toString() ??
+        RuntimeTranslations.instance.resolveByText('Групповой звонок');
     _targetAvatar = data['group_avatar']?.toString();
     _targetGradient = data['group_gradient']?.toString();
     _callType = data['call_type']?.toString() ?? 'video';
@@ -135,7 +154,8 @@ class CallManager extends ChangeNotifier {
     if (initId != null) {
       _groupParticipants[initId] = {
         'user_id': initId,
-        'name': data['initiator_name']?.toString() ?? 'Организатор',
+        'name': data['initiator_name']?.toString() ??
+            RuntimeTranslations.instance.resolveByText('Организатор'),
         'avatar': data['initiator_avatar'],
         'gradient': data['initiator_gradient'],
         'status': 'connected',
@@ -149,6 +169,7 @@ class CallManager extends ChangeNotifier {
   void _handleGroupCallOfferSent(Map<String, dynamic> data) {
     final gCallId = data['group_call_id']?.toString();
     if (gCallId != null) {
+      _stopRingtone();
       _groupCallId = gCallId;
       _activeCallId = gCallId;
       _state = CallState.connected;
@@ -222,6 +243,12 @@ class CallManager extends ChangeNotifier {
     _callType = callType;
     _isMicrophoneMuted = false;
     _isCameraOff = false;
+    _isSpeakerOn = (callType == 'video');
+    try {
+      Helper.setSpeakerphoneOn(_isSpeakerOn);
+    } catch (_) {}
+    _startRingtone(isIncoming: false);
+    _startProximityListener();
     notifyListeners();
 
     // Отправляем сигнальное сообщение о начале звонка
@@ -239,6 +266,11 @@ class CallManager extends ChangeNotifier {
 
     _stopRingtone();
     _state = CallState.connected;
+    _isSpeakerOn = (_callType == 'video');
+    try {
+      Helper.setSpeakerphoneOn(_isSpeakerOn);
+    } catch (_) {}
+    _startProximityListener();
     notifyListeners();
 
     // 1. Отвечаем по WebSocket
@@ -337,9 +369,6 @@ class CallManager extends ChangeNotifier {
     _cleanup();
   }
 
-  bool _isSpeakerOn = false;
-  bool get isSpeakerOn => _isSpeakerOn;
-
   /// Включить/выключить микрофон
   void toggleMicrophone() {
     _isMicrophoneMuted = !_isMicrophoneMuted;
@@ -362,6 +391,13 @@ class CallManager extends ChangeNotifier {
   /// Включить/выключить динамик
   void toggleSpeaker() {
     _isSpeakerOn = !_isSpeakerOn;
+    if (!_isNearEar) {
+      try {
+        Helper.setSpeakerphoneOn(_isSpeakerOn);
+      } catch (e) {
+        debugPrint('CallManager: toggleSpeaker error: $e');
+      }
+    }
     notifyListeners();
   }
 
@@ -393,7 +429,8 @@ class CallManager extends ChangeNotifier {
       // Занято
       final callId = data['call_id']?.toString();
       if (callId != null) {
-        _signalingService.rejectCall(callId, reason: 'Линия занята');
+        _signalingService.rejectCall(callId,
+            reason: RuntimeTranslations.instance.resolveByText('Линия занята'));
       }
       return;
     }
@@ -401,7 +438,9 @@ class CallManager extends ChangeNotifier {
     _state = CallState.incoming;
     _activeCallId = data['call_id']?.toString();
     _targetUserId = data['caller_id']?.toString();
-    _targetName = data['caller_first_name']?.toString() ?? data['caller_name']?.toString() ?? 'Пользователь';
+    _targetName = data['caller_first_name']?.toString() ??
+        data['caller_name']?.toString() ??
+        RuntimeTranslations.instance.resolveByText('Пользователь');
     _targetAvatar = data['caller_avatar']?.toString();
     _targetGradient = data['caller_gradient']?.toString();
     _callType = data['call_type']?.toString() ?? 'audio';
@@ -413,6 +452,7 @@ class CallManager extends ChangeNotifier {
 
   void _handleCallAnswered(Map<String, dynamic> data) {
     if (_state != CallState.outgoing) return;
+    _stopRingtone();
     _state = CallState.connected;
     notifyListeners();
   }
@@ -498,11 +538,14 @@ class CallManager extends ChangeNotifier {
     }
   }
 
-  void _startRingtone() async {
+  void _startRingtone({bool isIncoming = true}) async {
     try {
-      await _ringtonePlayer.setAsset('assets/sounds/incoming-call.mp3');
+      final assetPath = isIncoming
+          ? 'assets/sounds/incoming-call.mp3'
+          : 'assets/sounds/outgoing-call.mp3';
+      await _ringtonePlayer.setAsset(assetPath);
       await _ringtonePlayer.setLoopMode(LoopMode.one);
-      await _ringtonePlayer.setVolume(0.7);
+      await _ringtonePlayer.setVolume(isIncoming ? 0.7 : 0.6);
       _ringtonePlayer.play();
     } catch (e) {
       debugPrint('CallManager: error playing ringtone: $e');
@@ -519,7 +562,47 @@ class CallManager extends ChangeNotifier {
     }
   }
 
+  void _startProximityListener() {
+    _stopProximityListener();
+    try {
+      _proximitySubscription = ProximitySensor.events.listen((int event) {
+        final isNear = event > 0;
+        if (_isNearEar != isNear) {
+          _isNearEar = isNear;
+          if (_isNearEar) {
+            // Телефон поднесен к уху -> переключаем звук на разговорный динамик (earpiece)
+            try {
+              Helper.setSpeakerphoneOn(false);
+            } catch (_) {}
+          } else {
+            // Отодвинули от уха -> восстанавливаем текущий режим громкой связи
+            try {
+              Helper.setSpeakerphoneOn(_isSpeakerOn);
+            } catch (_) {}
+          }
+          notifyListeners();
+        }
+      });
+    } catch (e) {
+      debugPrint('CallManager: ProximitySensor error: $e');
+    }
+  }
+
+  void _stopProximityListener() {
+    _proximitySubscription?.cancel();
+    _proximitySubscription = null;
+    if (_isNearEar) {
+      _isNearEar = false;
+      notifyListeners();
+    }
+  }
+
   void _cleanup() {
+    _stopProximityListener();
+    try {
+      Helper.setSpeakerphoneOn(true);
+    } catch (_) {}
+
     _stopRingtone();
     _roomListener?.dispose();
     _roomListener = null;
@@ -543,6 +626,7 @@ class CallManager extends ChangeNotifier {
 
   @override
   void dispose() {
+    _stopProximityListener();
     _cleanup();
     _ringtonePlayer.dispose();
     super.dispose();

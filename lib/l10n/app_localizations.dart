@@ -13,6 +13,8 @@ import 'app_localizations_zh.dart';
 import 'app_localizations_ja.dart';
 import 'app_localizations_ko.dart';
 import 'app_localizations_ar.dart';
+import 'dynamic_app_localizations.dart';
+
 
 // ignore_for_file: type=lint
 
@@ -68,7 +70,8 @@ import 'app_localizations_ar.dart';
 /// be consistent with the languages listed in the AppLocalizations.supportedLocales
 /// property.
 abstract class AppLocalizations {
-  AppLocalizations(String locale) : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+  AppLocalizations(String locale)
+      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -76,7 +79,8 @@ abstract class AppLocalizations {
     return Localizations.of<AppLocalizations>(context, AppLocalizations);
   }
 
-  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<AppLocalizations> delegate =
+      _AppLocalizationsDelegate();
 
   /// A list of this localizations delegate along with the default localizations
   /// delegates.
@@ -88,7 +92,8 @@ abstract class AppLocalizations {
   /// Additional delegates can be added by appending to this list in
   /// MaterialApp. This list does not have to be used at all if a custom list
   /// of delegates is preferred or required.
-  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates = <LocalizationsDelegate<dynamic>>[
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
+      <LocalizationsDelegate<dynamic>>[
     delegate,
     GlobalMaterialLocalizations.delegate,
     GlobalCupertinoLocalizations.delegate,
@@ -1323,6 +1328,8 @@ abstract class AppLocalizations {
   String get oVyboreEmail_2609;
   String get podderzhivayutsyaVseDomenyElektronnoyPochty_a4e0;
   String get zapreschennyh_1f49;
+  String get obIspolzovaniiParolya_9739;
+  String get parolTolkoDlyaAvariynogoVhoda_b142;
   String get sozdatAkkaunt_19ed;
   String get naprimerIvan_d7cb;
   String get zadayteParol_53d2;
@@ -1533,9 +1540,50 @@ abstract class AppLocalizations {
   String get qrScanPasteTooltip;
   String get qrScanConfirmButton;
   String get qrScanProcessing;
+  String get qrScanConfirmDesc;
+  String get qrScanSecurityNote;
+  String get qrScanDoneButton;
+
+  String get authNotificationSendingCode;
+  String get authNotificationEnterCode;
+  String get authNotificationConfirmLogin;
+  String get authNotificationPasswordLogin;
+  String get authNotificationSendingSubtitle;
+  String get authNotificationEnterCodeSubtitle;
+  String get authNotificationConfirmSubtitle;
+  String get authNotificationPasswordSubtitle;
+  String get authNotificationBotSource;
+  String authNotificationCodeSentToEmail(String email);
+  String get authNotificationNoBotAccess;
+  String get authNotificationGetCodeViaEmail;
+  String get authNotificationResendCodeViaEmail;
+  String get authNotificationEmailUnavailable;
+  String authNotificationEmailAvailableIn(int seconds);
+  String get authNotificationLoginWithPassword;
+  String authNotificationPasswordAvailableIn(int seconds);
+  String get authNotificationErrorSendFailed;
+  String get authNotificationErrorInvalidCode;
+  String get authNotificationErrorRequestExpired;
+  String get authNotificationErrorEmailFailed;
+  String get authNotificationErrorPasswordFailed;
+  String get authNotificationGetCodeBtn;
+
+  String get authRejectedTitle;
+  String get authRejectedDesc;
+  String get authRejectedButton;
+
+  String get deviceAuthApprovalSubtitle;
+  String get deviceAuthApprovalKeysNotice;
+  String get deviceAuthApprovalAllow;
+  String get deviceAuthApprovalDecline;
+  String get deviceAuthDevice;
+  String get deviceAuthApp;
+  String get deviceAuthIp;
+  String get importLanguageFromJson;
 }
 
-class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate
+    extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override
@@ -1544,31 +1592,36 @@ class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> 
   }
 
   @override
-  bool isSupported(Locale locale) => <String>['ru', 'en', 'fr', 'es', 'zh', 'ja', 'ko', 'ar'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => <String>[
+        'ru',
+        'en',
+        'fr',
+        'es',
+        'zh',
+        'ja',
+        'ko',
+        'ar'
+      ].contains(locale.languageCode);
 
   @override
-  bool shouldReload(_AppLocalizationsDelegate old) => false;
+  bool shouldReload(_AppLocalizationsDelegate old) => true;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
-
-
+  AppLocalizations base;
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
-    case 'ru': return AppLocalizationsRu();
-    case 'en': return AppLocalizationsEn();
-    case 'fr': return AppLocalizationsFr();
-    case 'es': return AppLocalizationsEs();
-    case 'zh': return AppLocalizationsZh();
-    case 'ja': return AppLocalizationsJa();
-    case 'ko': return AppLocalizationsKo();
-    case 'ar': return AppLocalizationsAr();
+    case 'ru': base = AppLocalizationsRu(); break;
+    case 'en': base = AppLocalizationsEn(); break;
+    case 'fr': base = AppLocalizationsFr(); break;
+    case 'es': base = AppLocalizationsEs(); break;
+    case 'zh': base = AppLocalizationsZh(); break;
+    case 'ja': base = AppLocalizationsJa(); break;
+    case 'ko': base = AppLocalizationsKo(); break;
+    case 'ar': base = AppLocalizationsAr(); break;
+    default: base = AppLocalizationsRu(); break;
   }
 
-  throw FlutterError(
-    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-    'an issue with the localizations generation tool. Please file an issue '
-    'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.'
-  );
+  return DynamicAppLocalizations(base, locale.languageCode);
 }
+

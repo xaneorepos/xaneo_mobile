@@ -81,6 +81,14 @@ class _GroupActiveCallScreenState
             onSwitchCamera: () => callManager.switchCamera(),
             onHangup: () => callManager.endCall(),
           ),
+
+          // 3. Полноэкранный черный экран при поднесении к уху (Proximity sensor)
+          if (callManager.isNearEar)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black,
+              ),
+            ),
         ],
       ),
     );

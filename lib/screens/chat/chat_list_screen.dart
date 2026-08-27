@@ -1993,6 +1993,22 @@ class _ChatListScreenState extends State<ChatListScreen>
           '.3gp',
         ]);
 
+    final isAudioMusic = effectiveType == 'audio' ||
+        effectiveType == 'music' ||
+        mimeType.startsWith('audio/') ||
+        hasExtension(const [
+          '.mp3',
+          '.wav',
+          '.ogg',
+          '.m4a',
+          '.flac',
+          '.aac',
+          '.wma',
+          '.opus',
+          '.aiff',
+          '.alac',
+        ]);
+
     switch (effectiveType) {
       case 'voice':
       case 'voice_message':
@@ -2011,6 +2027,9 @@ class _ChatListScreenState extends State<ChatListScreen>
         return l10n?.fotografiya_5709 ?? '📷 Фотография';
       case 'video':
         return l10n?.videosoobschenie_57f1 ?? '📹 Видеосообщение';
+      case 'audio':
+      case 'music':
+        return '🎵 ${l10n?.muzyka_0660 ?? 'Музыка'}';
       case 'file':
       case 'document':
       case 'attachment':
@@ -2019,6 +2038,9 @@ class _ChatListScreenState extends State<ChatListScreen>
         }
         if (isVideoFile) {
           return l10n?.videosoobschenie_57f1 ?? '📹 Видеосообщение';
+        }
+        if (isAudioMusic) {
+          return '🎵 ${l10n?.muzyka_0660 ?? 'Музыка'}';
         }
         return l10n?.fayl_826d ?? '📎 Файл';
     }
@@ -2029,6 +2051,9 @@ class _ChatListScreenState extends State<ChatListScreen>
     }
     if (isVideoFile) {
       return l10n?.videosoobschenie_57f1 ?? '📹 Видеосообщение';
+    }
+    if (isAudioMusic) {
+      return '🎵 ${l10n?.muzyka_0660 ?? 'Музыка'}';
     }
 
     return _stripPreviewFormatting(chat.displayMessage);

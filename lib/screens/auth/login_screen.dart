@@ -2,16 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_config.dart';
-import '../../models/auth/recent_account.dart';
 import '../../providers/auth_provider.dart';
 import '../../screens/main/main_screen.dart';
 import '../../styles/app_styles.dart';
 import '../../widgets/common/auth_settings_modal.dart';
-import '../../widgets/common/avatar_widget.dart';
-import '../../widgets/common/tfa_verification_dialog.dart';
-import 'recent_accounts_screen.dart';
+import '../../widgets/common/notification_login_dialog.dart';
 import 'register_screen.dart';
-import 'tfa_screen.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -23,64 +19,28 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
-  int _currentStep = 0; // 0: Username, 1: Password
-
   final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
   final _usernameFocusNode = FocusNode();
-  final _passwordFocusNode = FocusNode();
 
   bool _isUsernameValid = false;
-  bool _isPasswordValid = false;
-  bool _obscurePassword = true;
-
-  // Недавние аккаунты
-  List<RecentAccount> _recentAccounts = [];
-  bool _isLoadingRecentAccounts = true;
-  bool _showRecentAccounts = true;
+  bool _authV2LoginStarted = false;
 
   @override
   void initState() {
     super.initState();
     _usernameController.addListener(_onUsernameChanged);
-    _passwordController.addListener(_onPasswordChanged);
-
-    // Загружаем недавние аккаунты
-    _loadRecentAccounts();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(AppStyles.animationFast, () {
-        if (mounted && _currentStep == 0) _usernameFocusNode.requestFocus();
+        if (mounted) _usernameFocusNode.requestFocus();
       });
     });
-  }
-
-  Future<void> _loadRecentAccounts() async {
-    try {
-      final auth = context.read<AuthProvider>();
-      final response = await auth.getRecentAccounts();
-
-      if (mounted) {
-        setState(() {
-          if (response.success) {
-            _recentAccounts = response.recentAccounts;
-          }
-          _isLoadingRecentAccounts = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingRecentAccounts = false);
-      }
-    }
   }
 
   @override
   void dispose() {
     _usernameController.dispose();
-    _passwordController.dispose();
     _usernameFocusNode.dispose();
-    _passwordFocusNode.dispose();
     super.dispose();
   }
 
@@ -91,108 +51,37 @@ class _LoginScreenState extends State<LoginScreen>
     });
   }
 
-  void _onPasswordChanged() {
-    setState(() {
-      _isPasswordValid = _passwordController.text.isNotEmpty;
-    });
-  }
-
   void _goToNextStep() {
-    if (_currentStep == 0 && _isUsernameValid) {
-      setState(() => _currentStep = 1);
-      _passwordFocusNode.requestFocus();
-    } else if (_currentStep == 1 && _isPasswordValid) {
-      _handleLogin();
+    if (_isUsernameValid) {
+      setState(() => _authV2LoginStarted = true);
     }
   }
 
   void _goBack() {
-    if (_currentStep == 1) {
-      setState(() => _currentStep = 0);
+    if (_authV2LoginStarted) {
+      setState(() => _authV2LoginStarted = false);
       _usernameFocusNode.requestFocus();
     }
   }
 
-  /// Быстрый вход по недавнему аккаунту
-  Future<void> _handleQuickLogin(RecentAccount account) async {
-    final auth = context.read<AuthProvider>();
-    final success = await auth.quickLogin(userId: account.id);
-
-    if (!mounted) return;
-
-    if (auth.requiresTfa) {
+  void _completeNotificationLogin() {
+    if (mounted) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => TfaScreen(
-            userId: account.id,
-            username: account.username,
-          ),
-        ),
+        MaterialPageRoute(builder: (_) => const MainScreen()),
       );
-    } else if (success) {
-      // Навигация обрабатывается AuthWrapper
-    } else if (auth.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            auth.error!.message,
-            style: AppStyles.bodyMedium.copyWith(color: Colors.white),
-          ),
-          backgroundColor: AppStyles.errorColor,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
-  Future<void> _handleLogin() async {
-    final auth = context.read<AuthProvider>();
-    final success = await auth.login(
-      username: _usernameController.text.trim(),
-      password: _passwordController.text,
-    );
-
-    if (!mounted) return;
-
-    if (auth.requiresTfa) {
-      final verified = await TfaVerificationDialog.show(context);
-
-      if (!mounted) return;
-      if (verified == true && auth.isAuthenticated) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-        );
-      }
-    } else if (success) {
-      // Переходим на главный экран
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-        );
-      }
-    } else if (auth.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(auth.error!.message,
-            style: AppStyles.bodyMedium.copyWith(color: Colors.white)),
-        backgroundColor: AppStyles.errorColor,
-        behavior: SnackBarBehavior.floating,
-      ));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isLoading = context.watch<AuthProvider>().isLoading;
-    final showRecentOnly = _currentStep == 0 &&
-        _showRecentAccounts &&
-        (_isLoadingRecentAccounts || _recentAccounts.isNotEmpty);
 
     return Scaffold(
       backgroundColor: AppStyles.backgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: _currentStep == 1
+        leading: _authV2LoginStarted
             ? IconButton(
                 icon: const FaIcon(FontAwesomeIcons.chevronLeft,
                     color: Colors.white, size: 18),
@@ -241,23 +130,25 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   );
                 },
-                child: _currentStep == 0
-                    ? _buildUsernameStep(
-                        key: ValueKey('step0'), showRecentOnly: showRecentOnly)
-                    : _buildPasswordStep(key: const ValueKey('step1')),
+                child: _authV2LoginStarted
+                    ? NotificationLoginPanel(
+                        key: const ValueKey('auth-v2-login'),
+                        identifier: _usernameController.text.trim(),
+                        onCancelled: _goBack,
+                        onSuccess: _completeNotificationLogin,
+                      )
+                    : _buildUsernameStep(key: const ValueKey('step0')),
               ),
               const SizedBox(height: 32),
-              if (!showRecentOnly) _buildProgressIndicator(),
               const Spacer(flex: 2),
-              if (!showRecentOnly) ...[
+              if (!_authV2LoginStarted) ...[
                 SizedBox(
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
                     onPressed: isLoading
                         ? null
-                        : ((_currentStep == 0 && _isUsernameValid) ||
-                                (_currentStep == 1 && _isPasswordValid))
+                        : _isUsernameValid
                             ? _goToNextStep
                             : null,
                     style: ElevatedButton.styleFrom(
@@ -275,17 +166,14 @@ class _LoginScreenState extends State<LoginScreen>
                             child: CircularProgressIndicator(
                                 color: Colors.black, strokeWidth: 2))
                         : Text(
-                            _currentStep == 0
-                                ? (AppLocalizations.of(context)?.dalee_c453 ??
-                                    'Fallback')
-                                : (AppLocalizations.of(context)?.voyti_63a7 ??
-                                    'Fallback'),
+                            AppLocalizations.of(context)?.prodolzhit_e9c3 ??
+                                'Continue',
                             style: AppStyles.buttonText),
                   ),
                 ),
                 const SizedBox(height: 16),
               ],
-              if (_currentStep == 0)
+              if (!_authV2LoginStarted)
                 Center(
                   child: TextButton(
                     onPressed: () {
@@ -298,10 +186,10 @@ class _LoginScreenState extends State<LoginScreen>
                       ));
                     },
                     child: Text(
-                        (AppLocalizations.of(context)?.sozdatXaneoId_4033 ??
-                            'Fallback'),
-                        style:
-                            AppStyles.bodyMedium.copyWith(color: Colors.white)),
+                      (AppLocalizations.of(context)?.sozdatXaneoId_4033 ??
+                          'Fallback'),
+                      style: AppStyles.bodyMedium.copyWith(color: Colors.white),
+                    ),
                   ),
                 ),
               const SizedBox(height: 32),
@@ -312,7 +200,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _buildUsernameStep({Key? key, required bool showRecentOnly}) {
+  Widget _buildUsernameStep({Key? key}) {
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -321,225 +209,26 @@ class _LoginScreenState extends State<LoginScreen>
             style: AppStyles.titleGiant),
         const SizedBox(height: 8),
         Text(
-            showRecentOnly
-                ? (_isLoadingRecentAccounts
-                    ? (AppLocalizations.of(context)?.zagruzka_43e4 ??
-                        'Fallback')
-                    : (AppLocalizations.of(context)
-                            ?.vyberiteAkkauntDlyaVhoda_d3a6 ??
-                        'Fallback'))
-                : (AppLocalizations.of(context)?.vvediteVashNikneym_51a6 ??
-                    'Fallback'),
-            style: AppStyles.bodyMuted),
-        const SizedBox(height: 32),
-        if (showRecentOnly) ...[
-          _buildRecentAccounts(),
-          if (!_isLoadingRecentAccounts) ...[
-            const SizedBox(height: 32),
-            Center(
-              child: TextButton(
-                onPressed: () {
-                  setState(() {
-                    _showRecentAccounts = false;
-                  });
-                  Future.delayed(AppStyles.animationFast, () {
-                    if (mounted) _usernameFocusNode.requestFocus();
-                  });
-                },
-                child: Text(
-                    (AppLocalizations.of(context)?.voytiVDrugoyAkkaunt_d10f ??
-                        'Fallback'),
-                    style: AppStyles.bodyMedium.copyWith(color: Colors.white)),
-              ),
-            ),
-          ],
-        ] else ...[
-          TextField(
-            controller: _usernameController,
-            focusNode: _usernameFocusNode,
-            style: AppStyles.inputText,
-            cursorColor: Colors.white,
-            decoration: InputDecoration(
-              hintText:
-                  (AppLocalizations.of(context)?.nikneym_3fea ?? 'Fallback'),
-              hintStyle: AppStyles.inputHint,
-              border: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white24)),
-              enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white24)),
-              focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white)),
-              contentPadding: EdgeInsets.symmetric(vertical: 16),
-            ),
-            onSubmitted: (_) => _goToNextStep(),
-          ),
-        ],
-      ],
-    );
-  }
-
-  /// Виджет для отображения недавних аккаунтов
-  Widget _buildRecentAccounts() {
-    if (_isLoadingRecentAccounts) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(
-              color: Colors.white54,
-              strokeWidth: 2,
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (_recentAccounts.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              (AppLocalizations.of(context)?.nedavnieAkkaunty_953d ??
-                  'Fallback'),
-              style: AppStyles.bodyMuted.copyWith(fontSize: 12),
-            ),
-            const Spacer(),
-            GestureDetector(
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const RecentAccountsScreen(),
-                  ),
-                );
-              },
-              child: Text(
-                (AppLocalizations.of(context)?.vse_984b ?? 'Fallback'),
-                style: AppStyles.bodyMuted.copyWith(
-                  fontSize: 12,
-                  color: Colors.white54,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Column(
-          children: _recentAccounts
-              .take(4)
-              .map((account) => _buildRecentAccountItem(account))
-              .toList(),
-        ),
-      ],
-    );
-  }
-
-  /// Виджет для одного недавнего аккаунта
-  Widget _buildRecentAccountItem(RecentAccount account) {
-    return GestureDetector(
-      onTap: () => _handleQuickLogin(account),
-      child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
-        ),
-        child: Row(
-          children: [
-            AvatarWidget(
-              avatar: account.avatar,
-              avatarGradient: account.avatarGradient,
-              hasAvatar: account.hasAvatar,
-              username: account.username,
-              size: 44,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '@${account.username}',
-                    style: AppStyles.bodyMedium.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (account.email.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      account.email,
-                      style: AppStyles.bodyMuted.copyWith(fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const FaIcon(FontAwesomeIcons.chevronRight,
-                color: Colors.white24, size: 14),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPasswordStep({Key? key}) {
-    return Column(
-      key: key,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text((AppLocalizations.of(context)?.vvediteParol_1370 ?? 'Fallback'),
-            style: AppStyles.titleGiant),
-        const SizedBox(height: 8),
-        Text(
-            '${AppLocalizations.of(context)?.account ?? 'Account'} @${_usernameController.text}',
+            (AppLocalizations.of(context)?.vvediteVashNikneym_51a6 ??
+                'Fallback'),
             style: AppStyles.bodyMuted),
         const SizedBox(height: 32),
         TextField(
-          controller: _passwordController,
-          focusNode: _passwordFocusNode,
+          controller: _usernameController,
+          focusNode: _usernameFocusNode,
           style: AppStyles.inputText,
           cursorColor: Colors.white,
-          obscureText: _obscurePassword,
           decoration: InputDecoration(
-            hintText: (AppLocalizations.of(context)?.parol_5ebe ?? 'Fallback'),
+            hintText:
+                (AppLocalizations.of(context)?.nikneym_3fea ?? 'Fallback'),
             hintStyle: AppStyles.inputHint,
-            border: const UnderlineInputBorder(
+            border: UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.white24)),
-            enabledBorder: const UnderlineInputBorder(
+            enabledBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.white24)),
-            focusedBorder: const UnderlineInputBorder(
+            focusedBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.white)),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16),
-            suffixIcon: IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              icon: FaIcon(
-                _obscurePassword
-                    ? FontAwesomeIcons.eyeSlash
-                    : FontAwesomeIcons.eye,
-                color: Colors.white70,
-                size: 16,
-              ),
-              onPressed: () {
-                setState(() {
-                  _obscurePassword = !_obscurePassword;
-                });
-              },
-            ),
+            contentPadding: EdgeInsets.symmetric(vertical: 16),
           ),
           onSubmitted: (_) => _goToNextStep(),
         ),
@@ -547,21 +236,4 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _buildProgressIndicator() {
-    return Row(
-      children: List.generate(2, (index) {
-        return Expanded(
-          child: AnimatedContainer(
-            duration: AppStyles.animationFast,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            height: 4,
-            decoration: BoxDecoration(
-              color: _currentStep >= index ? Colors.white : Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        );
-      }),
-    );
-  }
 }

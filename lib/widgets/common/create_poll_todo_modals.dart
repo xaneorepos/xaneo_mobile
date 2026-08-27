@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../styles/app_styles.dart';
+import '../../services/runtime_translations.dart';
 import 'base_custom_modal.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
 
@@ -116,7 +117,10 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
                 },
                 icon: Icon(Icons.add, size: 16, color: Colors.white),
                 label: Text(
-                  (AppLocalizations.of(context)?.dobavit_5eba ?? 'Fallback'),
+                  RuntimeTranslations.instance.resolve(
+                    'messenger.pollModal.addOption',
+                    AppLocalizations.of(context)?.dobavit_5eba ?? 'Fallback',
+                  ),
                   style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
                 style: TextButton.styleFrom(
@@ -139,8 +143,10 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
                     controller: _optionsControllers[index],
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                     decoration: InputDecoration(
-                      hintText:
-                          '${AppLocalizations.of(context)?.optionHintPrefix ?? 'Option'} ${index + 1}',
+                      hintText: RuntimeTranslations.instance.resolve(
+                        'messenger.pollModal.optionPlaceholder',
+                        '${AppLocalizations.of(context)?.optionHintPrefix ?? 'Option'} ${index + 1}',
+                      ),
                       hintStyle: TextStyle(
                           color: Colors.white.withOpacity(0.3), fontSize: 13),
                       contentPadding: const EdgeInsets.symmetric(
@@ -344,7 +350,10 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
                 },
                 icon: Icon(Icons.add, size: 16, color: Colors.white),
                 label: Text(
-                  (AppLocalizations.of(context)?.dobavit_5eba ?? 'Fallback'),
+                  RuntimeTranslations.instance.resolve(
+                    'messenger.todoModal.addItem',
+                    AppLocalizations.of(context)?.dobavit_5eba ?? 'Fallback',
+                  ),
                   style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
                 style: TextButton.styleFrom(
@@ -367,8 +376,10 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
                     controller: _itemsControllers[index],
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                     decoration: InputDecoration(
-                      hintText:
-                          '${AppLocalizations.of(context)?.itemHintPrefix ?? 'Item'} ${index + 1}',
+                      hintText: RuntimeTranslations.instance.resolve(
+                        'messenger.todoModal.itemPlaceholder',
+                        '${AppLocalizations.of(context)?.itemHintPrefix ?? 'Item'} ${index + 1}',
+                      ),
                       hintStyle: TextStyle(
                           color: Colors.white.withOpacity(0.3), fontSize: 13),
                       contentPadding: const EdgeInsets.symmetric(

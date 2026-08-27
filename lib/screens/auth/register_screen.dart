@@ -13,6 +13,7 @@ import '../../providers/auth_provider.dart';
 import '../../styles/app_styles.dart';
 import '../../widgets/common/auth_settings_modal.dart';
 import '../../widgets/common/avatar_cropper.dart';
+import '../../widgets/common/six_digit_code_input.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -497,7 +498,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: Color(0xFF161616),
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
@@ -554,6 +555,52 @@ class _RegisterScreenState extends State<RegisterScreen>
                 ),
               ),
 
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPasswordInfoModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF161616),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                  (AppLocalizations.of(context)?.obIspolzovaniiParolya_9739 ??
+                      'Fallback'),
+                  style: AppStyles.titleLarge),
+              const SizedBox(height: 24),
+              Text(
+                (AppLocalizations.of(context)
+                        ?.parolTolkoDlyaAvariynogoVhoda_b142 ??
+                    'Fallback'),
+                style: AppStyles.bodyMedium.copyWith(color: Colors.white70),
+              ),
               const SizedBox(height: 24),
             ],
           ),
@@ -620,7 +667,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                 },
                 child: _buildCurrentStep(key: ValueKey('step$_currentStep')),
               ),
-              SizedBox(height: 32),
+              const SizedBox(height: 32),
               _buildProgressIndicator(),
               const Spacer(flex: 2),
               SizedBox(
@@ -707,11 +754,71 @@ class _RegisterScreenState extends State<RegisterScreen>
       TextEditingController controller, FocusNode focusNode,
       {bool obscureText = false, TextInputType? keyboardType}) {
     final isPassword = controller == _passwordController;
+    final isName = controller == _nameController;
+    final hasText = controller.text.trim().isNotEmpty;
+    final l10n = AppLocalizations.of(context);
+
+    Widget? suffix;
+    if (isPassword) {
+      suffix = Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            icon: FaIcon(
+              _obscurePassword
+                  ? FontAwesomeIcons.eyeSlash
+                  : FontAwesomeIcons.eye,
+              color: Colors.white70,
+              size: 16,
+            ),
+            onPressed: () {
+              setState(() {
+                _obscurePassword = !_obscurePassword;
+              });
+            },
+          ),
+          if (hasText) ...[
+            const SizedBox(width: 8),
+            FaIcon(
+              _isPasswordValid
+                  ? FontAwesomeIcons.circleCheck
+                  : FontAwesomeIcons.circleXmark,
+              color: _isPasswordValid
+                  ? const Color(0xFF22C55E)
+                  : const Color(0xFFEF4444),
+              size: 16,
+            ),
+          ],
+        ],
+      );
+    } else if (isName && hasText) {
+      suffix = const FaIcon(
+        FontAwesomeIcons.circleCheck,
+        color: Color(0xFF22C55E),
+        size: 16,
+      );
+    }
+
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: AppStyles.titleGiant),
+        if (isPassword)
+          Row(
+            children: [
+              Expanded(child: Text(title, style: AppStyles.titleGiant)),
+              IconButton(
+                icon: const FaIcon(FontAwesomeIcons.circleInfo,
+                    color: Colors.white54, size: 18),
+                onPressed: _showPasswordInfoModal,
+              ),
+            ],
+          )
+        else
+          Text(title, style: AppStyles.titleGiant),
         const SizedBox(height: 8),
         Text(hint, style: AppStyles.bodyMuted),
         const SizedBox(height: 32),
@@ -732,46 +839,73 @@ class _RegisterScreenState extends State<RegisterScreen>
             focusedBorder: const UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.white)),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
-            suffixIcon: isPassword
-                ? IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    icon: FaIcon(
-                      _obscurePassword
-                          ? FontAwesomeIcons.eyeSlash
-                          : FontAwesomeIcons.eye,
-                      color: Colors.white70,
-                      size: 16,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                  )
-                : null,
+            suffixIconConstraints:
+                const BoxConstraints(minWidth: 24, minHeight: 24),
+            suffixIcon: suffix,
           ),
           onSubmitted: (_) => _isStepValid() ? _goToNextStep() : null,
         ),
+        if (isPassword && hasText && !_isPasswordValid)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              l10n?.minimum8Simvolov_4ccd ?? 'At least 8 characters',
+              style: AppStyles.bodyMuted.copyWith(
+                color: const Color(0xFFEF4444),
+                fontSize: 13,
+              ),
+            ),
+          ),
       ],
     );
   }
 
   Widget _buildUsernameStep(Key? key) {
+    final l10n = AppLocalizations.of(context);
+    final hasText = _usernameController.text.trim().isNotEmpty;
+    final isMinLength =
+        _usernameController.text.trim().length >= AppConfig.minUsernameLength;
+
+    Widget? suffix;
+    if (_isCheckingUsername) {
+      suffix = const SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Colors.white54,
+        ),
+      );
+    } else if (hasText) {
+      if (_isUsernameAvailable && isMinLength) {
+        suffix = const FaIcon(
+          FontAwesomeIcons.circleCheck,
+          color: Color(0xFF22C55E),
+          size: 16,
+        );
+      } else if (_usernameError != null || !isMinLength) {
+        suffix = const FaIcon(
+          FontAwesomeIcons.circleXmark,
+          color: Color(0xFFEF4444),
+          size: 16,
+        );
+      }
+    }
+
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-            (AppLocalizations.of(context)?.pridumayteNikneym_221b ??
-                'Fallback'),
-            style: AppStyles.titleGiant),
+          l10n?.pridumayteNikneym_221b ?? 'Choose a nickname',
+          style: AppStyles.titleGiant,
+        ),
         const SizedBox(height: 8),
         Text(
-            (AppLocalizations.of(context)
-                    ?.unikalnoeImyaDlyaVashegoProfilya_a0ea ??
-                'Fallback'),
-            style: AppStyles.bodyMuted),
+          l10n?.unikalnoeImyaDlyaVashegoProfilya_a0ea ??
+              'A unique name for your profile',
+          style: AppStyles.bodyMuted,
+        ),
         const SizedBox(height: 32),
         TextField(
           controller: _usernameController,
@@ -779,8 +913,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           style: AppStyles.inputText,
           cursorColor: Colors.white,
           decoration: InputDecoration(
-            hintText:
-                (AppLocalizations.of(context)?.nikneym_3fea ?? 'Fallback'),
+            hintText: l10n?.nikneym_3fea ?? 'Nickname',
             hintStyle: AppStyles.inputHint,
             border: const UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.white24)),
@@ -789,39 +922,70 @@ class _RegisterScreenState extends State<RegisterScreen>
             focusedBorder: const UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.white)),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
-            suffixIcon: _isCheckingUsername
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: Padding(
-                        padding: EdgeInsets.all(12),
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white54)))
-                : _isUsernameAvailable &&
-                        _usernameController.text.length >=
-                            AppConfig.minUsernameLength
-                    ? const FaIcon(FontAwesomeIcons.circleCheck,
-                        color: Colors.green, size: 16)
-                    : null,
-            errorText: _usernameError,
-            errorStyle: const TextStyle(color: Colors.red),
+            suffixIconConstraints:
+                const BoxConstraints(minWidth: 24, minHeight: 24),
+            suffixIcon: suffix,
           ),
           onSubmitted: (_) => _isStepValid() ? _goToNextStep() : null,
         ),
-        if (_isUsernameAvailable &&
-            _usernameController.text.length >= AppConfig.minUsernameLength)
+        if (hasText && _usernameError != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-                (AppLocalizations.of(context)?.nikneymDostupen_3fc9 ??
-                    'Fallback'),
-                style: AppStyles.bodyMuted.copyWith(color: Colors.green)),
+              _usernameError!,
+              style: AppStyles.bodyMuted.copyWith(
+                color: const Color(0xFFEF4444),
+                fontSize: 13,
+              ),
+            ),
+          )
+        else if (_isUsernameAvailable && isMinLength)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              l10n?.nikneymDostupen_3fc9 ?? 'Nickname available',
+              style: AppStyles.bodyMuted.copyWith(
+                color: const Color(0xFF22C55E),
+                fontSize: 13,
+              ),
+            ),
           ),
       ],
     );
   }
 
   Widget _buildEmailStep(Key? key) {
+    final l10n = AppLocalizations.of(context);
+    final hasText = _emailController.text.trim().isNotEmpty;
+    final hasAt = _emailController.text.trim().contains('@') &&
+        _emailController.text.trim().contains('.');
+
+    Widget? suffix;
+    if (_isCheckingEmail) {
+      suffix = const SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Colors.white54,
+        ),
+      );
+    } else if (hasText) {
+      if (_isEmailAvailable && hasAt) {
+        suffix = const FaIcon(
+          FontAwesomeIcons.circleCheck,
+          color: Color(0xFF22C55E),
+          size: 16,
+        );
+      } else if (_emailError != null || !hasAt) {
+        suffix = const FaIcon(
+          FontAwesomeIcons.circleXmark,
+          color: Color(0xFFEF4444),
+          size: 16,
+        );
+      }
+    }
+
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -829,12 +993,13 @@ class _RegisterScreenState extends State<RegisterScreen>
         Row(
           children: [
             Expanded(
-                child: Text(
-                    (AppLocalizations.of(context)?.vashEmail_879d ??
-                        'Fallback'),
-                    style: AppStyles.titleGiant)),
+              child: Text(
+                l10n?.vashEmail_879d ?? 'Your email',
+                style: AppStyles.titleGiant,
+              ),
+            ),
             IconButton(
-              icon: FaIcon(FontAwesomeIcons.circleInfo,
+              icon: const FaIcon(FontAwesomeIcons.circleInfo,
                   color: Colors.white54, size: 18),
               onPressed: _showEmailInfoModal,
             ),
@@ -842,10 +1007,10 @@ class _RegisterScreenState extends State<RegisterScreen>
         ),
         const SizedBox(height: 8),
         Text(
-            (AppLocalizations.of(context)
-                    ?.dlyaSvyaziIVosstanovleniyaDostupa_c770 ??
-                'Fallback'),
-            style: AppStyles.bodyMuted),
+          l10n?.dlyaSvyaziIVosstanovleniyaDostupa_c770 ??
+              'For contact and account recovery',
+          style: AppStyles.bodyMuted,
+        ),
         const SizedBox(height: 32),
         TextField(
           controller: _emailController,
@@ -854,8 +1019,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           cursorColor: Colors.white,
           keyboardType: TextInputType.emailAddress,
           decoration: InputDecoration(
-            hintText:
-                (AppLocalizations.of(context)?.emailAdres_9130 ?? 'Fallback'),
+            hintText: l10n?.emailAdres_9130 ?? 'Email address',
             hintStyle: AppStyles.inputHint,
             border: const UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.white24)),
@@ -864,147 +1028,82 @@ class _RegisterScreenState extends State<RegisterScreen>
             focusedBorder: const UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.white)),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
-            suffixIcon: _isCheckingEmail
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: Padding(
-                        padding: EdgeInsets.all(12),
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white54)))
-                : _isEmailAvailable && _emailController.text.contains('@')
-                    ? const FaIcon(FontAwesomeIcons.circleCheck,
-                        color: Colors.green, size: 16)
-                    : null,
-            errorText: _emailError,
-            errorStyle: const TextStyle(color: Colors.red),
+            suffixIconConstraints:
+                const BoxConstraints(minWidth: 24, minHeight: 24),
+            suffixIcon: suffix,
           ),
           onSubmitted: (_) => _isStepValid() ? _goToNextStep() : null,
         ),
-        if (_isEmailAvailable && _emailController.text.contains('@'))
+        if (hasText && _emailError != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-                (AppLocalizations.of(context)?.emailDostupen_e903 ??
-                    'Fallback'),
-                style: AppStyles.bodyMuted.copyWith(color: Colors.green)),
+              _emailError!,
+              style: AppStyles.bodyMuted.copyWith(
+                color: const Color(0xFFEF4444),
+                fontSize: 13,
+              ),
+            ),
+          )
+        else if (_isEmailAvailable && hasAt)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              l10n?.emailDostupen_e903 ?? 'Email available',
+              style: AppStyles.bodyMuted.copyWith(
+                color: const Color(0xFF22C55E),
+                fontSize: 13,
+              ),
+            ),
           ),
       ],
     );
   }
 
   Widget _buildVerificationStep(Key? key) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
-            (AppLocalizations.of(context)?.podtverzhdenieEmail_281f ??
-                'Fallback'),
-            style: AppStyles.titleGiant),
+          l10n?.podtverzhdenieEmail_281f ?? 'Email confirmation',
+          style: AppStyles.titleGiant,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 8),
         Text(
-            AppLocalizations.of(context)
-                    ?.codeSentToEmail(_emailController.text) ??
-                'Code sent to ${_emailController.text}',
-            style: AppStyles.bodyMuted),
-        const SizedBox(height: 32),
-        // Visual code boxes + transparent input overlay
-        LayoutBuilder(
-          builder: (context, constraints) {
-            const int codeLength = 6;
-            const double spacing = 8;
-            final totalSpacing = spacing * (codeLength - 1);
-            final availableWidth = constraints.maxWidth - totalSpacing;
-            final calculatedWidth = availableWidth / codeLength;
-            final boxWidth = calculatedWidth > 48
-                ? 48.0
-                : (calculatedWidth < 36 ? 36.0 : calculatedWidth);
-            final rowWidth = boxWidth * codeLength + totalSpacing;
-
-            return Center(
-              child: SizedBox(
-                width: rowWidth,
-                height: 56,
-                child: Stack(
-                  children: [
-                    GestureDetector(
-                      onTap: _focusVerificationCodeInput,
-                      behavior: HitTestBehavior.opaque,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: List.generate(codeLength, (index) {
-                          return Container(
-                            width: boxWidth,
-                            height: 56,
-                            margin: EdgeInsets.only(
-                                right: index == codeLength - 1 ? 0 : spacing),
-                            decoration: BoxDecoration(
-                              color: Colors.white10,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.white24),
-                            ),
-                            child: Center(
-                              child: Text(
-                                _verificationCodeController.text.length > index
-                                    ? _verificationCodeController.text[index]
-                                    : '',
-                                style:
-                                    AppStyles.titleLarge.copyWith(fontSize: 24),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-                    Positioned.fill(
-                      child: Opacity(
-                        opacity: 0,
-                        child: TextField(
-                          controller: _verificationCodeController,
-                          focusNode: _verificationCodeFocusNode,
-                          keyboardType: TextInputType.number,
-                          textInputAction: TextInputAction.done,
-                          maxLength: 6,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly
-                          ],
-                          style: const TextStyle(
-                              color: Colors.transparent, fontSize: 1),
-                          cursorColor: Colors.transparent,
-                          decoration: const InputDecoration(
-                            counterText: '',
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          onChanged: (_) => setState(() {}),
-                          autofocus: true,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+          l10n?.codeSentToEmail(_emailController.text) ??
+              'Code sent to ${_emailController.text}',
+          style: AppStyles.bodyMuted,
+          textAlign: TextAlign.center,
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 32),
+        SixDigitCodeInput(
+          controller: _verificationCodeController,
+          focusNode: _verificationCodeFocusNode,
+          onChanged: (_) => setState(() {}),
+        ),
         if (_verificationError != null)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(_verificationError!,
-                style: AppStyles.bodyMuted.copyWith(color: Colors.red)),
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              _verificationError!,
+              style: AppStyles.bodyMuted.copyWith(
+                color: const Color(0xFFEF4444),
+                fontSize: 13,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ),
+        const SizedBox(height: 16),
         TextButton(
           onPressed: _isSendingCode ? null : () => _sendVerificationCode(),
           child: Text(
-            (AppLocalizations.of(context)?.otpravitKodPovtorno_7703 ??
-                'Fallback'),
+            l10n?.otpravitKodPovtorno_7703 ?? 'Resend code',
             style: TextStyle(
-                color: _isSendingCode ? Colors.white38 : Colors.white),
+              color: _isSendingCode ? Colors.white38 : Colors.white,
+            ),
           ),
         ),
       ],
@@ -1012,18 +1111,22 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Widget _buildPasswordConfirmStep(Key? key) {
+    final l10n = AppLocalizations.of(context);
+    final hasText = _passwordConfirmController.text.isNotEmpty;
+
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-            (AppLocalizations.of(context)?.podtverditeParol_e3e3 ?? 'Fallback'),
-            style: AppStyles.titleGiant),
+          l10n?.podtverditeParol_e3e3 ?? 'Confirm password',
+          style: AppStyles.titleGiant,
+        ),
         const SizedBox(height: 8),
         Text(
-            (AppLocalizations.of(context)?.vvediteParolEscheRaz_7383 ??
-                'Fallback'),
-            style: AppStyles.bodyMuted),
+          l10n?.vvediteParolEscheRaz_7383 ?? 'Enter the password again',
+          style: AppStyles.bodyMuted,
+        ),
         const SizedBox(height: 32),
         TextField(
           controller: _passwordConfirmController,
@@ -1032,8 +1135,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           cursorColor: Colors.white,
           obscureText: _obscureConfirmPassword,
           decoration: InputDecoration(
-            hintText: (AppLocalizations.of(context)?.parolEscheRaz_6daf ??
-                'Fallback'),
+            hintText: l10n?.parolEscheRaz_6daf ?? 'Password again',
             hintStyle: AppStyles.inputHint,
             border: const UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.white24)),
@@ -1042,6 +1144,8 @@ class _RegisterScreenState extends State<RegisterScreen>
             focusedBorder: const UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.white)),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            suffixIconConstraints:
+                const BoxConstraints(minWidth: 24, minHeight: 24),
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.end,
@@ -1062,29 +1166,33 @@ class _RegisterScreenState extends State<RegisterScreen>
                     });
                   },
                 ),
-                if (_isPasswordConfirmValid) ...[
-                  SizedBox(width: 8),
-                  const FaIcon(FontAwesomeIcons.circleCheck,
-                      color: Colors.green, size: 16),
-                ] else if (_passwordConfirmController.text.isNotEmpty &&
-                    !_isPasswordConfirmValid) ...[
+                if (hasText) ...[
                   const SizedBox(width: 8),
-                  const FaIcon(FontAwesomeIcons.circleExclamation,
-                      color: Colors.red, size: 16),
+                  FaIcon(
+                    _isPasswordConfirmValid
+                        ? FontAwesomeIcons.circleCheck
+                        : FontAwesomeIcons.circleXmark,
+                    color: _isPasswordConfirmValid
+                        ? const Color(0xFF22C55E)
+                        : const Color(0xFFEF4444),
+                    size: 16,
+                  ),
                 ],
               ],
             ),
           ),
           onSubmitted: (_) => _isStepValid() ? _goToNextStep() : null,
         ),
-        if (_passwordConfirmController.text.isNotEmpty &&
-            !_isPasswordConfirmValid)
+        if (hasText && !_isPasswordConfirmValid)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-                (AppLocalizations.of(context)?.paroliNeSovpadayut_d82f ??
-                    'Fallback'),
-                style: AppStyles.bodyMuted.copyWith(color: Colors.red)),
+              l10n?.paroliNeSovpadayut_d82f ?? 'Passwords do not match',
+              style: AppStyles.bodyMuted.copyWith(
+                color: const Color(0xFFEF4444),
+                fontSize: 13,
+              ),
+            ),
           ),
       ],
     );
@@ -1095,7 +1203,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       context: context,
       builder: (_) => Container(
         height: 250,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: Color(0xFF1E1E1E),
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(24),
@@ -1113,20 +1221,18 @@ class _RegisterScreenState extends State<RegisterScreen>
                   CupertinoButton(
                     child: Text(
                         (AppLocalizations.of(context)?.otmena_987b ??
-                            'Fallback'),
-                        style: TextStyle(color: Colors.white54)),
+                            'Cancel'),
+                        style: const TextStyle(color: Colors.white54)),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   CupertinoButton(
                     child: Text(
                         (AppLocalizations.of(context)?.gotovo_34e1 ??
-                            'Fallback'),
-                        style: TextStyle(color: Colors.white)),
+                            'Done'),
+                        style: const TextStyle(color: Colors.white)),
                     onPressed: () {
                       setState(() {
-                        if (_selectedBirthdate == null) {
-                          _selectedBirthdate = DateTime(2000, 1, 1);
-                        }
+                        _selectedBirthdate ??= DateTime(2000, 1, 1);
                         _validateFields();
                       });
                       Navigator.of(context).pop();
@@ -1164,18 +1270,21 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Widget _buildBirthdateStep(Key? key) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text((AppLocalizations.of(context)?.dataRozhdeniya_505e ?? 'Fallback'),
-            style: AppStyles.titleGiant),
+        Text(
+          l10n?.dataRozhdeniya_505e ?? 'Date of birth',
+          style: AppStyles.titleGiant,
+        ),
         const SizedBox(height: 8),
         Text(
-            (AppLocalizations.of(context)
-                    ?.ukazhiteVashuRealnuyuDatuRozhdeniya_d9ed ??
-                'Fallback'),
-            style: AppStyles.bodyMuted),
+          l10n?.ukazhiteVashuRealnuyuDatuRozhdeniya_d9ed ??
+              'Enter your real date of birth',
+          style: AppStyles.bodyMuted,
+        ),
         const SizedBox(height: 32),
         GestureDetector(
           onTap: () {
@@ -1185,7 +1294,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 16),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: Colors.white24)),
             ),
             child: Row(
@@ -1194,13 +1303,13 @@ class _RegisterScreenState extends State<RegisterScreen>
                 Text(
                   _selectedBirthdate != null
                       ? "${_selectedBirthdate!.day.toString().padLeft(2, '0')}.${_selectedBirthdate!.month.toString().padLeft(2, '0')}.${_selectedBirthdate!.year}"
-                      : (AppLocalizations.of(context)?.ddmmgggg_3524 ??
-                          'Fallback'),
+                      : (l10n?.ddmmgggg_3524 ?? 'DD.MM.YYYY'),
                   style: _selectedBirthdate != null
                       ? AppStyles.inputText
                       : AppStyles.inputHint,
                 ),
-                const Icon(CupertinoIcons.calendar, color: Colors.white24),
+                const Icon(CupertinoIcons.calendar,
+                    color: Colors.white54, size: 20),
               ],
             ),
           ),
@@ -1210,19 +1319,25 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Widget _buildAvatarStep(Key? key) {
+    final l10n = AppLocalizations.of(context);
     return SizedBox(
       width: double.infinity,
       child: Column(
         key: key,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text((AppLocalizations.of(context)?.dobavteFoto_25eb ?? 'Fallback'),
-              style: AppStyles.titleGiant),
+          Text(
+            l10n?.dobavteFoto_25eb ?? 'Add a photo',
+            style: AppStyles.titleGiant,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 8),
           Text(
-              (AppLocalizations.of(context)?.sdelayteProfilUznavaemym_f2c5 ??
-                  'Fallback'),
-              style: AppStyles.bodyMuted),
+            l10n?.sdelayteProfilUznavaemym_f2c5 ??
+                'Make your profile recognizable',
+            style: AppStyles.bodyMuted,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 48),
           GestureDetector(
             onTap: _pickAvatarImage,
@@ -1243,8 +1358,13 @@ class _RegisterScreenState extends State<RegisterScreen>
                     : null,
               ),
               child: _selectedAvatarImage == null
-                  ? const FaIcon(FontAwesomeIcons.camera,
-                      color: Colors.white70, size: 34)
+                  ? const Center(
+                      child: FaIcon(
+                        FontAwesomeIcons.camera,
+                        color: Colors.white70,
+                        size: 34,
+                      ),
+                    )
                   : null,
             ),
           ),
@@ -1254,19 +1374,25 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Widget _buildProfilePreviewStep(Key? key) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text((AppLocalizations.of(context)?.profilGotov_b57d ?? 'Fallback'),
-            style: AppStyles.titleGiant),
+        Text(
+          l10n?.profilGotov_b57d ?? 'Profile ready',
+          style: AppStyles.titleGiant,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 8),
         Text(
-            (AppLocalizations.of(context)?.ostalosVsegoParaShagov_37e3 ??
-                'Fallback'),
-            style: AppStyles.bodyMuted),
+          l10n?.ostalosVsegoParaShagov_37e3 ?? 'Just a couple of steps left',
+          style: AppStyles.bodyMuted,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 32),
         Container(
+          width: double.infinity,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: Colors.white10,
@@ -1287,25 +1413,37 @@ class _RegisterScreenState extends State<RegisterScreen>
                           image: FileImage(_selectedAvatarImage!),
                           fit: BoxFit.cover,
                         )
-                      : null,
+                    : null,
                 ),
                 child: _selectedAvatarImage == null
-                    ? const FaIcon(FontAwesomeIcons.user,
-                        color: Colors.white, size: 34)
+                    ? const Center(
+                        child: FaIcon(
+                          FontAwesomeIcons.user,
+                          color: Colors.white,
+                          size: 34,
+                        ),
+                      )
                     : null,
               ),
               const SizedBox(height: 16),
-              Text(_nameController.text, style: AppStyles.titleLarge),
+              Text(
+                _nameController.text,
+                style: AppStyles.titleLarge,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 4),
-              Text('@${_usernameController.text}', style: AppStyles.bodyMuted),
+              Text(
+                '@${_usernameController.text}',
+                style: AppStyles.bodyMuted,
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
         const SizedBox(height: 24),
         _buildCheckbox(
-          title: (AppLocalizations.of(context)
-                  ?.yaPrinimayuPolzovatelskoeSoglashenie_c431 ??
-              'Fallback'),
+          title: (l10n?.yaPrinimayuPolzovatelskoeSoglashenie_c431 ??
+              'I accept the User Agreement'),
           value: _agreedToTerms,
           onChanged: (val) {
             setState(() {
@@ -1313,11 +1451,10 @@ class _RegisterScreenState extends State<RegisterScreen>
             });
           },
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         _buildCheckbox(
-          title:
-              (AppLocalizations.of(context)?.yaDayuSoglasieNaObrabotku_0d03 ??
-                  'Fallback'),
+          title: (l10n?.yaDayuSoglasieNaObrabotku_0d03 ??
+              'I agree to the processing of personal data'),
           value: _agreedToDataStorage,
           onChanged: (val) {
             setState(() {
@@ -1335,15 +1472,18 @@ class _RegisterScreenState extends State<RegisterScreen>
       required ValueChanged<bool?> onChanged}) {
     return GestureDetector(
       onTap: () => onChanged(!value),
+      behavior: HitTestBehavior.opaque,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 24,
-            height: 24,
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            width: 20,
+            height: 20,
             child: Checkbox(
               value: value,
               onChanged: onChanged,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               fillColor: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) return Colors.white;
                 return Colors.transparent;
@@ -1351,7 +1491,7 @@ class _RegisterScreenState extends State<RegisterScreen>
               checkColor: Colors.black,
               side: const BorderSide(color: Colors.white54, width: 1.5),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6)),
+                  borderRadius: BorderRadius.circular(5)),
             ),
           ),
           const SizedBox(width: 12),

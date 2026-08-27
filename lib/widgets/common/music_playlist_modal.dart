@@ -1,33 +1,47 @@
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_config.dart';
 import '../../services/database/app_database.dart';
+import '../../services/chat/chat_local_repository.dart';
 import '../../providers/playback_provider.dart';
-
+import '../../utils/audio_metadata.dart';
 import 'base_custom_modal.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
 
-/// Модальное окно списка музыки для мобильного приложения на базе BaseCustomModal.
+/// Модальное окно списка музыки для мобильного приложения в черно-белых тонах
+/// с полной панелью управления воспроизведением (перемотка, prev/next, shuffle, repeat, play/pause)
+/// и реактивным обновлением при добавлении треков в чат.
 class MusicPlaylistModal extends BaseCustomModal {
-  final List<Message> messages;
+  final String? chatServerId;
+  final List<dynamic>? initialMessages;
+  final List<PlaybackItem>? initialPlaylist;
   final String? jwtToken;
 
   const MusicPlaylistModal({
     super.key,
-    required this.messages,
+    this.chatServerId,
+    this.initialMessages,
+    this.initialPlaylist,
     this.jwtToken,
   });
 
   static Future<void> show(
-      BuildContext context, List<Message> messages, String? jwtToken) {
-    return showModalBottomSheet(
+    BuildContext context, {
+    String? chatServerId,
+    List<dynamic>? initialMessages,
+    List<PlaybackItem>? initialPlaylist,
+    String? jwtToken,
+  }) {
+    return BaseCustomModal.show<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) =>
-          MusicPlaylistModal(messages: messages, jwtToken: jwtToken),
+      child: MusicPlaylistModal(
+        chatServerId: chatServerId,
+        initialMessages: initialMessages,
+        initialPlaylist: initialPlaylist,
+        jwtToken: jwtToken,
+      ),
     );
   }
 
@@ -37,49 +51,83 @@ class MusicPlaylistModal extends BaseCustomModal {
 
 class _MusicPlaylistModalState
     extends BaseCustomModalState<MusicPlaylistModal> {
-  @override
-  double get initialExtent => 0.65;
+  double? _dragValue;
+  late List<PlaybackItem> _cachedPlaylist;
+  int _playlistBuildGeneration = 0;
+  int? _scheduledMessagesSignature;
 
   @override
-  double get minExtent => 0.35;
+  double get initialExtent => 0.82;
+
+  @override
+  double get minExtent => 0.40;
 
   @override
   double get maxExtent => 0.95;
 
-  String _formatBytes(int bytes) {
-    if (bytes <= 0)
-      return (AppLocalizations.of(context)?.loc_0B_5a4d ?? 'Fallback');
-    var suffixes = [
-      (AppLocalizations.of(context)?.b_3b67 ?? 'Fallback'),
-      (AppLocalizations.of(context)?.kb_419d ?? 'Fallback'),
-      (AppLocalizations.of(context)?.mb_b808 ?? 'Fallback'),
-      (AppLocalizations.of(context)?.gb_e572 ?? 'Fallback')
-    ];
-    var i = (log(bytes) / log(1024)).floor();
-    if (i >= suffixes.length) i = suffixes.length - 1;
-    return ((bytes / pow(1024, i)).toStringAsFixed(1)) + ' ' + suffixes[i];
+  @override
+  Color get backgroundColor => const Color(0xFF111111);
+
+  @override
+  void initState() {
+    super.initState();
+    _cachedPlaylist = List<PlaybackItem>.from(
+      widget.initialPlaylist ?? const <PlaybackItem>[],
+    );
   }
 
-  Map<String, dynamic>? _getAttachmentData(Message msg) {
-    if (msg.fileUrl != null && msg.fileUrl!.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(msg.fileUrl!);
-        if (decoded is Map<String, dynamic>) {
-          return decoded;
+  @override
+  void dispose() {
+    _playlistBuildGeneration++;
+    super.dispose();
+  }
+
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes;
+    final s = d.inSeconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  Map<String, dynamic>? _getAttachmentData(dynamic msg) {
+    if (msg is Message) {
+      if (msg.fileUrl != null && msg.fileUrl!.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(msg.fileUrl!);
+          if (decoded is Map<String, dynamic>) {
+            return decoded;
+          }
+        } catch (_) {}
+      }
+    } else if (msg is Map) {
+      final fileData = msg['file'] ?? msg['file_data'] ?? msg['attachment'];
+      if (fileData is Map<String, dynamic>) return fileData;
+      if (fileData is String && fileData.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(fileData);
+          if (decoded is Map<String, dynamic>) return decoded;
+        } catch (_) {}
+      }
+      final fileUrl = msg['file_url']?.toString();
+      if (fileUrl != null && fileUrl.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(fileUrl);
+          if (decoded is Map<String, dynamic>) return decoded;
+        } catch (_) {
+          return Map<String, dynamic>.from(msg);
         }
-      } catch (_) {}
+      }
     }
     return null;
   }
 
-  List<PlaybackItem> _getMusicPlaylistFromMessages() {
+  List<PlaybackItem> _getMusicPlaylistFromMessages(List<dynamic> rawMessages) {
     final playlist = <PlaybackItem>[];
     final uri = Uri.parse(AppConfig.apiBaseUrl);
     final hostUrl =
         '${uri.scheme}://${uri.host}${uri.hasPort ? ":${uri.port}" : ""}';
     final tokenToUse = widget.jwtToken;
 
-    for (final msg in widget.messages) {
+    for (final msg in rawMessages) {
       final fileData = _getAttachmentData(msg);
       if (fileData == null) continue;
       final type = fileData['type']?.toString().toLowerCase() ?? '';
@@ -87,7 +135,7 @@ class _MusicPlaylistModalState
 
       final fileName = fileData['file_name']?.toString() ??
           fileData['name']?.toString() ??
-          (AppLocalizations.of(context)?.audiozapis_867d ?? 'Fallback');
+          'Аудиозапись';
       final lowerName = fileName.toLowerCase();
       final mime = fileData['mime_type']?.toString().toLowerCase() ??
           fileData['type']?.toString().toLowerCase() ??
@@ -119,41 +167,142 @@ class _MusicPlaylistModalState
               '$hostUrl$prefix$fileUrlSuffix${tokenToUse != null ? "?token=$tokenToUse" : ""}';
         }
 
+        final coverUriStr = audioTrackCoverUri(fileData);
+        final artUri = coverUriStr != null && coverUriStr.isNotEmpty
+            ? Uri.tryParse(coverUriStr.startsWith('http')
+                ? coverUriStr
+                : '$hostUrl${coverUriStr.startsWith('/') ? '' : '/'}$coverUriStr')
+            : null;
+
+        final trackDurationSec = audioTrackDuration(fileData);
+        final localPath = fileData['local_path']?.toString();
         playlist.add(PlaybackItem(
-          url: absoluteUrl,
-          title: fileName,
-          subtitle: _formatBytes(
-              fileData['file_size'] as int? ?? fileData['size'] as int? ?? 0),
+          url: localPath != null && localPath.isNotEmpty
+              ? localPath
+              : absoluteUrl,
+          title: audioTrackTitle(fileData, fileName),
+          subtitle: audioTrackArtist(fileData, fileName),
           mimeType: mime,
+          duration:
+              trackDurationSec > 0 ? Duration(seconds: trackDurationSec) : null,
+          artUri: artUri,
         ));
       }
     }
     return playlist;
   }
 
+  int _messagesSignature(List<dynamic> messages) {
+    Object? messageId(dynamic message) {
+      if (message is Message) return message.id;
+      if (message is Map) return message['id'] ?? message['file_id'];
+      return message.hashCode;
+    }
+
+    return Object.hash(
+      messages.length,
+      messages.isEmpty ? null : messageId(messages.first),
+      messages.isEmpty ? null : messageId(messages.last),
+    );
+  }
+
+  void _schedulePlaylistRefresh(List<dynamic> rawMessages) {
+    final signature = _messagesSignature(rawMessages);
+    if (_scheduledMessagesSignature == signature) return;
+    _scheduledMessagesSignature = signature;
+    final generation = ++_playlistBuildGeneration;
+    final messages = List<dynamic>.from(rawMessages, growable: false);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final playlist = <PlaybackItem>[];
+      const batchSize = 12;
+      for (var start = 0; start < messages.length; start += batchSize) {
+        if (!mounted || generation != _playlistBuildGeneration) return;
+        final end = (start + batchSize).clamp(0, messages.length);
+        playlist.addAll(
+          _getMusicPlaylistFromMessages(messages.sublist(start, end)),
+        );
+        await WidgetsBinding.instance.endOfFrame;
+      }
+
+      if (!mounted || generation != _playlistBuildGeneration) return;
+      setState(() {
+        _cachedPlaylist = playlist;
+      });
+    });
+  }
+
   @override
   Widget buildContent(BuildContext context, ScrollController scrollController) {
-    final playlist = _getMusicPlaylistFromMessages();
+    if (widget.chatServerId != null && widget.chatServerId!.isNotEmpty) {
+      final localChatRepo = context.read<LocalChatRepository>();
+      return StreamBuilder<List<Message>>(
+        stream: localChatRepo.watchMessagesForServerChat(widget.chatServerId!),
+        initialData: widget.initialMessages?.whereType<Message>().toList(),
+        builder: (context, snapshot) {
+          final rawMessages = snapshot.data ?? widget.initialMessages ?? [];
+          _schedulePlaylistRefresh(rawMessages);
+          return _buildPlaylistUI(
+            context,
+            scrollController,
+            _cachedPlaylist,
+          );
+        },
+      );
+    }
 
+    final rawMessages = widget.initialMessages ?? [];
+    _schedulePlaylistRefresh(rawMessages);
+    return _buildPlaylistUI(context, scrollController, _cachedPlaylist);
+  }
+
+  Widget _buildPlaylistUI(
+    BuildContext context,
+    ScrollController scrollController,
+    List<PlaybackItem> playlist,
+  ) {
+    final providerPlaylist = context.read<PlaybackProvider>().playlist;
+    final items = playlist.isNotEmpty ? playlist : providerPlaylist;
     return Consumer<PlaybackProvider>(
       builder: (context, playback, child) {
-        final items =
-            playback.playlist.isNotEmpty ? playback.playlist : playlist;
+        final hasActiveTrack = playback.currentAudioUrl != null;
+        final isPlaying = playback.isPlaying;
+        final position = playback.position;
+        final duration = playback.duration;
+
+        final double progress = _dragValue ??
+            (duration > Duration.zero
+                ? (position.inMilliseconds / duration.inMilliseconds)
+                    .clamp(0.0, 1.0)
+                : 0.0);
+
+        final displayPos = _dragValue != null && duration > Duration.zero
+            ? Duration(
+                milliseconds: (_dragValue! * duration.inMilliseconds).round())
+            : position;
 
         return Column(
           children: [
+            // Шапка модального окна
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
-                    color: Color(0xFF4ADE80).withOpacity(0.15),
+                    color: Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.queue_music_rounded,
-                    color: Color(0xFF4ADE80),
-                    size: 20,
+                  child: const Center(
+                    child: Icon(
+                      Icons.queue_music_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -163,129 +312,467 @@ class _MusicPlaylistModalState
                     children: [
                       Text(
                         (AppLocalizations.of(context)?.spisokMuzyki_57d0 ??
-                            'Fallback'),
-                        style: TextStyle(
+                            'Список музыки'),
+                        style: const TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w700,
                           color: Colors.white,
+                          fontFamily: 'Inter',
                         ),
                       ),
+                      const SizedBox(height: 1),
                       Text(
-                        '${AppLocalizations.of(context)?.music ?? 'Music'} • ${items.length}',
+                        '${AppLocalizations.of(context)?.music ?? 'Треков'}: ${items.length}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.white.withOpacity(0.5),
+                          color: Colors.white.withValues(alpha: 0.5),
+                          fontFamily: 'Inter',
                         ),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: Icon(
-                    Icons.close_rounded,
-                    color: Colors.white.withOpacity(0.5),
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: Colors.white70,
+                    size: 28,
                   ),
                   onPressed: () => Navigator.of(context).pop(),
+                  tooltip: 'Закрыть',
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Divider(color: Colors.white.withOpacity(0.1), height: 1),
-            const SizedBox(height: 8),
-            Expanded(
-              child: items.isEmpty
-                  ? Center(
-                      child: Text(
-                        (AppLocalizations.of(context)
-                                ?.muzykalnyeTrekiOtsutstvuyut_3301 ??
-                            'Fallback'),
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.4),
-                          fontSize: 13,
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: scrollController,
-                      itemCount: items.length,
-                      itemBuilder: (context, index) {
-                        final item = items[index];
-                        final isCurrent = playback.currentAudioUrl == item.url;
-                        final isPlaying = isCurrent && playback.isPlaying;
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
+            const SizedBox(height: 8),
+            Divider(
+              color: Colors.white.withValues(alpha: 0.1),
+              height: 1,
+            ),
+            const SizedBox(height: 8),
+
+            // Position updates rebuild only the controls below. The playlist
+            // child is cached by Consumer and listens only to track changes.
+            Expanded(child: child!),
+
+            // Компактная нижняя панель управления плеером во всю ширину модалки
+            if (hasActiveTrack) ...[
+              Container(
+                margin: const EdgeInsets.only(left: -20, right: -20, top: 4),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF161618),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(20)),
+                  border: Border(
+                    top: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Информация о текущем треке
+                    Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
                           decoration: BoxDecoration(
-                            color: isCurrent
-                                ? const Color(0xFF4ADE80).withOpacity(0.15)
-                                : Colors.white.withOpacity(0.04),
-                            borderRadius: BorderRadius.circular(14),
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.1),
                             border: Border.all(
-                              color: isCurrent
-                                  ? const Color(0xFF4ADE80).withOpacity(0.4)
-                                  : Colors.transparent,
+                              color: Colors.white.withValues(alpha: 0.18),
+                              width: 1,
                             ),
                           ),
-                          child: ListTile(
-                            dense: true,
-                            leading: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isCurrent
-                                    ? const Color(0xFF4ADE80)
-                                    : Colors.white.withOpacity(0.1),
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  isCurrent
-                                      ? (isPlaying
-                                          ? Icons.pause_rounded
-                                          : Icons.play_arrow_rounded)
-                                      : Icons.music_note_rounded,
-                                  color:
-                                      isCurrent ? Colors.black : Colors.white70,
-                                  size: 18,
+                          child: const Center(
+                            child: Icon(
+                              Icons.music_note_rounded,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                playback.title.isNotEmpty
+                                    ? playback.title
+                                    : 'Аудиозапись',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  fontFamily: 'Inter',
                                 ),
                               ),
+                              if (playback.subtitle.isNotEmpty) ...[
+                                const SizedBox(height: 1),
+                                Text(
+                                  playback.subtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                    fontSize: 11,
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (isPlaying) ...[
+                          const SizedBox(width: 8),
+                          _buildAnimatedWaveform(),
+                        ],
+                      ],
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    // Слайдер перемотки и таймеры
+                    Row(
+                      children: [
+                        Text(
+                          _formatDuration(displayPos),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            fontSize: 10.5,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                        Expanded(
+                          child: SliderTheme(
+                            data: SliderThemeData(
+                              trackHeight: 2.5,
+                              thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 5),
+                              overlayShape: const RoundSliderOverlayShape(
+                                  overlayRadius: 10),
+                              activeTrackColor: Colors.white,
+                              inactiveTrackColor:
+                                  Colors.white.withValues(alpha: 0.18),
+                              thumbColor: Colors.white,
                             ),
-                            title: Text(
+                            child: Slider(
+                              value: progress.clamp(0.0, 1.0),
+                              onChanged: (val) {
+                                setState(() {
+                                  _dragValue = val;
+                                });
+                                if (duration > Duration.zero) {
+                                  final targetMs =
+                                      (val * duration.inMilliseconds).round();
+                                  playback.seekPreview(
+                                      Duration(milliseconds: targetMs));
+                                }
+                              },
+                              onChangeEnd: (val) {
+                                setState(() {
+                                  _dragValue = null;
+                                });
+                                if (duration > Duration.zero) {
+                                  final targetMs =
+                                      (val * duration.inMilliseconds).round();
+                                  playback
+                                      .seek(Duration(milliseconds: targetMs));
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        Text(
+                          _formatDuration(duration),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            fontSize: 10.5,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Кнопки управления: Shuffle, Prev, Play/Pause, Next, Repeat
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                              width: 36, height: 36),
+                          icon: Icon(
+                            Icons.shuffle_rounded,
+                            color: playback.isShuffle
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.3),
+                            size: 20,
+                          ),
+                          onPressed: () => playback.toggleShuffle(),
+                          tooltip: playback.isShuffle
+                              ? 'Случайный порядок включен'
+                              : 'Случайный порядок выключен',
+                        ),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                              width: 38, height: 38),
+                          icon: Icon(
+                            Icons.skip_previous_rounded,
+                            color:
+                                (playback.hasPrevious || position.inSeconds > 3)
+                                    ? Colors.white
+                                    : Colors.white.withValues(alpha: 0.25),
+                            size: 26,
+                          ),
+                          onPressed: () => playback.playPrevious(),
+                          tooltip: 'Предыдущий трек',
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            if (isPlaying) {
+                              playback.pause();
+                            } else {
+                              playback.resume();
+                            }
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                            ),
+                            child: Center(
+                              child: Icon(
+                                isPlaying
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded,
+                                color: Colors.black,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                              width: 38, height: 38),
+                          icon: Icon(
+                            Icons.skip_next_rounded,
+                            color: playback.hasNext
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.25),
+                            size: 26,
+                          ),
+                          onPressed: playback.hasNext
+                              ? () => playback.playNext()
+                              : null,
+                          tooltip: 'Следующий трек',
+                        ),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                              width: 36, height: 36),
+                          icon: Icon(
+                            playback.loopMode == LoopMode.one
+                                ? Icons.repeat_one_rounded
+                                : Icons.repeat_rounded,
+                            color: playback.loopMode != LoopMode.off
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.3),
+                            size: 20,
+                          ),
+                          onPressed: () => playback.toggleLoopMode(),
+                          tooltip: playback.loopMode == LoopMode.one
+                              ? 'Повтор одного трека'
+                              : playback.loopMode == LoopMode.all
+                                  ? 'Повтор всех треков'
+                                  : 'Без повтора',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+      child: _buildTrackList(context, scrollController, items),
+    );
+  }
+
+  Widget _buildTrackList(
+    BuildContext context,
+    ScrollController scrollController,
+    List<PlaybackItem> items,
+  ) {
+    if (items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.music_off_rounded,
+              size: 44,
+              color: Colors.white.withValues(alpha: 0.25),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              AppLocalizations.of(context)?.muzykalnyeTrekiOtsutstvuyut_3301 ??
+                  'Музыкальные треки отсутствуют',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.45),
+                fontSize: 13,
+                fontFamily: 'Inter',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Selector<PlaybackProvider, ({String? url, bool playing})>(
+      selector: (_, playback) => (
+        url: playback.currentAudioUrl,
+        playing: playback.isPlaying,
+      ),
+      builder: (context, playbackState, _) => ListView.builder(
+        controller: scrollController,
+        itemCount: items.length,
+        padding: const EdgeInsets.only(bottom: 8),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          final isCurrent = playbackState.url == item.url;
+          final isItemPlaying = isCurrent && playbackState.playing;
+          final artistText = item.subtitle.isNotEmpty
+              ? item.subtitle
+              : (AppLocalizations.of(context)?.audiozapis_867d ??
+                  'Аудиозапись');
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            decoration: BoxDecoration(
+              color: isCurrent
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.white.withValues(alpha: 0.035),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isCurrent
+                    ? Colors.white.withValues(alpha: 0.4)
+                    : Colors.white.withValues(alpha: 0.06),
+                width: 1,
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => context.read<PlaybackProvider>().playFromPlaylist(
+                      items,
+                      selectedUrl: item.url,
+                    ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isCurrent
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.08),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            isCurrent
+                                ? (isItemPlaying
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded)
+                                : Icons.music_note_rounded,
+                            color: isCurrent ? Colors.black : Colors.white70,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
                               item.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: isCurrent
-                                    ? const Color(0xFF4ADE80)
-                                    : Colors.white,
+                                color: Colors.white,
                                 fontWeight: isCurrent
-                                    ? FontWeight.bold
+                                    ? FontWeight.w700
                                     : FontWeight.w500,
                                 fontSize: 13,
+                                fontFamily: 'Inter',
                               ),
                             ),
-                            subtitle: Text(
-                              item.subtitle,
+                            const SizedBox(height: 1),
+                            Text(
+                              artistText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.5),
+                                color: Colors.white.withValues(alpha: 0.5),
                                 fontSize: 11,
+                                fontFamily: 'Inter',
                               ),
                             ),
-                            onTap: () {
-                              if (playback.playlist.isEmpty) {
-                                playback.setPlaylist(items,
-                                    initialUrl: item.url);
-                              }
-                              playback.playItemAtIndex(index);
-                            },
+                          ],
+                        ),
+                      ),
+                      if (item.duration != null &&
+                          item.duration! > Duration.zero)
+                        Text(
+                          _formatDuration(item.duration!),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.4),
+                            fontSize: 11,
+                            fontFamily: 'Inter',
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      if (isItemPlaying) ...[
+                        const SizedBox(width: 8),
+                        _buildAnimatedWaveform(),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ],
-        );
-      },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAnimatedWaveform() {
+    return const Icon(
+      Icons.graphic_eq_rounded,
+      color: Colors.white,
+      size: 18,
     );
   }
 }

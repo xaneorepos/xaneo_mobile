@@ -195,6 +195,9 @@ class _ChatActionConfirmationModalState
   @override
   Widget buildContent(BuildContext context, ScrollController scrollController) {
     final l10n = AppLocalizations.of(context)!;
+    final actionShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -220,18 +223,33 @@ class _ChatActionConfirmationModalState
         Row(
           children: [
             Expanded(
-              child: OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(l10n.cancel),
+              child: SizedBox(
+                height: 48,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(shape: actionShape),
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(l10n.cancel),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: FilledButton(
-                style:
-                    FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text(widget.confirmLabel),
+              child: SizedBox(
+                height: 48,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    shape: actionShape,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(widget.confirmLabel),
+                  ),
+                ),
               ),
             ),
           ],

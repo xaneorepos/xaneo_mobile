@@ -28,11 +28,15 @@ class AuthProvider extends ChangeNotifier {
   final Xsec2Service? _xsec2Service;
   CryptoService? _cryptoService;
 
-  AuthStatus _status = AuthStatus.initial;
+  AuthStatus _status = AuthStatus.checking;
   UserModel? _user;
   String? _tfaToken;
   String? _pendingUsername;
   String? _pendingPassword;
+  String? _pendingQuickAccountKey;
+  String? _quickLoginChallengeId;
+  AuthStatus? _statusBeforePendingAuth;
+  UserModel? _userBeforePendingAuth;
   ApiError? _error;
   bool _isLoading = false;
 
@@ -58,12 +62,12 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  void _syncCryptoUserId() {
+  Future<void> _syncCryptoUserId() async {
     final crypto = _cryptoService;
     final user = _user;
     if (crypto == null || user == null || user.id <= 0) return;
 
-    crypto.setCurrentUserId(user.id.toString());
+    await crypto.activateAccountScope(user.id.toString());
     debugPrint('XSEC-2: synced current user id=${user.id} to CryptoService');
   }
 
@@ -114,6 +118,8 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
   bool get requiresTfa => _status == AuthStatus.tfaRequired;
+  bool get hasPendingQuickLoginTfa =>
+      _pendingQuickAccountKey != null && _quickLoginChallengeId != null;
 
   Future<void> checkAuthStatus({CryptoService? cryptoService}) async {
     if (cryptoService != null) {
@@ -122,20 +128,11 @@ class AuthProvider extends ChangeNotifier {
 
     _syncCryptoServiceFromXsec2();
 
-    if (_cryptoService != null) {
-      try {
-        await _cryptoService!.init();
-        debugPrint(
-            'XSEC-2: CryptoService initialized, hasKeys=${_cryptoService!.hasKeys}');
-      } catch (e) {
-        debugPrint('XSEC-2: CryptoService init error: $e');
-      }
-    }
-
     _status = AuthStatus.checking;
     notifyListeners();
 
     try {
+      await _authService.tokenStorage.migrateLegacySessionIfNeeded();
       final isAuth = await _authService.isAuthenticated();
       if (isAuth) {
         _user = await _authService.getCurrentUser();
@@ -152,7 +149,7 @@ class AuthProvider extends ChangeNotifier {
             }
           }
         }
-        _syncCryptoUserId();
+        await _syncCryptoUserId();
         _status = _user != null
             ? AuthStatus.authenticated
             : AuthStatus.unauthenticated;
@@ -179,6 +176,8 @@ class AuthProvider extends ChangeNotifier {
     _syncCryptoServiceFromXsec2();
     _setLoading(true);
     _clearError();
+    final previousStatus = _status;
+    final previousUser = _user;
 
     try {
       final result = await _authService.mobileLogin(
@@ -189,7 +188,11 @@ class AuthProvider extends ChangeNotifier {
         _tfaToken = result.tempToken;
         _pendingUsername = username;
         _pendingPassword = password;
-        _user = result.userInfo;
+        _statusBeforePendingAuth = previousStatus;
+        _userBeforePendingAuth = previousUser;
+        _user = previousStatus == AuthStatus.authenticated
+            ? previousUser
+            : result.userInfo;
 
         if (_tfaToken == null || _tfaToken!.isEmpty) {
           _error = const ApiError(message: 'Сервер не вернул токен 2FA');
@@ -215,13 +218,8 @@ class AuthProvider extends ChangeNotifier {
       }
 
       if (result.isSuccess) {
-        final authResponse = await _authService.loginWithTokens(
-          username: username,
-          password: password,
-        );
-
-        _user = authResponse.user;
-        _syncCryptoUserId();
+        _user = result.userInfo;
+        await _syncCryptoUserId();
         _status = AuthStatus.authenticated;
 
         // Init/Ensure XSEC-2 keys after successful login
@@ -231,7 +229,6 @@ class AuthProvider extends ChangeNotifier {
           xsec2Payload: result.response?.xsec2,
         );
 
-        await _saveRecentAccount(_user!);
         _setLoading(false);
         notifyListeners();
         _registerDeviceTokenIfAuthenticated();
@@ -239,13 +236,15 @@ class AuthProvider extends ChangeNotifier {
       }
 
       _error = ApiError(message: result.message ?? 'Login failed');
-      _status = AuthStatus.unauthenticated;
+      _status = previousStatus;
+      _user = previousUser;
       _setLoading(false);
       notifyListeners();
       return false;
     } on ApiError catch (e) {
       _error = e;
-      _status = AuthStatus.unauthenticated;
+      _status = previousStatus;
+      _user = previousUser;
       _setLoading(false);
       notifyListeners();
       return false;
@@ -269,20 +268,26 @@ class AuthProvider extends ChangeNotifier {
         token: _tfaToken!,
         code: code,
       );
-      final tokenResponse = verifiedResponse ??
-          await _authService.loginWithTokens(
-            username: username,
-            password: password,
-          );
+      if (verifiedResponse == null) {
+        throw const ApiError(
+          message: 'Сервер не вернул сессию после подтверждения 2FA',
+        );
+      }
+      final tokenResponse = verifiedResponse;
 
       _user = tokenResponse.user;
-      _syncCryptoUserId();
-      await _ensureCryptoKeysReady(password: password, username: username);
-      await _saveRecentAccount(_user!);
+      await _syncCryptoUserId();
+      await _ensureCryptoKeysReady(
+        password: password,
+        username: username,
+        xsec2Payload: tokenResponse.xsec2,
+      );
       _status = AuthStatus.authenticated;
       _tfaToken = null;
       _pendingUsername = null;
       _pendingPassword = null;
+      _statusBeforePendingAuth = null;
+      _userBeforePendingAuth = null;
       _setLoading(false);
       notifyListeners();
       _registerDeviceTokenIfAuthenticated();
@@ -324,8 +329,10 @@ class AuthProvider extends ChangeNotifier {
     _tfaToken = null;
     _pendingUsername = null;
     _pendingPassword = null;
-    _user = null;
-    _status = AuthStatus.unauthenticated;
+    _user = _userBeforePendingAuth;
+    _status = _statusBeforePendingAuth ?? AuthStatus.unauthenticated;
+    _statusBeforePendingAuth = null;
+    _userBeforePendingAuth = null;
     notifyListeners();
   }
 
@@ -363,18 +370,8 @@ class AuthProvider extends ChangeNotifier {
           createdAt: DateTime.now(),
         );
 
-        if (!await _authService.tokenStorage.hasAccessToken()) {
-          try {
-            await _authService.loginWithTokens(
-                username: username, password: password);
-          } catch (e) {
-            debugPrint('Auto-login after registration fallback failed: $e');
-          }
-        }
-
-        _syncCryptoUserId();
+        await _syncCryptoUserId();
         await _ensureCryptoKeysReady(password: password, username: username);
-        await _saveRecentAccount(_user!);
         _status = AuthStatus.authenticated;
         _setLoading(false);
         notifyListeners();
@@ -400,14 +397,17 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     await _authService.logout();
     if (_cryptoService != null) {
-      _cryptoService!.setCurrentUserId('');
-      await _cryptoService!.clearAllKeys();
+      await _cryptoService!.deactivateAccountScope();
     }
     _user = null;
     _status = AuthStatus.unauthenticated;
     _tfaToken = null;
     _pendingUsername = null;
     _pendingPassword = null;
+    _pendingQuickAccountKey = null;
+    _quickLoginChallengeId = null;
+    _statusBeforePendingAuth = null;
+    _userBeforePendingAuth = null;
     _error = null;
     notifyListeners();
   }
@@ -418,12 +418,17 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void resetTfaState() {
-    _status = AuthStatus.unauthenticated;
-    _tfaToken = null;
-    _pendingUsername = null;
-    _pendingPassword = null;
-    _user = null;
-    notifyListeners();
+    if (_pendingQuickAccountKey != null) {
+      _pendingQuickAccountKey = null;
+      _quickLoginChallengeId = null;
+      if (_status != AuthStatus.authenticated) {
+        _status = AuthStatus.unauthenticated;
+        _user = null;
+      }
+      notifyListeners();
+      return;
+    }
+    cancelTfa();
   }
 
   Future<AvailabilityResponse> checkUsername(String username) async {
@@ -471,31 +476,32 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<RecentAccountsResponse> getRecentAccounts() async {
-    try {
-      return await _authService.getRecentAccounts();
-    } on ApiError catch (e) {
-      _error = e;
-      notifyListeners();
-      rethrow;
-    }
+    return _recentAccountsService.getRecentAccounts();
   }
 
   Future<bool> quickLogin({
-    required int userId,
+    required String accountKey,
     String? tfaCode,
   }) async {
+    if (_isLoading) return false;
+    final previousStatus = _status;
+    final previousUser = _user;
     _setLoading(true);
     _clearError();
 
     try {
       final response = await _authService.quickLogin(
-        userId: userId,
+        accountKey: accountKey,
         tfaCode: tfaCode,
+        challengeId: tfaCode == null ? null : _quickLoginChallengeId,
       );
 
       if (response.requiresTfa) {
-        _status = AuthStatus.tfaRequired;
-        _tfaToken = response.code;
+        _pendingQuickAccountKey = accountKey;
+        _quickLoginChallengeId = response.challengeId;
+        _status = previousStatus == AuthStatus.authenticated
+            ? previousStatus
+            : AuthStatus.tfaRequired;
         _setLoading(false);
         notifyListeners();
         return false;
@@ -513,9 +519,11 @@ class AuthProvider extends ChangeNotifier {
             avatar: response.userInfo!.avatarUrl,
             createdAt: DateTime.now(),
           );
-          _syncCryptoUserId();
-          await _saveRecentAccount(_user!);
+          await _syncCryptoUserId();
+          await _ensureCryptoKeysReady(xsec2Payload: response.xsec2);
         }
+        _pendingQuickAccountKey = null;
+        _quickLoginChallengeId = null;
         _status = AuthStatus.authenticated;
         _setLoading(false);
         notifyListeners();
@@ -524,17 +532,34 @@ class AuthProvider extends ChangeNotifier {
       }
 
       _error = ApiError(message: response.errorMessage ?? 'Quick login failed');
-      _status = AuthStatus.unauthenticated;
+      _status = previousStatus;
+      _user = previousUser;
       _setLoading(false);
       notifyListeners();
       return false;
     } on ApiError catch (e) {
       _error = e;
-      _status = AuthStatus.unauthenticated;
+      _status = previousStatus;
+      _user = previousUser;
       _setLoading(false);
       notifyListeners();
       return false;
     }
+  }
+
+  Future<bool> verifyQuickLoginTfa(String code) async {
+    final accountKey = _pendingQuickAccountKey;
+    if (accountKey == null || _quickLoginChallengeId == null) return false;
+    return quickLogin(accountKey: accountKey, tfaCode: code);
+  }
+
+  Future<void> removeSavedAccount(String accountKey) async {
+    final activeKey = await _authService.tokenStorage.getActiveAccountKey();
+    await _authService.removeSavedAccount(accountKey);
+    if (activeKey == accountKey) {
+      await logout();
+    }
+    notifyListeners();
   }
 
   void _setLoading(bool value) {
@@ -543,25 +568,6 @@ class AuthProvider extends ChangeNotifier {
 
   void _clearError() {
     _error = null;
-  }
-
-  Future<void> _saveRecentAccount(UserModel user) async {
-    try {
-      final account = RecentAccount(
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        firstName: user.firstName,
-        avatar: user.avatar,
-        avatarGradient: user.avatarGradient,
-        hasAvatar: user.avatar != null,
-        lastLogin: DateTime.now(),
-        firstLogin: DateTime.now(),
-      );
-      await _recentAccountsService.saveAccountLocally(account);
-    } catch (e) {
-      debugPrint('Error saving recent account: $e');
-    }
   }
 
   /// Вспомогательный метод для регистрации токена устройства при успешном входе
@@ -589,6 +595,7 @@ class AuthProviderFactory {
     );
     final recentAccountsService = RecentAccountsService(
       apiClient: apiClient,
+      tokenStorage: tokenStorage,
     );
 
     return AuthProvider(
@@ -598,13 +605,17 @@ class AuthProviderFactory {
   }
 
   static AuthProvider createWithCryptoService(
-      ApiClient apiClient, CryptoService cryptoService) {
+    ApiClient apiClient,
+    CryptoService cryptoService,
+    TokenStorage tokenStorage,
+  ) {
     final authService = AuthService(
       apiClient: apiClient,
-      tokenStorage: TokenStorage(),
+      tokenStorage: tokenStorage,
     );
     final recentAccountsService = RecentAccountsService(
       apiClient: apiClient,
+      tokenStorage: tokenStorage,
     );
 
     return AuthProvider(

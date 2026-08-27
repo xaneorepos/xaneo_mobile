@@ -1790,6 +1790,11 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get zapreschennyh_1f49 => '禁止';
   @override
+  String get obIspolzovaniiParolya_9739 => 'パスワードの使用について';
+  @override
+  String get parolTolkoDlyaAvariynogoVhoda_b142 =>
+      'パスワードは、「Xaneo通知」ボットのコードやメールに届くコードでログインできない場合の緊急用です。';
+  @override
   String get sozdatAkkaunt_19ed => 'アカウントを作成する';
   @override
   String get naprimerIvan_d7cb => 'たとえば、イワン';
@@ -2206,8 +2211,7 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get qrScanTitle => 'デバイスの認証';
   @override
-  String get qrScanSubtitle =>
-      'XaneoのWeb版またはPCクライアントの画面にあるQRコードにカメラを向けてください';
+  String get qrScanSubtitle => 'XaneoのWeb版またはPCクライアントの画面にあるQRコードにカメラを向けてください';
   @override
   String get qrScanSuccessTitle => 'デバイス認証完了';
   @override
@@ -2221,4 +2225,119 @@ class AppLocalizationsJa extends AppLocalizations {
   String get qrScanConfirmButton => '認証を承認';
   @override
   String get qrScanProcessing => 'デバイスを認証中...';
+
+  @override
+  String get qrScanConfirmDesc =>
+      '別のデバイスからアカウントへのログインが要求されました。短いコードを確認して承認してください。';
+
+  @override
+  String get qrScanSecurityNote => '自分が管理するデバイスにQRコードが表示されている場合のみ続行してください。';
+
+  @override
+  String get qrScanDoneButton => '完了';
+
+  @override
+  String get authNotificationSendingCode => 'コードを送信中';
+
+  @override
+  String get authNotificationEnterCode => 'コードを入力';
+
+  @override
+  String get authNotificationConfirmLogin => 'ログインを確認';
+
+  @override
+  String get authNotificationPasswordLogin => 'パスワードでログイン';
+
+  @override
+  String get authNotificationSendingSubtitle => 'コードは「Xaneo通知」チャットに送信されます。この画面を閉じないでください。';
+
+  @override
+  String get authNotificationEnterCodeSubtitle => 'メッセージに記載された6桁のコードを入力してください。';
+
+  @override
+  String get authNotificationConfirmSubtitle => 'すでに認証済みの端末でXaneoを開き、リクエスト詳細を確認してください。';
+
+  @override
+  String get authNotificationPasswordSubtitle => 'この方法は待機時間経過後のみ利用可能です。パスワードは保存されません。';
+
+  @override
+  String get authNotificationBotSource => 'コードは「Xaneo通知」から送信されます。';
+
+  @override
+  String authNotificationCodeSentToEmail(String email) => '$email にコードを送信しました';
+
+  @override
+  String get authNotificationNoBotAccess => 'ボットにアクセスできませんか？';
+
+  @override
+  String get authNotificationGetCodeViaEmail => 'メールでコードを受け取る';
+
+  @override
+  String get authNotificationResendCodeViaEmail => 'メールにコードを再送信';
+
+  @override
+  String get authNotificationEmailUnavailable => 'メール認証コードは利用できません：認証済みメールアドレスがありません。';
+
+  @override
+  String authNotificationEmailAvailableIn(int seconds) => 'メール認証コードはあと $seconds 秒で利用可能になります';
+
+  @override
+  String get authNotificationLoginWithPassword => 'パスワードでログイン';
+
+  @override
+  String authNotificationPasswordAvailableIn(int seconds) => 'パスワードログインはあと $seconds 秒で利用可能になります';
+
+  @override
+  String get authNotificationErrorSendFailed => 'コードを送信できませんでした。後でもう一度お試しください。';
+
+  @override
+  String get authNotificationErrorInvalidCode => 'コードが無効または期限切れです';
+
+  @override
+  String get authNotificationErrorRequestExpired => 'リクエストが拒否されたか期限切れです';
+
+  @override
+  String get authNotificationErrorEmailFailed => 'メールにコードを送信できませんでした。後でもう一度お試しください。';
+
+  @override
+  String get authNotificationErrorPasswordFailed => 'ログインに失敗しました。パスワードを確認するか、最初からやり直してください。';
+
+  @override
+  String get authNotificationGetCodeBtn => 'コードを取得';
+
+  @override
+  String get authRejectedTitle => 'ログインが拒否されました';
+
+  @override
+  String get authRejectedDesc =>
+      '他の端末でログインリクエストが拒否されました。心当たりがない場合は、アカウントのセキュリティを確認してください。';
+
+  @override
+  String get authRejectedButton => '了解';
+
+  @override
+  String get deviceAuthApprovalSubtitle =>
+      'コードを確認しました。ご自身でリクエストした場合のみログインを許可してください。';
+
+  @override
+  String get deviceAuthApprovalKeysNotice =>
+      'チャットキーは暗号化された状態で新しい端末に転送されます。';
+
+  @override
+  String get deviceAuthApprovalAllow => 'ログインを許可';
+
+  @override
+  String get deviceAuthApprovalDecline => '拒否';
+
+  @override
+  String get deviceAuthDevice => 'デバイス';
+
+  @override
+  String get deviceAuthApp => 'アプリ';
+
+  @override
+  String get deviceAuthIp => 'IPアドレス';
+
+  @override
+  String get importLanguageFromJson => 'JSONから言語をインポート';
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
-import '../../config/app_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../styles/app_styles.dart';
 import 'login_screen.dart';
@@ -10,15 +9,15 @@ import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Экран подтверждения 2FA
 class TfaScreen extends StatefulWidget {
-  /// ID пользователя (для быстрого входа)
-  final int? userId;
-  
+  /// Локальный непрозрачный ключ аккаунта (для быстрого входа)
+  final String? accountKey;
+
   /// Имя пользователя (для отображения)
   final String? username;
 
   const TfaScreen({
     super.key,
-    this.userId,
+    this.accountKey,
     this.username,
   });
 
@@ -31,7 +30,7 @@ class _TfaScreenState extends State<TfaScreen>
   final _codeController = TextEditingController();
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   final List<String> _codeDigits = List.filled(6, '');
-  
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -42,11 +41,12 @@ class _TfaScreenState extends State<TfaScreen>
       duration: AppStyles.animationMedium,
       vsync: this,
     );
-    
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: AppStyles.curveEaseOut),
+      CurvedAnimation(
+          parent: _animationController, curve: AppStyles.curveEaseOut),
     );
-    
+
     _animationController.forward();
   }
 
@@ -81,13 +81,9 @@ class _TfaScreenState extends State<TfaScreen>
     final code = _codeDigits.join();
     if (code.length == 6) {
       final auth = context.read<AuthProvider>();
-      
-      // Если это быстрый вход (есть userId)
-      if (widget.userId != null) {
-        auth.quickLogin(
-          userId: widget.userId!,
-          tfaCode: code,
-        );
+
+      if (widget.accountKey != null) {
+        auth.verifyQuickLoginTfa(code);
       } else {
         // Обычный вход после 2FA
         auth.verifyTfaCode(code);
@@ -99,7 +95,9 @@ class _TfaScreenState extends State<TfaScreen>
     // TODO: Вызвать API для повторной отправки кода
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text((AppLocalizations.of(context)?.kodOtpravlenPovtorno_e109 ?? 'Fallback')),
+        content: Text(
+            (AppLocalizations.of(context)?.kodOtpravlenPovtorno_e109 ??
+                'Fallback')),
         backgroundColor: AppStyles.textPrimaryColor,
       ),
     );
@@ -119,7 +117,7 @@ class _TfaScreenState extends State<TfaScreen>
                 );
               });
             }
-            
+
             return _buildContent(auth);
           },
         ),
@@ -136,45 +134,49 @@ class _TfaScreenState extends State<TfaScreen>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(height: 80),
-            
+
             // Иконка
             _buildIcon(),
             const SizedBox(height: 32),
-            
+
             // Заголовок
             Text(
-              (AppLocalizations.of(context)?.dvuhfaktornayanautentifikatsiya_bacc ?? 'Fallback'),
+              (AppLocalizations.of(context)
+                      ?.dvuhfaktornayanautentifikatsiya_bacc ??
+                  'Fallback'),
               style: AppStyles.titleLarge,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-            
+
             // Описание
             Text(
-              (AppLocalizations.of(context)?.naVashEmailOtpravlen6_b457 ?? 'Fallback'),
+              (AppLocalizations.of(context)?.naVashEmailOtpravlen6_b457 ??
+                  'Fallback'),
               style: AppStyles.bodyMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 48),
-            
+
             // Поля для ввода кода
             _buildCodeFields(auth),
             const SizedBox(height: 16),
-            
+
             // Ошибка
             if (auth.error != null) ...[
-              Text(auth.error!.message, style: AppStyles.errorText, textAlign: TextAlign.center),
+              Text(auth.error!.message,
+                  style: AppStyles.errorText, textAlign: TextAlign.center),
               const SizedBox(height: 16),
             ],
-            
+
             // Кнопка подтверждения
             _buildVerifyButton(auth),
             const Spacer(),
-            
+
             // Отправить код повторно
             _buildResendLink(),
             const SizedBox(height: 16),
-            
+
             // Отмена
             _buildCancelButton(auth),
             const SizedBox(height: 24),
@@ -226,15 +228,18 @@ class _TfaScreenState extends State<TfaScreen>
               fillColor: AppStyles.inputBackgroundColor,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppStyles.borderColor, width: 1),
+                borderSide:
+                    const BorderSide(color: AppStyles.borderColor, width: 1),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppStyles.borderColor, width: 1),
+                borderSide:
+                    const BorderSide(color: AppStyles.borderColor, width: 1),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppStyles.borderActiveColor, width: 1),
+                borderSide: const BorderSide(
+                    color: AppStyles.borderActiveColor, width: 1),
               ),
             ),
             onChanged: (value) => _onDigitEntered(index, value),
@@ -256,10 +261,13 @@ class _TfaScreenState extends State<TfaScreen>
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppStyles.backgroundColor),
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(AppStyles.backgroundColor),
                 ),
               )
-            : Text((AppLocalizations.of(context)?.podtverdit_e260 ?? 'Fallback'), style: AppStyles.buttonText),
+            : Text(
+                (AppLocalizations.of(context)?.podtverdit_e260 ?? 'Fallback'),
+                style: AppStyles.buttonText),
       ),
     );
   }
@@ -269,7 +277,9 @@ class _TfaScreenState extends State<TfaScreen>
       child: TextButton(
         onPressed: _resendCode,
         style: AppStyles.textButton,
-        child: Text((AppLocalizations.of(context)?.nePoluchiliKodOtpravitPovtorno_c1d2 ?? 'Fallback')),
+        child: Text((AppLocalizations.of(context)
+                ?.nePoluchiliKodOtpravitPovtorno_c1d2 ??
+            'Fallback')),
       ),
     );
   }
@@ -280,7 +290,11 @@ class _TfaScreenState extends State<TfaScreen>
         onPressed: () {
           auth.resetTfaState();
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            MaterialPageRoute(
+              builder: (_) => auth.isAuthenticated
+                  ? const MainScreen()
+                  : const LoginScreen(),
+            ),
           );
         },
         style: AppStyles.textButton,

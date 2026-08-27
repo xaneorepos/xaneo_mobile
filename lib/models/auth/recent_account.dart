@@ -1,5 +1,7 @@
 /// Модель недавнего аккаунта для отображения на экране входа
 class RecentAccount {
+  final String accountKey;
+  final String? grantId;
   final int id;
   final String username;
   final String email;
@@ -7,12 +9,15 @@ class RecentAccount {
   final String? avatar;
   final DateTime lastLogin;
   final DateTime firstLogin;
-  
+
   // Локальные данные (не с сервера)
   final String? avatarGradient;
   final bool hasAvatar;
+  final bool isAvailable;
 
   const RecentAccount({
+    required this.accountKey,
+    this.grantId,
     required this.id,
     required this.username,
     required this.email,
@@ -22,6 +27,7 @@ class RecentAccount {
     required this.firstLogin,
     this.avatarGradient,
     this.hasAvatar = false,
+    this.isAvailable = true,
   });
 
   factory RecentAccount.fromJson(Map<String, dynamic> json) {
@@ -29,6 +35,8 @@ class RecentAccount {
         json['firstName']?.toString() ??
         json['name']?.toString();
     return RecentAccount(
+      accountKey: json['account_key']?.toString() ?? '',
+      grantId: json['grant_id']?.toString(),
       id: json['id'] as int,
       username: json['username'] as String,
       email: json['email'] as String,
@@ -38,12 +46,15 @@ class RecentAccount {
       firstLogin: DateTime.parse(json['first_login'] as String),
       avatarGradient: json['avatar_gradient'] as String?,
       hasAvatar: json['avatar'] != null && json['avatar'].toString().isNotEmpty,
+      isAvailable: json['is_available'] as bool? ?? true,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'account_key': accountKey,
+      'grant_id': grantId,
       'username': username,
       'email': email,
       'first_name': firstName,
@@ -52,11 +63,14 @@ class RecentAccount {
       'first_login': firstLogin.toIso8601String(),
       'avatar_gradient': avatarGradient,
       'has_avatar': hasAvatar,
+      'is_available': isAvailable,
     };
   }
 
   /// Создает копию с обновленными полями
   RecentAccount copyWith({
+    String? accountKey,
+    String? grantId,
     int? id,
     String? username,
     String? email,
@@ -65,8 +79,11 @@ class RecentAccount {
     DateTime? firstLogin,
     String? avatarGradient,
     bool? hasAvatar,
+    bool? isAvailable,
   }) {
     return RecentAccount(
+      accountKey: accountKey ?? this.accountKey,
+      grantId: grantId ?? this.grantId,
       id: id ?? this.id,
       username: username ?? this.username,
       email: email ?? this.email,
@@ -75,6 +92,7 @@ class RecentAccount {
       firstLogin: firstLogin ?? this.firstLogin,
       avatarGradient: avatarGradient ?? this.avatarGradient,
       hasAvatar: hasAvatar ?? this.hasAvatar,
+      isAvailable: isAvailable ?? this.isAvailable,
     );
   }
 
@@ -110,8 +128,9 @@ class RecentAccountsResponse {
   factory RecentAccountsResponse.fromJson(Map<String, dynamic> json) {
     final accountsList = json['recent_accounts'] as List<dynamic>?;
     final accounts = accountsList
-        ?.map((e) => RecentAccount.fromJson(e as Map<String, dynamic>))
-        .toList() ?? [];
+            ?.map((e) => RecentAccount.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
 
     return RecentAccountsResponse(
       success: json['success'] as bool? ?? false,

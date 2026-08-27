@@ -6,9 +6,11 @@ import 'package:dio/io.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'account_service.dart';
 import 'logger_service.dart';
 import '../config/app_config.dart';
+import '../utils/ssl_helper.dart';
 
 /// API сервис для Xaneo с поддержкой автоматического сохранения сессионных кук (через Dio)
 class ApiService {
@@ -150,12 +152,15 @@ class ApiService {
       },
     ));
 
-    // Явная настройка для обхода SSL с самоподписанными сертификатами/несовпадением IP
+    // Self-signed certificates are allowed only for the configured private
+    // development backend, and only in debug builds. Public hosts always
+    // keep normal TLS verification.
     _dio.httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: () {
         final client = HttpClient();
-        client.badCertificateCallback =
-            (X509Certificate cert, String host, int port) => true;
+        if (kDebugMode) {
+          client.badCertificateCallback = allowConfiguredDevelopmentCertificate;
+        }
         return client;
       },
     );

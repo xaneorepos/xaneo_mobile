@@ -1883,6 +1883,11 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get zapreschennyh_1f49 => 'prohibido';
   @override
+  String get obIspolzovaniiParolya_9739 => 'Sobre el uso de la contraseña';
+  @override
+  String get parolTolkoDlyaAvariynogoVhoda_b142 =>
+      'La contraseña se usa solo en casos extremos: si no puedes iniciar sesión con el código del bot Notificaciones de Xaneo o con el código enviado a tu correo.';
+  @override
   String get sozdatAkkaunt_19ed => 'Crear una cuenta';
   @override
   String get naprimerIvan_d7cb => 'Por ejemplo, Iván';
@@ -2339,4 +2344,120 @@ class AppLocalizationsEs extends AppLocalizations {
   String get qrScanConfirmButton => 'Confirmar autorización';
   @override
   String get qrScanProcessing => 'Autorizando dispositivo...';
+
+  @override
+  String get qrScanConfirmDesc =>
+      'Otro dispositivo solicitó acceso a tu cuenta. Comprueba el código corto y confirma la solicitud.';
+
+  @override
+  String get qrScanSecurityNote =>
+      'Continúa solo si el código QR está abierto en un dispositivo que controlas.';
+
+  @override
+  String get qrScanDoneButton => 'Listo';
+
+  @override
+  String get authNotificationSendingCode => 'Enviando código';
+
+  @override
+  String get authNotificationEnterCode => 'Introduce el código';
+
+  @override
+  String get authNotificationConfirmLogin => 'Confirmar inicio de sesión';
+
+  @override
+  String get authNotificationPasswordLogin => 'Iniciar sesión con contraseña';
+
+  @override
+  String get authNotificationSendingSubtitle => 'El código llegará al chat «Notificaciones Xaneo». No cierres esta pantalla.';
+
+  @override
+  String get authNotificationEnterCodeSubtitle => 'Introduce el código de 6 dígitos del mensaje.';
+
+  @override
+  String get authNotificationConfirmSubtitle => 'Abre Xaneo en un dispositivo ya autorizado y revisa los detalles de la solicitud.';
+
+  @override
+  String get authNotificationPasswordSubtitle => 'Este método solo está disponible tras el tiempo de espera. La contraseña no se guarda.';
+
+  @override
+  String get authNotificationBotSource => 'El código se envía desde «Notificaciones Xaneo».';
+
+  @override
+  String authNotificationCodeSentToEmail(String email) => 'Código enviado a $email';
+
+  @override
+  String get authNotificationNoBotAccess => '¿No tienes acceso al bot?';
+
+  @override
+  String get authNotificationGetCodeViaEmail => 'Recibir código por correo';
+
+  @override
+  String get authNotificationResendCodeViaEmail => 'Reenviar código al correo';
+
+  @override
+  String get authNotificationEmailUnavailable => 'Código por correo no disponible: no hay un email verificado en la cuenta.';
+
+  @override
+  String authNotificationEmailAvailableIn(int seconds) => 'El código por correo estará disponible en $seconds s.';
+
+  @override
+  String get authNotificationLoginWithPassword => 'Iniciar sesión con contraseña';
+
+  @override
+  String authNotificationPasswordAvailableIn(int seconds) => 'El inicio con contraseña estará disponible en $seconds s.';
+
+  @override
+  String get authNotificationErrorSendFailed => 'No se pudo enviar el código. Inténtalo más tarde.';
+
+  @override
+  String get authNotificationErrorInvalidCode => 'Código no válido o caducado';
+
+  @override
+  String get authNotificationErrorRequestExpired => 'Solicitud rechazada o caducada';
+
+  @override
+  String get authNotificationErrorEmailFailed => 'No se pudo enviar el código al correo. Inténtalo más tarde.';
+
+  @override
+  String get authNotificationErrorPasswordFailed => 'Error al iniciar sesión. Comprueba la contraseña o empieza de nuevo.';
+
+  @override
+  String get authNotificationGetCodeBtn => 'Obtener código';
+
+  @override
+  String get authRejectedTitle => 'Inicio de sesión rechazado';
+
+  @override
+  String get authRejectedDesc =>
+      'La solicitud de inicio de sesión fue rechazada en tu otro dispositivo. Si no fuiste tú, te recomendamos revisar la seguridad de tu cuenta.';
+
+  @override
+  String get authRejectedButton => 'Entendido';
+
+  @override
+  String get deviceAuthApprovalSubtitle =>
+      'Código verificado. Permite el acceso solo si tú iniciaste esta solicitud.';
+
+  @override
+  String get deviceAuthApprovalKeysNotice =>
+      'Las claves de los chats se transferirán al nuevo dispositivo de forma cifrada.';
+
+  @override
+  String get deviceAuthApprovalAllow => 'Permitir acceso';
+
+  @override
+  String get deviceAuthApprovalDecline => 'Rechazar';
+
+  @override
+  String get deviceAuthDevice => 'Dispositivo';
+
+  @override
+  String get deviceAuthApp => 'Aplicación';
+
+  @override
+  String get deviceAuthIp => 'Dirección IP';
+
+  @override
+  String get importLanguageFromJson => 'Importar idioma desde JSON';
 }

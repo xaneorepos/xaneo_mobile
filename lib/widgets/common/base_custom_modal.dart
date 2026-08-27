@@ -15,6 +15,7 @@ abstract class BaseCustomModal extends StatefulWidget {
     required Widget child,
     bool enableDrag = false,
     bool isDismissible = true,
+    bool requestFocus = false,
   }) {
     return showModalBottomSheet<R>(
       context: context,
@@ -22,7 +23,7 @@ abstract class BaseCustomModal extends StatefulWidget {
       isDismissible: isDismissible,
       enableDrag: enableDrag,
       showDragHandle: false,
-      requestFocus: false,
+      requestFocus: requestFocus,
       elevation: 0,
       backgroundColor: Colors.transparent,
       clipBehavior: Clip.none,

@@ -1792,6 +1792,11 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get zapreschennyh_1f49 => '금지된';
   @override
+  String get obIspolzovaniiParolya_9739 => '비밀번호 사용에 관하여';
+  @override
+  String get parolTolkoDlyaAvariynogoVhoda_b142 =>
+      '비밀번호는 Xaneo 알림 봇의 코드나 이메일 코드로 로그인할 수 없는 경우에만 사용됩니다.';
+  @override
   String get sozdatAkkaunt_19ed => '계정 만들기';
   @override
   String get naprimerIvan_d7cb => '예를 들어 이반';
@@ -2207,8 +2212,7 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get qrScanTitle => '장치 인증';
   @override
-  String get qrScanSubtitle =>
-      'Xaneo 웹 또는 PC 클라이언트 화면의 QR 코드를 카메라로 비춰주세요';
+  String get qrScanSubtitle => 'Xaneo 웹 또는 PC 클라이언트 화면의 QR 코드를 카메라로 비춰주세요';
   @override
   String get qrScanSuccessTitle => '장치 인증됨';
   @override
@@ -2222,4 +2226,119 @@ class AppLocalizationsKo extends AppLocalizations {
   String get qrScanConfirmButton => '인증 확인';
   @override
   String get qrScanProcessing => '장치 인증 중...';
+
+  @override
+  String get qrScanConfirmDesc =>
+      '다른 기기에서 계정 로그인을 요청했습니다. 짧은 코드를 확인하고 요청을 승인하세요.';
+
+  @override
+  String get qrScanSecurityNote => '직접 관리하는 기기에 QR 코드가 표시된 경우에만 계속하세요.';
+
+  @override
+  String get qrScanDoneButton => '완료';
+
+  @override
+  String get authNotificationSendingCode => '코드 전송 중';
+
+  @override
+  String get authNotificationEnterCode => '코드 입력';
+
+  @override
+  String get authNotificationConfirmLogin => '로그인 확인';
+
+  @override
+  String get authNotificationPasswordLogin => '비밀번호로 로그인';
+
+  @override
+  String get authNotificationSendingSubtitle => '코드는 \'Xaneo 알림\' 채팅으로 전송됩니다. 이 화면을 닫지 마세요.';
+
+  @override
+  String get authNotificationEnterCodeSubtitle => '메시지에 있는 6자리 코드를 입력하세요.';
+
+  @override
+  String get authNotificationConfirmSubtitle => '이미 인증된 기기에서 Xaneo를 열고 요청 세부 정보를 확인하세요.';
+
+  @override
+  String get authNotificationPasswordSubtitle => '이 방법은 대기 시간이 지난 후에만 사용할 수 있습니다. 비밀번호는 저장되지 않습니다.';
+
+  @override
+  String get authNotificationBotSource => '코드는 \'Xaneo 알림\'에서 전송됩니다.';
+
+  @override
+  String authNotificationCodeSentToEmail(String email) => '$email(으)로 코드가 전송되었습니다';
+
+  @override
+  String get authNotificationNoBotAccess => '봇에 접근할 수 없나요?';
+
+  @override
+  String get authNotificationGetCodeViaEmail => '이메일로 코드 받기';
+
+  @override
+  String get authNotificationResendCodeViaEmail => '이메일로 코드 재전송';
+
+  @override
+  String get authNotificationEmailUnavailable => '이메일 코드 사용 불가: 계정에 인증된 이메일이 없습니다.';
+
+  @override
+  String authNotificationEmailAvailableIn(int seconds) => '$seconds초 후에 이메일 코드를 사용할 수 있습니다.';
+
+  @override
+  String get authNotificationLoginWithPassword => '비밀번호로 로그인';
+
+  @override
+  String authNotificationPasswordAvailableIn(int seconds) => '$seconds초 후에 비밀번호 로그인을 사용할 수 있습니다.';
+
+  @override
+  String get authNotificationErrorSendFailed => '코드를 전송하지 못했습니다. 나중에 다시 시도해 주세요.';
+
+  @override
+  String get authNotificationErrorInvalidCode => '잘못되었거나 만료된 코드입니다.';
+
+  @override
+  String get authNotificationErrorRequestExpired => '요청이 거부되었거나 만료되었습니다.';
+
+  @override
+  String get authNotificationErrorEmailFailed => '이메일로 코드를 전송하지 못했습니다. 나중에 다시 시도해 주세요.';
+
+  @override
+  String get authNotificationErrorPasswordFailed => '로그인에 실패했습니다. 비밀번호를 확인하거나 처음부터 다시 시도하세요.';
+
+  @override
+  String get authNotificationGetCodeBtn => '코드 받기';
+
+  @override
+  String get authRejectedTitle => '로그인이 거부되었습니다';
+
+  @override
+  String get authRejectedDesc =>
+      '다른 기기에서 로그인 요청이 거부되었습니다. 본인이 요청한 것이 아니라면 계정 보안을 확인하세요.';
+
+  @override
+  String get authRejectedButton => '확인';
+
+  @override
+  String get deviceAuthApprovalSubtitle =>
+      '코드가 확인되었습니다. 본인이 직접 요청한 경우에만 로그인을 허용하세요.';
+
+  @override
+  String get deviceAuthApprovalKeysNotice =>
+      '채팅 키는 암호화된 형태로 새 기기에 전송됩니다.';
+
+  @override
+  String get deviceAuthApprovalAllow => '로그인 허용';
+
+  @override
+  String get deviceAuthApprovalDecline => '거부';
+
+  @override
+  String get deviceAuthDevice => '기기';
+
+  @override
+  String get deviceAuthApp => '애플리케이션';
+
+  @override
+  String get deviceAuthIp => 'IP 주소';
+
+  @override
+  String get importLanguageFromJson => 'JSON에서 언어 가져오기';
 }

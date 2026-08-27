@@ -5,18 +5,30 @@ class AuthResponse {
   final String accessToken;
   final String refreshToken;
   final UserModel user;
+  final String? deviceGrant;
+  final Map<String, dynamic>? xsec2;
 
   const AuthResponse({
     required this.accessToken,
     required this.refreshToken,
     required this.user,
+    this.deviceGrant,
+    this.xsec2,
   });
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) {
     return AuthResponse(
       accessToken: json['access'] as String,
       refreshToken: json['refresh'] as String,
-      user: UserModel.fromJson(json['user'] as Map<String, dynamic>),
+      user: UserModel.fromJson(
+        Map<String, dynamic>.from(
+          (json['user'] ?? json['user_info']) as Map,
+        ),
+      ),
+      deviceGrant: json['device_grant'] as String?,
+      xsec2: json['xsec2'] is Map
+          ? Map<String, dynamic>.from(json['xsec2'] as Map)
+          : null,
     );
   }
 
@@ -25,12 +37,14 @@ class AuthResponse {
       'access': accessToken,
       'refresh': refreshToken,
       'user': user.toJson(),
+      if (deviceGrant != null) 'device_grant': deviceGrant,
+      if (xsec2 != null) 'xsec2': xsec2,
     };
   }
 }
 
 /// Ответ на mobile-login запрос
-/// 
+///
 /// Mobile-login API возвращает другую структуру:
 /// - auth_success: true/false
 /// - user_info: информация о пользователе
@@ -43,6 +57,9 @@ class MobileLoginResponse {
   final bool? tfaRequired;
   final String? tempToken; // Для 2FA верификации
   final Map<String, dynamic>? xsec2;
+  final String? accessToken;
+  final String? refreshToken;
+  final String? deviceGrant;
 
   const MobileLoginResponse({
     required this.authSuccess,
@@ -51,13 +68,17 @@ class MobileLoginResponse {
     this.tfaRequired,
     this.tempToken,
     this.xsec2,
+    this.accessToken,
+    this.refreshToken,
+    this.deviceGrant,
   });
 
   factory MobileLoginResponse.fromJson(Map<String, dynamic> json) {
     // Парсим user_info если есть
     UserModel? user;
     if (json['user_info'] != null) {
-      user = UserModel.fromUserInfoJson(json['user_info'] as Map<String, dynamic>);
+      user =
+          UserModel.fromUserInfoJson(json['user_info'] as Map<String, dynamic>);
     }
 
     return MobileLoginResponse(
@@ -69,6 +90,9 @@ class MobileLoginResponse {
       xsec2: json['xsec2'] is Map<String, dynamic>
           ? json['xsec2'] as Map<String, dynamic>
           : null,
+      accessToken: json['access'] as String?,
+      refreshToken: json['refresh'] as String?,
+      deviceGrant: json['device_grant'] as String?,
     );
   }
 
@@ -120,21 +144,21 @@ class VerificationCodeResponse {
 
 /// Ответ на проверку кода верификации
 class VerifyCodeResponse {
-final bool success;
-final String? message;
+  final bool success;
+  final String? message;
 
-const VerifyCodeResponse({
-required this.success,
-this.message,
-});
+  const VerifyCodeResponse({
+    required this.success,
+    this.message,
+  });
 
-factory VerifyCodeResponse.fromJson(Map<String, dynamic> json) {
-return VerifyCodeResponse(
+  factory VerifyCodeResponse.fromJson(Map<String, dynamic> json) {
+    return VerifyCodeResponse(
 // API возвращает 'verified' или 'success'
-success: (json['verified'] as bool? ?? json['success'] as bool? ?? false),
-message: json['message'] as String?,
-);
-}
+      success: (json['verified'] as bool? ?? json['success'] as bool? ?? false),
+      message: json['message'] as String?,
+    );
+  }
 }
 
 /// Ответ при необходимости 2FA
@@ -255,6 +279,9 @@ class MobileRegisterResponse {
   final bool? hasAvatar;
   final String? avatarUrl;
   final String? timestamp;
+  final String? accessToken;
+  final String? refreshToken;
+  final String? deviceGrant;
 
   const MobileRegisterResponse({
     required this.success,
@@ -266,6 +293,9 @@ class MobileRegisterResponse {
     this.hasAvatar,
     this.avatarUrl,
     this.timestamp,
+    this.accessToken,
+    this.refreshToken,
+    this.deviceGrant,
   });
 
   factory MobileRegisterResponse.fromJson(Map<String, dynamic> json) {
@@ -279,6 +309,9 @@ class MobileRegisterResponse {
       hasAvatar: json['has_avatar'] as bool?,
       avatarUrl: (json['avatar'] ?? json['avatar_url']) as String?,
       timestamp: json['timestamp'] as String?,
+      accessToken: (json['access'] ?? json['tokens']?['access']) as String?,
+      refreshToken: (json['refresh'] ?? json['tokens']?['refresh']) as String?,
+      deviceGrant: json['device_grant'] as String?,
     );
   }
 
@@ -302,6 +335,11 @@ class QuickLoginResponse {
   final QuickLoginUserInfo? userInfo;
   final String? error;
   final String? code;
+  final String? challengeId;
+  final String? accessToken;
+  final String? refreshToken;
+  final String? deviceGrant;
+  final Map<String, dynamic>? xsec2;
 
   const QuickLoginResponse({
     required this.success,
@@ -310,6 +348,11 @@ class QuickLoginResponse {
     this.userInfo,
     this.error,
     this.code,
+    this.challengeId,
+    this.accessToken,
+    this.refreshToken,
+    this.deviceGrant,
+    this.xsec2,
   });
 
   factory QuickLoginResponse.fromJson(Map<String, dynamic> json) {
@@ -318,10 +361,18 @@ class QuickLoginResponse {
       requires2fa: json['requires_2fa'] as bool?,
       message: json['message'] as String?,
       userInfo: json['user_info'] != null
-          ? QuickLoginUserInfo.fromJson(json['user_info'] as Map<String, dynamic>)
+          ? QuickLoginUserInfo.fromJson(
+              json['user_info'] as Map<String, dynamic>)
           : null,
       error: json['error'] as String?,
       code: json['code'] as String?,
+      challengeId: json['challenge_id'] as String?,
+      accessToken: json['access'] as String?,
+      refreshToken: json['refresh'] as String?,
+      deviceGrant: json['device_grant'] as String?,
+      xsec2: json['xsec2'] is Map
+          ? Map<String, dynamic>.from(json['xsec2'] as Map)
+          : null,
     );
   }
 

@@ -23,6 +23,8 @@ import '../../utils/chat_name_localizer.dart';
 import 'avatar_widget.dart';
 import 'base_custom_modal.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
+import '../../services/runtime_translations.dart';
+
 
 /// Модалка информации о чате (собеседник, группа, канал, бот, избранное).
 class ChatInfoModal extends BaseCustomModal {
@@ -1023,7 +1025,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
             },
             icon: const Icon(Icons.expand_more_rounded),
             label: Text(
-              'Показать ещё (${total - shown})',
+              '${RuntimeTranslations.instance.resolveByText("Показать ещё")} (${total - shown})',
             ),
           ),
         ),

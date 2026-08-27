@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
@@ -15,12 +16,17 @@ import '../../widgets/common/incoming_call_modal.dart';
 import '../../providers/locale_provider.dart';
 import '../../widgets/common/mobile_settings_modals.dart';
 import '../../widgets/common/mobile_language_modal.dart';
+import '../../widgets/common/mobile_accounts_modal.dart';
 import '../../widgets/common/avatar_widget.dart';
 import '../../services/notifications/notification_service.dart';
 import '../../services/update/update_service.dart';
+import '../../services/api/api_client.dart';
+import '../../services/crypto/crypto_service.dart';
 import '../../models/update/app_version_info.dart';
 import '../../widgets/common/custom_update_toast.dart';
+import '../../widgets/common/device_auth_approval_modal.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
+import '../../l10n/account_localizations.dart';
 
 /// Главный экран приложения (после авторизации)
 class MainScreen extends StatefulWidget {
@@ -33,6 +39,9 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   late final PageController _pageController;
+  Timer? _deviceAuthTimer;
+  final Set<String> _handledDeviceAuthRequests = {};
+  bool _deviceAuthDialogOpen = false;
 
   @override
   void initState() {
@@ -49,6 +58,11 @@ class _MainScreenState extends State<MainScreen> {
         NotificationService.checkPendingCallPayload();
 
         _checkAppUpdate();
+        _checkPendingDeviceAuth();
+        _deviceAuthTimer = Timer.periodic(
+          const Duration(seconds: 4),
+          (_) => _checkPendingDeviceAuth(),
+        );
       }
     });
   }
@@ -70,11 +84,86 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void dispose() {
     NotificationService.isAppReady = false;
+    _deviceAuthTimer?.cancel();
     try {
       context.read<CallManager>().removeListener(_handleCallStateChanged);
     } catch (_) {}
     _pageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkPendingDeviceAuth() async {
+    if (!mounted || _deviceAuthDialogOpen) return;
+    try {
+      final response =
+          await context.read<ApiClient>().get('/auth/device-login/pending/');
+      final data = Map<String, dynamic>.from(response.data as Map);
+      final requests = data['requests'];
+      if (requests is! List) return;
+      for (final raw in requests) {
+        if (raw is! Map) continue;
+        final request = Map<String, dynamic>.from(raw);
+        final id = request['challenge_id']?.toString();
+        if (id == null || _handledDeviceAuthRequests.contains(id)) continue;
+        await _showDeviceAuthApproval(request);
+        break;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _showDeviceAuthApproval(Map<String, dynamic> request) async {
+    if (!mounted) return;
+    _deviceAuthDialogOpen = true;
+    final challenge = request['challenge_id']?.toString() ?? '';
+    final device = request['device_name']?.toString();
+    final client = request['client_type']?.toString() ?? 'устройство';
+    final api = context.read<ApiClient>();
+    final crypto = context.read<CryptoService>();
+    final approved = await DeviceAuthApprovalModal.confirm(
+      context: context,
+      deviceName: device?.isNotEmpty == true ? device! : 'Новое устройство',
+      clientName: _deviceAuthClientName(client),
+      ipAddress: request['ip_address']?.toString().trim().isNotEmpty == true
+          ? request['ip_address'].toString()
+          : 'Не определён',
+    );
+    try {
+      Map<String, dynamic>? transfer;
+      if (approved == true) {
+        final publicKey = request['recipient_public_key']?.toString();
+        if (publicKey != null) {
+          transfer = await crypto.createQrTransferPayload(publicKey, challenge);
+        }
+      }
+      await api.post('/auth/device-login/decision/', data: {
+        'challenge_id': challenge,
+        'confirmed': approved == true,
+        if (transfer != null) 'transfer_payload': transfer,
+        if (approved == true && transfer == null) 'no_keys': true,
+      });
+      _handledDeviceAuthRequests.add(challenge);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось обработать запрос на вход')),
+        );
+      }
+    } finally {
+      _deviceAuthDialogOpen = false;
+    }
+  }
+
+  String _deviceAuthClientName(String client) {
+    switch (client.toLowerCase()) {
+      case 'web':
+        return 'Веб-версия Xaneo';
+      case 'pc':
+        return 'Xaneo PC';
+      case 'mobile':
+        return 'Xaneo Mobile';
+      default:
+        return client.isEmpty ? 'Неизвестный клиент' : client;
+    }
   }
 
   void _handleCallStateChanged() {
@@ -87,19 +176,28 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Account-scoped screens cache repositories, streams and other state in
+    // their State objects. Recreate that subtree when quick login activates a
+    // different user so it cannot keep using the Drift connection that the
+    // LocalChatRepository ProxyProvider has just closed.
+    final activeUserId = context.select<AuthProvider, int?>(
+      (auth) => auth.user?.id,
+    );
+
     return Scaffold(
       backgroundColor: AppStyles.backgroundColor,
       body: Stack(
         children: [
           // Анимация скольжения экранов
           PageView(
+            key: ValueKey('account-pages-$activeUserId'),
             controller: _pageController,
             physics:
                 const NeverScrollableScrollPhysics(), // Блокируем свайп руками для точной синхронизации с панелью
-            children: const [
-              ChatListScreen(key: ValueKey('chats')),
-              ContactsScreen(key: ValueKey('contacts')),
-              _SettingsScreen(key: ValueKey('settings')),
+            children: [
+              ChatListScreen(key: ValueKey('chats-$activeUserId')),
+              ContactsScreen(key: ValueKey('contacts-$activeUserId')),
+              _SettingsScreen(key: ValueKey('settings-$activeUserId')),
             ],
           ),
           Positioned(
@@ -225,6 +323,12 @@ class _SettingsScreen extends StatelessWidget {
           ],
           _buildSection((l10n?.akkaunt_38ac ?? 'Fallback'), [
             _buildItem(
+              icon: FontAwesomeIcons.userGroup,
+              title: AccountLocalizations.of(context).text('title'),
+              subtitle: AccountLocalizations.of(context).text('subtitle'),
+              onTap: () => MobileAccountsModal.show(context),
+            ),
+            _buildItem(
               icon: FontAwesomeIcons.userPen,
               title: (l10n?.lichnyeDannye_be85 ?? 'Fallback'),
               subtitle: (l10n?.imyaNikneymOSebe_7a8d ?? 'Fallback'),
@@ -276,8 +380,7 @@ class _SettingsScreen extends StatelessWidget {
             _buildItem(
               icon: FontAwesomeIcons.circleInfo,
               title: 'Xaneo Mobile',
-              subtitle:
-                  'v${AppConfig.appVersion} (${AppConfig.buildNumber})',
+              subtitle: 'v${AppConfig.appVersion} (${AppConfig.buildNumber})',
               isLast: true,
               onTap: () => MobileAboutModal.show(context),
             ),

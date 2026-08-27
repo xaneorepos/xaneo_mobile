@@ -395,5 +395,38 @@
   "qrScanProcessing": "Authorizing device...",
   "@qrScanProcessing": {
     "description": "QR processing text"
+  },
+  "qrScanConfirmDesc": "Another device requested access to your account. Check the short code and confirm the request.",
+  "qrScanSecurityNote": "Continue only if the QR code is open on a device you control.",
+  "qrScanDoneButton": "Done",
+  "authNotificationSendingCode": "Sending code",
+  "authNotificationEnterCode": "Enter code",
+  "authNotificationConfirmLogin": "Confirm login",
+  "authNotificationPasswordLogin": "Password login",
+  "authNotificationSendingSubtitle": "The code will be sent to the \"Xaneo Notifications\" chat. Do not close this screen.",
+  "authNotificationEnterCodeSubtitle": "Enter the 6-digit code from the message.",
+  "authNotificationConfirmSubtitle": "Open Xaneo on an already authorized device and check request details.",
+  "authNotificationPasswordSubtitle": "This method is only available after a waiting period. Password is not saved.",
+  "authNotificationBotSource": "The code is sent from \"Xaneo Notifications\".",
+  "authNotificationNoBotAccess": "No access to the bot?",
+  "authNotificationGetCodeViaEmail": "Get code via email",
+  "authNotificationResendCodeViaEmail": "Resend code to email",
+  "authNotificationEmailUnavailable": "Email code unavailable: no verified email on this account.",
+  "authNotificationLoginWithPassword": "Log in with password",
+  "authNotificationErrorSendFailed": "Failed to send code. Please try again later.",
+  "authNotificationErrorInvalidCode": "Invalid or expired code",
+  "authNotificationErrorRequestExpired": "Request rejected or expired",
+  "authNotificationErrorEmailFailed": "Failed to send code to email. Please try again later.",
+  "authNotificationErrorPasswordFailed": "Failed to log in. Check your password or start over.",
+  "authNotificationGetCodeBtn": "Get code",
+  "authRejectedTitle": "Login Rejected",
+  "authRejectedDesc": "The login request was rejected on your other device. If this wasn't you, we recommend checking your account security.",
+  "authRejectedButton": "Got it",
+  "@authRejectedButton": {
+    "description": "Login rejected dialog button"
+  },
+  "importLanguageFromJson": "Import language from JSON",
+  "@importLanguageFromJson": {
+    "description": "Button to import a custom language pack from a JSON file"
   }
 }

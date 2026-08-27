@@ -375,7 +375,7 @@ class _LoginScreenState extends State<LoginScreen>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Image.asset(
-                            'assets/logo.png',
+                            'assets/images/logo.png',
                             width: 120,
                             height: 120,
                             color: isDark ? Colors.white : Colors.black,
@@ -490,7 +490,7 @@ class _LoginScreenState extends State<LoginScreen>
           // Logo (if right panel is hidden)
           if (!showRightPanel) ...[
             Image.asset(
-              'assets/logo.png',
+              'assets/images/logo.png',
               width: 44,
               height: 44,
               color: isDark ? Colors.white : Colors.black,

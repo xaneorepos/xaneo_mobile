@@ -1863,6 +1863,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get zapreschennyh_1f49 => 'prohibited';
   @override
+  String get obIspolzovaniiParolya_9739 => 'About your password';
+  @override
+  String get parolTolkoDlyaAvariynogoVhoda_b142 =>
+      'Your password is used only as a last resort — if you cannot sign in with a code from the Xaneo Notifications bot or with the code sent to your email.';
+  @override
   String get sozdatAkkaunt_19ed => 'Create an account';
   @override
   String get naprimerIvan_d7cb => 'For example, Ivan';
@@ -2293,11 +2298,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get qrScanTitle => 'Device Authorization';
   @override
-  String get qrScanSubtitle => 'Point your camera at the QR code on the Xaneo web or PC client screen';
+  String get qrScanSubtitle =>
+      'Point your camera at the QR code on the Xaneo web or PC client screen';
   @override
   String get qrScanSuccessTitle => 'Device Authorized';
   @override
-  String get qrScanSuccessDesc => 'Authorization successful. End-to-end encryption (E2EE) keys transferred to the new device.';
+  String get qrScanSuccessDesc =>
+      'Authorization successful. End-to-end encryption (E2EE) keys transferred to the new device.';
   @override
   String get qrScanInputHint => 'Paste token or payload...';
   @override
@@ -2306,4 +2313,120 @@ class AppLocalizationsEn extends AppLocalizations {
   String get qrScanConfirmButton => 'Confirm Authorization';
   @override
   String get qrScanProcessing => 'Authorizing device...';
+
+  @override
+  String get qrScanConfirmDesc =>
+      'Another device requested access to your account. Check the short code and confirm the request.';
+
+  @override
+  String get qrScanSecurityNote =>
+      'Continue only if the QR code is open on a device you control.';
+
+  @override
+  String get qrScanDoneButton => 'Done';
+
+  @override
+  String get authNotificationSendingCode => 'Sending code';
+
+  @override
+  String get authNotificationEnterCode => 'Enter code';
+
+  @override
+  String get authNotificationConfirmLogin => 'Confirm login';
+
+  @override
+  String get authNotificationPasswordLogin => 'Password login';
+
+  @override
+  String get authNotificationSendingSubtitle => 'The code will be sent to the "Xaneo Notifications" chat. Do not close this screen.';
+
+  @override
+  String get authNotificationEnterCodeSubtitle => 'Enter the 6-digit code from the message.';
+
+  @override
+  String get authNotificationConfirmSubtitle => 'Open Xaneo on an already authorized device and check request details.';
+
+  @override
+  String get authNotificationPasswordSubtitle => 'This method is only available after a waiting period. Password is not saved.';
+
+  @override
+  String get authNotificationBotSource => 'The code is sent from "Xaneo Notifications".';
+
+  @override
+  String authNotificationCodeSentToEmail(String email) => 'Code sent to $email';
+
+  @override
+  String get authNotificationNoBotAccess => 'No access to the bot?';
+
+  @override
+  String get authNotificationGetCodeViaEmail => 'Get code via email';
+
+  @override
+  String get authNotificationResendCodeViaEmail => 'Resend code to email';
+
+  @override
+  String get authNotificationEmailUnavailable => 'Email code unavailable: no verified email on this account.';
+
+  @override
+  String authNotificationEmailAvailableIn(int seconds) => 'Email code will be available in $seconds sec.';
+
+  @override
+  String get authNotificationLoginWithPassword => 'Log in with password';
+
+  @override
+  String authNotificationPasswordAvailableIn(int seconds) => 'Password login will be available in $seconds sec.';
+
+  @override
+  String get authNotificationErrorSendFailed => 'Failed to send code. Please try again later.';
+
+  @override
+  String get authNotificationErrorInvalidCode => 'Invalid or expired code';
+
+  @override
+  String get authNotificationErrorRequestExpired => 'Request rejected or expired';
+
+  @override
+  String get authNotificationErrorEmailFailed => 'Failed to send code to email. Please try again later.';
+
+  @override
+  String get authNotificationErrorPasswordFailed => 'Failed to log in. Check your password or start over.';
+
+  @override
+  String get authNotificationGetCodeBtn => 'Get code';
+
+  @override
+  String get authRejectedTitle => 'Login Rejected';
+
+  @override
+  String get authRejectedDesc =>
+      'The login request was rejected on your other device. If this wasn\'t you, we recommend checking your account security.';
+
+  @override
+  String get authRejectedButton => 'Got it';
+
+  @override
+  String get deviceAuthApprovalSubtitle =>
+      'Code verified. Allow login only if you initiated this request.';
+
+  @override
+  String get deviceAuthApprovalKeysNotice =>
+      'Chat keys will be transferred to the new device in encrypted form.';
+
+  @override
+  String get deviceAuthApprovalAllow => 'Allow Login';
+
+  @override
+  String get deviceAuthApprovalDecline => 'Decline';
+
+  @override
+  String get deviceAuthDevice => 'Device';
+
+  @override
+  String get deviceAuthApp => 'Application';
+
+  @override
+  String get deviceAuthIp => 'IP address';
+
+  @override
+  String get importLanguageFromJson => 'Import language from JSON';
 }

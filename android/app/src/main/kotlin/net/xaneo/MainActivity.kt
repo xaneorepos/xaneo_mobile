@@ -3,12 +3,12 @@ package net.xaneo
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
-class MainActivity : FlutterActivity() {
+class MainActivity : AudioServiceActivity() {
     private val CHANNEL = "net.xaneo/app_installer"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

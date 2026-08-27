@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/chat/chat_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api/api_client.dart';
+import '../../services/runtime_translations.dart';
 import '../../services/webrtc/call_manager.dart';
 import '../../widgets/common/avatar_widget.dart';
 import '../chat/chat_screen.dart';
@@ -222,8 +223,11 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                     strokeWidth: 2, color: Colors.black),
                               )
                             : Text(
-                                (AppLocalizations.of(context)?.dobavit_5eba ??
-                                    'Fallback'),
+                                RuntimeTranslations.instance.resolve(
+                                  'messenger.contacts.createTitle',
+                                  AppLocalizations.of(context)?.dobavit_5eba ??
+                                      'Fallback',
+                                ),
                                 style: TextStyle(
                                     fontWeight: FontWeight.bold, fontSize: 14)),
                       ),

@@ -7,6 +7,7 @@ import '../../models/chat/chat_model.dart';
 import '../../screens/chat/chat_screen.dart';
 import '../../services/chat/chat_local_repository.dart';
 import '../../services/chat/group_channel_service.dart';
+import '../../services/runtime_translations.dart';
 import '../../styles/app_styles.dart';
 import 'avatar_cropper.dart';
 import 'base_custom_modal.dart';
@@ -43,7 +44,8 @@ class CreateChannelModal extends BaseCustomModal {
   State<CreateChannelModal> createState() => _CreateChannelModalState();
 }
 
-class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> {
+class _CreateChannelModalState
+    extends BaseCustomModalState<CreateChannelModal> {
   final _nameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -91,14 +93,18 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
 
     if (name.isEmpty) {
       setState(() {
-        _errorMessage = (AppLocalizations.of(context)?.vvediteNazvanieKanala_5536 ?? 'Fallback');
+        _errorMessage =
+            (AppLocalizations.of(context)?.vvediteNazvanieKanala_5536 ??
+                'Fallback');
       });
       return;
     }
 
     if (!_isPrivate && username.isEmpty) {
       setState(() {
-        _errorMessage = (AppLocalizations.of(context)?.dlyaPublichnogoKanalaTrebuetsyaSsylkanikneym_5f06 ?? 'Fallback');
+        _errorMessage = (AppLocalizations.of(context)
+                ?.dlyaPublichnogoKanalaTrebuetsyaSsylkanikneym_5f06 ??
+            'Fallback');
       });
       return;
     }
@@ -119,8 +125,12 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
 
     if (!mounted) return;
 
-    if (result != null && (result['success'] == true || result['id'] != null || result['channel_id'] != null)) {
-      final channelIdRaw = result['id'] ?? result['channel_id'] ?? result['chat_id'];
+    if (result != null &&
+        (result['success'] == true ||
+            result['id'] != null ||
+            result['channel_id'] != null)) {
+      final channelIdRaw =
+          result['id'] ?? result['channel_id'] ?? result['chat_id'];
       final String chatId = channelIdRaw.toString().startsWith('channel_')
           ? channelIdRaw.toString()
           : 'channel_$channelIdRaw';
@@ -129,18 +139,21 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
         id: chatId,
         name: name,
         avatar: result['avatar']?.toString(),
-        avatarGradient: result['avatar_gradient']?.toString() ?? result['gradient']?.toString(),
+        avatarGradient: result['avatar_gradient']?.toString() ??
+            result['gradient']?.toString(),
         isChannel: true,
         isGroup: false,
         isPersonal: false,
         isFavorites: false,
-        lastMessage: (AppLocalizations.of(context)?.kanalSozdan_1522 ?? 'Fallback'),
+        lastMessage:
+            (AppLocalizations.of(context)?.kanalSozdan_1522 ?? 'Fallback'),
         lastMessageTime: DateTime.now(),
         otherUser: {
           'subscribers_count': 1,
           'username': !_isPrivate ? username.replaceAll('@', '') : null,
           'description': description,
-          'avatar_gradient': result['avatar_gradient']?.toString() ?? result['gradient']?.toString(),
+          'avatar_gradient': result['avatar_gradient']?.toString() ??
+              result['gradient']?.toString(),
         },
       );
 
@@ -157,7 +170,10 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
     } else {
       setState(() {
         _isLoading = false;
-        _errorMessage = result?['error']?.toString() ?? result?['message']?.toString() ?? (AppLocalizations.of(context)?.oshibkaPriSozdaniiKanala_7d4b ?? 'Fallback');
+        _errorMessage = result?['error']?.toString() ??
+            result?['message']?.toString() ??
+            (AppLocalizations.of(context)?.oshibkaPriSozdaniiKanala_7d4b ??
+                'Fallback');
       });
     }
   }
@@ -230,7 +246,8 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    (AppLocalizations.of(context)?.sozdatKanal_9022 ?? 'Fallback'),
+                    (AppLocalizations.of(context)?.sozdatKanal_9022 ??
+                        'Fallback'),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 19,
@@ -241,7 +258,9 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
                   ),
                   SizedBox(height: 2),
                   Text(
-                    (AppLocalizations.of(context)?.nazhmiteNaIkonkuChtobyVybrat_af03 ?? 'Fallback'),
+                    (AppLocalizations.of(context)
+                            ?.nazhmiteNaIkonkuChtobyVybrat_af03 ??
+                        'Fallback'),
                     style: TextStyle(
                       color: Color(0xFF999999),
                       fontSize: 12.5,
@@ -262,18 +281,21 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
           controller: _nameController,
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: InputDecoration(
-            hintText: (AppLocalizations.of(context)?.nazvanieKanala_c548 ?? 'Fallback'),
+            hintText: (AppLocalizations.of(context)?.nazvanieKanala_c548 ??
+                'Fallback'),
             hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 15),
             filled: true,
             fillColor: Colors.white.withOpacity(0.05),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+              borderSide:
+                  BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
             ),
           ),
         ),
@@ -286,18 +308,24 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
           maxLines: 2,
           style: const TextStyle(color: Colors.white, fontSize: 15),
           decoration: InputDecoration(
-            hintText: (AppLocalizations.of(context)?.opisanieNeobyazatelno_7812 ?? 'Fallback'),
+            hintText: RuntimeTranslations.instance.resolve(
+              'messenger.createChannel.descriptionPlaceholder',
+              AppLocalizations.of(context)?.opisanieNeobyazatelno_7812 ??
+                  'Fallback',
+            ),
             hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 15),
             filled: true,
             fillColor: Colors.white.withOpacity(0.05),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+              borderSide:
+                  BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
             ),
           ),
         ),
@@ -325,7 +353,13 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _isPrivate ? (AppLocalizations.of(context)?.privatnyyKanal_3139 ?? 'Fallback') : (AppLocalizations.of(context)?.publichnyyKanal_0f7c ?? 'Fallback'),
+                      _isPrivate
+                          ? (AppLocalizations.of(context)
+                                  ?.privatnyyKanal_3139 ??
+                              'Fallback')
+                          : (AppLocalizations.of(context)
+                                  ?.publichnyyKanal_0f7c ??
+                              'Fallback'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
@@ -335,8 +369,12 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
                     ),
                     Text(
                       _isPrivate
-                          ? (AppLocalizations.of(context)?.podpiskaTolkoPoPriglasheniyu_99c3 ?? 'Fallback')
-                          : (AppLocalizations.of(context)?.lyuboyMozhetNaytiIPodpisatsya_8579 ?? 'Fallback'),
+                          ? (AppLocalizations.of(context)
+                                  ?.podpiskaTolkoPoPriglasheniyu_99c3 ??
+                              'Fallback')
+                          : (AppLocalizations.of(context)
+                                  ?.lyuboyMozhetNaytiIPodpisatsya_8579 ??
+                              'Fallback'),
                       style: const TextStyle(
                         color: Color(0xFF888888),
                         fontSize: 12,
@@ -366,20 +404,28 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
             controller: _usernameController,
             style: const TextStyle(color: Colors.white, fontSize: 16),
             decoration: InputDecoration(
-              hintText: (AppLocalizations.of(context)?.ssylkanikneymKanalaMychannel_79f6 ?? 'Fallback'),
-              hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 14.5),
+              hintText: (AppLocalizations.of(context)
+                      ?.ssylkanikneymKanalaMychannel_79f6 ??
+                  'Fallback'),
+              hintStyle:
+                  const TextStyle(color: Color(0xFF666666), fontSize: 14.5),
               prefixText: '@ ',
-              prefixStyle: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              prefixStyle: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold),
               filled: true,
               fillColor: Colors.white.withOpacity(0.05),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+                borderSide:
+                    BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
               ),
             ),
           ),
@@ -424,7 +470,8 @@ class _CreateChannelModalState extends BaseCustomModalState<CreateChannelModal> 
                     ),
                   )
                 : Text(
-                    (AppLocalizations.of(context)?.sozdatKanal_9022 ?? 'Fallback'),
+                    (AppLocalizations.of(context)?.sozdatKanal_9022 ??
+                        'Fallback'),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

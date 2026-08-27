@@ -1762,6 +1762,11 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get zapreschennyh_1f49 => '禁止';
   @override
+  String get obIspolzovaniiParolya_9739 => '关于密码的使用';
+  @override
+  String get parolTolkoDlyaAvariynogoVhoda_b142 =>
+      '密码仅在紧急情况下使用——即无法通过“Xaneo通知”机器人的代码或邮件代码登录时。';
+  @override
   String get sozdatAkkaunt_19ed => '创建帐户';
   @override
   String get naprimerIvan_d7cb => '例如，伊万';
@@ -2176,13 +2181,11 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get qrScanTitle => '设备授权';
   @override
-  String get qrScanSubtitle =>
-      '请将相机对准 Xaneo 网页版或 PC 客户端屏幕上的二维码';
+  String get qrScanSubtitle => '请将相机对准 Xaneo 网页版或 PC 客户端屏幕上的二维码';
   @override
   String get qrScanSuccessTitle => '设备已授权';
   @override
-  String get qrScanSuccessDesc =>
-      '授权成功。端到端加密（E2EE）密钥已传输到新设备。';
+  String get qrScanSuccessDesc => '授权成功。端到端加密（E2EE）密钥已传输到新设备。';
   @override
   String get qrScanInputHint => '粘贴 Token 或 Payload...';
   @override
@@ -2191,4 +2194,118 @@ class AppLocalizationsZh extends AppLocalizations {
   String get qrScanConfirmButton => '确认授权';
   @override
   String get qrScanProcessing => '正在授权设备...';
+
+  @override
+  String get qrScanConfirmDesc => '另一台设备请求登录您的账户。请核对短代码并确认此请求。';
+
+  @override
+  String get qrScanSecurityNote => '仅当二维码显示在您控制的设备上时才继续。';
+
+  @override
+  String get qrScanDoneButton => '完成';
+
+  @override
+  String get authNotificationSendingCode => '正在发送验证码';
+
+  @override
+  String get authNotificationEnterCode => '输入验证码';
+
+  @override
+  String get authNotificationConfirmLogin => '确认登录';
+
+  @override
+  String get authNotificationPasswordLogin => '密码登录';
+
+  @override
+  String get authNotificationSendingSubtitle => '验证码将发送至“Xaneo通知”聊天。请勿关闭此屏幕。';
+
+  @override
+  String get authNotificationEnterCodeSubtitle => '请输入消息中的6位数字验证码。';
+
+  @override
+  String get authNotificationConfirmSubtitle => '在已登录的设备上打开Xaneo并确认登录请求。';
+
+  @override
+  String get authNotificationPasswordSubtitle => '此方式仅在等待时间结束后可用。密码不会被保存。';
+
+  @override
+  String get authNotificationBotSource => '验证码来自“Xaneo通知”。';
+
+  @override
+  String authNotificationCodeSentToEmail(String email) => '验证码已发送至 $email';
+
+  @override
+  String get authNotificationNoBotAccess => '无法访问机器人？';
+
+  @override
+  String get authNotificationGetCodeViaEmail => '通过邮箱接收验证码';
+
+  @override
+  String get authNotificationResendCodeViaEmail => '重新发送验证码至邮箱';
+
+  @override
+  String get authNotificationEmailUnavailable => '邮箱验证码不可用：账户未绑定已验证邮箱。';
+
+  @override
+  String authNotificationEmailAvailableIn(int seconds) => '可在 $seconds 秒后通过邮箱获取验证码';
+
+  @override
+  String get authNotificationLoginWithPassword => '使用密码登录';
+
+  @override
+  String authNotificationPasswordAvailableIn(int seconds) => '可在 $seconds 秒后使用密码登录';
+
+  @override
+  String get authNotificationErrorSendFailed => '发送验证码失败，请稍后重试。';
+
+  @override
+  String get authNotificationErrorInvalidCode => '验证码错误或已过期';
+
+  @override
+  String get authNotificationErrorRequestExpired => '请求已被拒绝或已过期';
+
+  @override
+  String get authNotificationErrorEmailFailed => '向邮箱发送验证码失败，请稍后重试。';
+
+  @override
+  String get authNotificationErrorPasswordFailed => '登录失败。请检查密码或重新开始。';
+
+  @override
+  String get authNotificationGetCodeBtn => '获取验证码';
+
+  @override
+  String get authRejectedTitle => '登录已被拒绝';
+
+  @override
+  String get authRejectedDesc =>
+      '登录请求已在其他设备上被拒绝。如果这不是您的操作，建议检查您的账户安全。';
+
+  @override
+  String get authRejectedButton => '知道了';
+
+  @override
+  String get deviceAuthApprovalSubtitle =>
+      '验证码正确。仅当这是您本人的操作时才允许登录。';
+
+  @override
+  String get deviceAuthApprovalKeysNotice =>
+      '聊天密钥将以加密形式传输到新设备。';
+
+  @override
+  String get deviceAuthApprovalAllow => '允许登录';
+
+  @override
+  String get deviceAuthApprovalDecline => '拒绝';
+
+  @override
+  String get deviceAuthDevice => '设备';
+
+  @override
+  String get deviceAuthApp => '应用';
+
+  @override
+  String get deviceAuthIp => 'IP地址';
+
+  @override
+  String get importLanguageFromJson => '从 JSON 导入语言';
 }

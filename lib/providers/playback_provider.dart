@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
+import 'package:audio_service/audio_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
+import '../services/audio/media_artwork_service.dart';
+import '../services/audio/xaneo_audio_handler.dart';
 import '../services/auth/token_storage.dart';
 
 class PlaybackItem {
@@ -14,6 +18,7 @@ class PlaybackItem {
   final String subtitle;
   final String? mimeType;
   final Duration? duration;
+  final Uri? artUri;
 
   PlaybackItem({
     required this.url,
@@ -21,18 +26,27 @@ class PlaybackItem {
     required this.subtitle,
     this.mimeType,
     this.duration,
+    this.artUri,
   });
 }
 
-/// Глобальный провайдер воспроизведения голосовых сообщений.
+/// Глобальный провайдер воспроизведения музыки и голосовых сообщений.
 class PlaybackProvider extends ChangeNotifier {
-  final AudioPlayer _player = AudioPlayer();
+  PlaybackProvider(this._audioHandler) : _player = _audioHandler.player {
+    _initializePlayerSubscriptions();
+  }
+
+  final XaneoAudioHandler _audioHandler;
+  final AudioPlayer _player;
   StreamSubscription? _playerStateSub;
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
+  StreamSubscription? _currentIndexSub;
+  StreamSubscription? _playbackEventSub;
+  StreamSubscription? _loopModeSub;
+  StreamSubscription? _shuffleModeSub;
 
   String? _currentAudioUrl;
-  String? _currentFilePath;
   String _title = '';
   String _subtitle = '';
   bool _isPlaying = false;
@@ -42,6 +56,12 @@ class PlaybackProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isSeeking = false;
   bool _isVideo = false;
+
+  LoopMode _loopMode = LoopMode.off;
+  LoopMode get loopMode => _loopMode;
+
+  bool _isShuffle = false;
+  bool get isShuffle => _isShuffle;
 
   Duration? _seekTargetPosition;
   DateTime? _seekCompletedAt;
@@ -65,43 +85,82 @@ class PlaybackProvider extends ChangeNotifier {
 
   List<PlaybackItem> get playlist => List.unmodifiable(_playlist);
   int get currentIndex => _currentIndex;
-  bool get hasNext => _playlist.isNotEmpty && _currentIndex >= 0 && _currentIndex < _playlist.length - 1;
-  bool get hasPrevious => _playlist.isNotEmpty && _currentIndex > 0;
+  bool get hasNext =>
+      _playlist.isNotEmpty &&
+      (_loopMode == LoopMode.all ||
+          (_currentIndex >= 0 && _currentIndex < _playlist.length - 1));
+  bool get hasPrevious =>
+      _playlist.isNotEmpty && (_loopMode == LoopMode.all || _currentIndex > 0);
 
-  PlaybackProvider() {
+  void _initializePlayerSubscriptions() {
+    _playbackEventSub = _player.playbackEventStream.listen(
+      (event) {},
+      onError: (Object e, StackTrace stack) {
+        debugPrint('❌ [PlaybackEventStream Error] $e');
+        debugPrint('❌ [Error Type]: ${e.runtimeType}');
+        if (e is PlayerException) {
+          debugPrint(
+              '❌ [PlayerException]: code=${e.code}, message="${e.message}"');
+        }
+        if (e is PlatformException) {
+          debugPrint(
+              '❌ [PlatformException]: code=${e.code}, message="${e.message}", details=${e.details}');
+        }
+        debugPrint('❌ [StackTrace]:\n$stack');
+      },
+    );
+
     _playerStateSub = _player.playerStateStream.listen((state) {
       _isPlaying = state.playing;
 
       if (state.processingState == ProcessingState.completed) {
         _isPlaying = false;
         _position = Duration.zero;
-        if (hasNext) {
+        if (_loopMode == LoopMode.one) {
+          _restartFrom(Duration.zero);
+        } else if (_isShuffle && _playlist.length > 1) {
+          final nextIndices = List<int>.generate(_playlist.length, (i) => i)
+            ..remove(_currentIndex);
+          nextIndices.shuffle();
+          if (nextIndices.isNotEmpty) {
+            playItemAtIndex(nextIndices.first);
+          }
+        } else if (hasNext) {
           playNext();
+        } else if (_loopMode == LoopMode.all && _playlist.isNotEmpty) {
+          playItemAtIndex(0);
         }
       }
       notifyListeners();
     });
 
+    _currentIndexSub = _player.currentIndexStream.listen((index) {
+      if (index != null && index >= 0 && index < _playlist.length) {
+        if (_currentIndex != index) {
+          _currentIndex = index;
+          final item = _playlist[index];
+          _currentAudioUrl = item.url;
+          _title = item.title;
+          _subtitle = item.subtitle;
+          if (item.duration != null && item.duration! > Duration.zero) {
+            _duration = item.duration!;
+          }
+          notifyListeners();
+        }
+      }
+    });
+
     _positionSub = _player.positionStream.listen((pos) {
-      // Во время reinit (seek/restart) игнорируем промежуточные позиции,
-      // чтобы UI не мерцал (setAudioSource сбрасывает позицию в 0)
       if (_isSeeking) return;
 
-      // Сразу после seek() стрим может ещё какое-то время присылать
-      // "хвостовые" события от пересоздаваемого AudioSource — обычно
-      // позиции около нуля, заметно меньше целевой. Отбрасываем такие
-      // явные откаты в течение короткого окна после завершения seek.
       if (_seekTargetPosition != null && _seekCompletedAt != null) {
         final elapsed = DateTime.now().difference(_seekCompletedAt!);
         if (elapsed < _seekSettleWindow) {
           final drift = _seekTargetPosition! - pos;
           if (drift > const Duration(milliseconds: 300)) {
-            // Похоже на устаревшее событие — позиция заметно меньше,
-            // чем то, куда мы только что сикнули. Игнорируем.
             return;
           }
         } else {
-          // Окно истекло — больше не фильтруем
           _seekTargetPosition = null;
           _seekCompletedAt = null;
         }
@@ -117,6 +176,18 @@ class PlaybackProvider extends ChangeNotifier {
         notifyListeners();
       }
     });
+
+    _loopModeSub = _player.loopModeStream.listen((mode) {
+      if (_loopMode == mode) return;
+      _loopMode = mode;
+      notifyListeners();
+    });
+
+    _shuffleModeSub = _player.shuffleModeEnabledStream.listen((enabled) {
+      if (_isShuffle == enabled) return;
+      _isShuffle = enabled;
+      notifyListeners();
+    });
   }
 
   void setQueue(List<String> urls, int startIndex) {
@@ -124,51 +195,14 @@ class PlaybackProvider extends ChangeNotifier {
     _queueIndex = startIndex;
   }
 
-  /// Запускает воспроизведение [url]. Если это уже текущий трек — переключает play/pause.
-  Future<void> play(String url, String title, String subtitle, {
-    String? mimeType,
-    Duration? duration
-  }) async {
-    if (_currentAudioUrl == url) {
-      _togglePlay();
-      return;
+  Future<String> _ensureLocalFile(String url, {String? mimeType}) async {
+    if (!url.startsWith('http')) {
+      return url;
     }
 
-    await stop();
-
-    _currentAudioUrl = url;
-    _title = title;
-    _subtitle = subtitle;
-    _isLoading = true;
-    _duration = duration ?? Duration.zero;
-    notifyListeners();
-
     try {
-      // Локальный файл (только что записанное наше ГС) — играем напрямую,
-      // без скачивания. url здесь — это путь к файлу, а не http-ссылка.
-      if (!url.startsWith('http')) {
-        final localFile = File(url);
-        if (await localFile.exists()) {
-          _currentFilePath = url;
-          await _player.setAudioSource(AudioSource.file(url));
-          _isInitialized = true;
-          _isLoading = false;
-
-          final playerDuration = _player.duration;
-          if (playerDuration != null && playerDuration > Duration.zero) {
-            _duration = playerDuration;
-          } else if (duration != null) {
-            _duration = duration;
-          }
-
-          await _player.play();
-          notifyListeners();
-          return;
-        }
-      }
-
       final tempDir = await getTemporaryDirectory();
-      String ext = '.ogg';
+      String ext = '.mp3';
       if (mimeType != null) {
         final mime = mimeType.toLowerCase();
         if (mime.contains('webm')) {
@@ -181,51 +215,149 @@ class PlaybackProvider extends ChangeNotifier {
           ext = '.wav';
         } else if (mime.contains('m4a') || mime.contains('aac')) {
           ext = '.m4a';
+        } else if (mime.contains('flac')) {
+          ext = '.flac';
         }
       }
 
       final baseUrl = url.split('?').first;
       final safeName = baseUrl.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
-      final shortName = safeName.length > 50 ? safeName.substring(safeName.length - 50) : safeName;
-      final localFilePath = '${tempDir.path}/voice_${baseUrl.hashCode}_$shortName$ext';
+      final shortName = safeName.length > 50
+          ? safeName.substring(safeName.length - 50)
+          : safeName;
+      final localFilePath =
+          '${tempDir.path}/audio_${baseUrl.hashCode}_$shortName$ext';
       final file = File(localFilePath);
 
-      if (!await file.exists()) {
-        final freshToken = await TokenStorage().getAccessToken();
-        
-        Uri targetUri = Uri.parse(url);
-        if (freshToken != null && freshToken.isNotEmpty) {
-           final newParams = Map<String, String>.from(targetUri.queryParameters);
-           newParams['token'] = freshToken;
-           targetUri = targetUri.replace(queryParameters: newParams);
-        }
-        final downloadUrl = targetUri.toString();
-
-        final dio = Dio();
-        (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
-          final client = HttpClient();
-          client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
-          return client;
-        };
-
-        final response = await dio.download(
-          downloadUrl,
-          localFilePath,
-          options: Options(
-            headers: freshToken != null && freshToken.isNotEmpty
-                ? {'Authorization': 'Bearer $freshToken'}
-                : {},
-          ),
-        );
-        if (response.statusCode != 200) {
-          throw Exception('Failed to download audio file: ${response.statusCode}');
-        }
+      if (await file.exists() && await file.length() > 0) {
+        debugPrint(
+            '📁 [Audio Cache] Found file (${await file.length()} bytes): $localFilePath');
+        return localFilePath;
       }
 
-      _currentFilePath = localFilePath;
+      final freshToken = await TokenStorage().getAccessToken();
+      Uri targetUri = Uri.parse(url);
+      if (freshToken != null && freshToken.isNotEmpty) {
+        final newParams = Map<String, String>.from(targetUri.queryParameters);
+        newParams['token'] = freshToken;
+        targetUri = targetUri.replace(queryParameters: newParams);
+      }
+      final downloadUrl = targetUri.toString();
 
-      // Загружаем аудио-файл
-      await _player.setAudioSource(AudioSource.file(localFilePath));
+      debugPrint(
+          '⬇️ [Audio Download] Downloading for playback: $downloadUrl -> $localFilePath');
+
+      final dio = Dio();
+      (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
+        final client = HttpClient();
+        client.badCertificateCallback =
+            (X509Certificate cert, String host, int port) => true;
+        return client;
+      };
+
+      final response = await dio.download(
+        downloadUrl,
+        localFilePath,
+        options: Options(
+          headers: freshToken != null && freshToken.isNotEmpty
+              ? {'Authorization': 'Bearer $freshToken'}
+              : {},
+        ),
+      );
+
+      if (response.statusCode == 200 && await file.exists()) {
+        debugPrint(
+            '✅ [Audio Download] Completed (${await file.length()} bytes): $localFilePath');
+        return localFilePath;
+      }
+    } catch (e, stack) {
+      debugPrint(
+          '⚠️ [Audio Download Error] Failed to download ($url): $e\n$stack');
+    }
+
+    return url;
+  }
+
+  Future<MediaItem> _createMediaItem(PlaybackItem item) async => MediaItem(
+        id: item.url,
+        album: item.subtitle.isNotEmpty ? item.subtitle : 'Xaneo Music',
+        title: item.title.isNotEmpty ? item.title : 'Аудиозапись',
+        artist: item.subtitle.isNotEmpty ? item.subtitle : 'Xaneo',
+        duration: item.duration != null && item.duration! > Duration.zero
+            ? item.duration
+            : null,
+        artUri: await MediaArtworkService.instance.artworkFor(
+          trackId: item.url,
+          title: item.title,
+          source: item.artUri,
+        ),
+      );
+
+  Future<AudioSource> _createAudioSource(PlaybackItem item) async {
+    final mediaItem = await _createMediaItem(item);
+
+    final localPath = await _ensureLocalFile(item.url, mimeType: item.mimeType);
+    if (!localPath.startsWith('http')) {
+      final file = File(localPath);
+      if (await file.exists()) {
+        return AudioSource.file(localPath, tag: mediaItem);
+      }
+    }
+
+    return AudioSource.uri(Uri.parse(item.url), tag: mediaItem);
+  }
+
+  Future<void> play(
+    String url,
+    String title,
+    String subtitle, {
+    String? mimeType,
+    Duration? duration,
+    Uri? artUri,
+  }) async {
+    debugPrint(
+        '▶️ [Playback.play] url=$url, title="$title", subtitle="$subtitle", mimeType=$mimeType, duration=$duration, artUri=$artUri');
+
+    if (_currentAudioUrl == url) {
+      _togglePlay();
+      return;
+    }
+
+    if (_playlist.isNotEmpty) {
+      final playlistIndex = _playlist.indexWhere((item) => item.url == url);
+      if (playlistIndex != -1) {
+        await playItemAtIndex(playlistIndex);
+        return;
+      }
+    }
+
+    await stop();
+
+    _currentAudioUrl = url;
+    _title = title;
+    _subtitle = subtitle;
+    _isLoading = true;
+    _duration = duration ?? Duration.zero;
+    notifyListeners();
+
+    try {
+      final item = PlaybackItem(
+        url: url,
+        title: title,
+        subtitle: subtitle,
+        mimeType: mimeType,
+        duration: duration,
+        artUri: artUri,
+      );
+
+      final audioSource = await _createAudioSource(item);
+      final mediaItem = await _createMediaItem(item);
+      debugPrint('🎵 [Playback.play] Setting AudioSource: $audioSource');
+      await _audioHandler.loadSingle(source: audioSource, item: mediaItem);
+      await _audioHandler.setRepeatMode(_toAudioServiceRepeatMode(_loopMode));
+      await _audioHandler.setShuffleMode(
+        _isShuffle ? AudioServiceShuffleMode.all : AudioServiceShuffleMode.none,
+      );
 
       _isInitialized = true;
       _isLoading = false;
@@ -239,21 +371,21 @@ class PlaybackProvider extends ChangeNotifier {
 
       await _player.play();
       notifyListeners();
-    } catch (e) {
-      debugPrint('❌ Playback error: $e');
-      if (_currentFilePath != null) {
-        try {
-          final file = File(_currentFilePath!);
-          if (await file.exists()) {
-            await file.delete();
-            debugPrint('🗑️ Deleted corrupt file: $_currentFilePath');
-          }
-        } catch (_) {}
+    } catch (e, stackTrace) {
+      debugPrint('❌ [Playback Error on play] url=$url: $e');
+      debugPrint('❌ [Error Type]: ${e.runtimeType}');
+      if (e is PlayerException) {
+        debugPrint(
+            '❌ [PlayerException]: code=${e.code}, message="${e.message}"');
       }
+      if (e is PlatformException) {
+        debugPrint(
+            '❌ [PlatformException]: code=${e.code}, message="${e.message}", details=${e.details}');
+      }
+      debugPrint('❌ [StackTrace]:\n$stackTrace');
       _isLoading = false;
       _isInitialized = false;
       _currentAudioUrl = null;
-      _currentFilePath = null;
       notifyListeners();
     }
   }
@@ -303,9 +435,8 @@ class PlaybackProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> playVideo(String url, String title, String subtitle, {
-    Duration? duration
-  }) async {
+  Future<void> playVideo(String url, String title, String subtitle,
+      {Duration? duration}) async {
     if (_currentAudioUrl == url && _isVideo) {
       _togglePlay();
       return;
@@ -330,17 +461,6 @@ class PlaybackProvider extends ChangeNotifier {
     }
   }
 
-  /// Лёгкое "превью" позиции во время драга слайдера.
-  ///
-  /// НЕ трогает плеер и НЕ пересоздаёт AudioSource — просто обновляет
-  /// локальную _position, чтобы UI (слайдер, таймер) реагировал мгновенно
-  /// на каждое движение пальца. Реальный seek() с пересозданием делаем
-  /// один раз, когда палец отпущен (onChangeEnd / onHorizontalDragEnd).
-  ///
-  /// Это нужно, потому что seek() — тяжёлая операция (пересоздание
-  /// AudioSource из файла), и если дёргать её на каждый пиксель драга,
-  /// guard _isSeeking будет отбрасывать почти все вызовы, и слайдер
-  /// будет казаться "залипшим"/неотзывчивым.
   void seekPreview(Duration pos) {
     if (!_isInitialized) return;
     if (_duration == Duration.zero) return;
@@ -351,67 +471,72 @@ class PlaybackProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Seek: пересоздаём AudioSource из кэшированного файла и стартуем с нужной позиции.
-  /// ExoPlayer (Android) игнорирует _player.seek() для WebM/Opus файлов,
-  /// поэтому пересоздание — единственный надёжный способ.
-  ///
-  /// Это "тяжёлый" метод — вызывать его стоит только один раз на жест
-  /// (по отпусканию пальца), а не на каждое промежуточное движение.
-  /// Для промежуточных обновлений UI во время драга используйте seekPreview().
   Future<void> seek(Duration pos) async {
     if (!_isInitialized || _isSeeking) return;
     if (_duration == Duration.zero) return;
     if (pos > _duration) pos = _duration;
-    if (_currentFilePath == null) return;
+    if (pos < Duration.zero) pos = Duration.zero;
 
     _isSeeking = true;
-
     _position = pos;
     notifyListeners();
-    await _restartFrom(pos);
 
-    // Запоминаем целевую позицию — следующие ~600ms positionStream
-    // будет сверяться с ней, чтобы отфильтровать хвостовые события
-    // от пересоздаваемого AudioSource (см. _positionSub listener выше).
+    try {
+      await _player.seek(pos);
+    } catch (_) {
+      await _restartFrom(pos);
+    }
+
     _seekTargetPosition = pos;
     _seekCompletedAt = DateTime.now();
-
     _isSeeking = false;
   }
 
-  /// Пересоздаём плюер с нужной стартовой позицией (для seek, restart и toggle).
-  /// Имеет свой try/catch, т.к. _togglePlay/resume вызывают без await.
-  ///
-  /// ВАЖНО: после setAudioSource() именно await не гарантирует, что
-  /// ExoPlayer (Android) уже готов принимать точный seek — он может
-  /// формально вернуть управление, пока сам декодер ещё не settled.
-  /// Если в этот момент вызвать seek()+play(), позиция иногда "уезжает"
-  /// почти к нулю, хотя API уже отрапортовал успех. Поэтому явно ждём
-  /// processingState == ready через стрим, прежде чем сикать.
   Future<void> _restartFrom(Duration pos) async {
-    if (_currentFilePath == null) return;
-
     try {
-      await _player.setAudioSource(AudioSource.file(_currentFilePath!));
-
-      // Ждём, пока плеер реально готов (а не просто вернул управление из await)
-      if (_player.processingState != ProcessingState.ready &&
-          _player.processingState != ProcessingState.completed) {
-        await _player.playerStateStream
-            .firstWhere((state) =>
-                state.processingState == ProcessingState.ready ||
-                state.processingState == ProcessingState.completed)
-            .timeout(
-              const Duration(seconds: 5),
-              onTimeout: () => _player.playerState,
-            );
-      }
-
       await _player.seek(pos);
       await _player.play();
     } catch (e) {
       debugPrint('❌ _restartFrom error: $e');
     }
+  }
+
+  void toggleLoopMode() {
+    switch (_loopMode) {
+      case LoopMode.off:
+        _loopMode = LoopMode.all;
+        break;
+      case LoopMode.all:
+        _loopMode = LoopMode.one;
+        break;
+      case LoopMode.one:
+        _loopMode = LoopMode.off;
+        break;
+    }
+    _audioHandler.setRepeatMode(_toAudioServiceRepeatMode(_loopMode));
+    notifyListeners();
+  }
+
+  void setLoopMode(LoopMode mode) {
+    _loopMode = mode;
+    _audioHandler.setRepeatMode(_toAudioServiceRepeatMode(mode));
+    notifyListeners();
+  }
+
+  void toggleShuffle() {
+    _isShuffle = !_isShuffle;
+    _audioHandler.setShuffleMode(
+      _isShuffle ? AudioServiceShuffleMode.all : AudioServiceShuffleMode.none,
+    );
+    notifyListeners();
+  }
+
+  void setShuffle(bool enabled) {
+    _isShuffle = enabled;
+    _audioHandler.setShuffleMode(
+      enabled ? AudioServiceShuffleMode.all : AudioServiceShuffleMode.none,
+    );
+    notifyListeners();
   }
 
   void setPlaylist(List<PlaybackItem> items, {String? initialUrl}) {
@@ -426,22 +551,100 @@ class PlaybackProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> playFromPlaylist(
+    List<PlaybackItem> items, {
+    required String selectedUrl,
+  }) async {
+    if (items.isEmpty) return;
+    final index = items.indexWhere((item) => item.url == selectedUrl);
+    if (index < 0) return;
+
+    final queueAlreadyLoaded = _playlist.length == items.length &&
+        _playlist.asMap().entries.every(
+              (entry) => entry.value.url == items[entry.key].url,
+            ) &&
+        _player.sequence.length == items.length;
+
+    setPlaylist(items, initialUrl: selectedUrl);
+    if (queueAlreadyLoaded && _currentAudioUrl == selectedUrl) {
+      _togglePlay();
+      return;
+    }
+    await playItemAtIndex(index);
+  }
+
   Future<void> playItemAtIndex(int index) async {
     if (index < 0 || index >= _playlist.length) return;
     _currentIndex = index;
     final item = _playlist[index];
-    await play(
-      item.url,
-      item.title,
-      item.subtitle,
-      mimeType: item.mimeType,
-      duration: item.duration,
-    );
+    _currentAudioUrl = item.url;
+    _title = item.title;
+    _subtitle = item.subtitle;
+    _isLoading = true;
+    _duration = item.duration ?? Duration.zero;
+    notifyListeners();
+
+    debugPrint(
+        '▶️ [playItemAtIndex] index=$index, title="${item.title}", url="${item.url}", totalTracks=${_playlist.length}');
+
+    try {
+      final sources = await Future.wait(
+        _playlist.map((it) => _createAudioSource(it)),
+      );
+      final mediaItems = sources
+          .map((source) => (source as IndexedAudioSource).tag as MediaItem)
+          .toList(growable: false);
+
+      await _audioHandler.loadPlaylist(
+        sources: sources,
+        items: mediaItems,
+        initialIndex: index,
+      );
+      await _audioHandler.setRepeatMode(_toAudioServiceRepeatMode(_loopMode));
+      await _audioHandler.setShuffleMode(
+        _isShuffle ? AudioServiceShuffleMode.all : AudioServiceShuffleMode.none,
+      );
+
+      _isInitialized = true;
+      _isLoading = false;
+      await _player.play();
+      notifyListeners();
+    } catch (e, stackTrace) {
+      debugPrint(
+          '❌ [Playback Error on playItemAtIndex] index=$index, url="${item.url}": $e');
+      debugPrint('❌ [Error Type]: ${e.runtimeType}');
+      if (e is PlayerException) {
+        debugPrint(
+            '❌ [PlayerException]: code=${e.code}, message="${e.message}"');
+      }
+      if (e is PlatformException) {
+        debugPrint(
+            '❌ [PlatformException]: code=${e.code}, message="${e.message}", details=${e.details}');
+      }
+      debugPrint('❌ [StackTrace]:\n$stackTrace');
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> playNext() async {
-    if (_playlist.isNotEmpty && _currentIndex < _playlist.length - 1) {
-      await playItemAtIndex(_currentIndex + 1);
+    if (_player.hasNext || _loopMode == LoopMode.all) {
+      await _audioHandler.skipToNext();
+    } else if (_playlist.length > 1) {
+      if (_isShuffle) {
+        final nextIndices = List<int>.generate(_playlist.length, (i) => i)
+          ..remove(_currentIndex);
+        nextIndices.shuffle();
+        if (nextIndices.isNotEmpty) {
+          await playItemAtIndex(nextIndices.first);
+          return;
+        }
+      }
+      if (_currentIndex < _playlist.length - 1) {
+        await playItemAtIndex(_currentIndex + 1);
+      } else if (_loopMode == LoopMode.all) {
+        await playItemAtIndex(0);
+      }
     }
   }
 
@@ -450,18 +653,25 @@ class PlaybackProvider extends ChangeNotifier {
       await seek(Duration.zero);
       return;
     }
-    if (_playlist.isNotEmpty && _currentIndex > 0) {
-      await playItemAtIndex(_currentIndex - 1);
+    if (_player.hasPrevious || _loopMode == LoopMode.all) {
+      await _audioHandler.skipToPrevious();
+    } else if (_playlist.length > 1) {
+      if (_currentIndex > 0) {
+        await playItemAtIndex(_currentIndex - 1);
+      } else if (_loopMode == LoopMode.all) {
+        await playItemAtIndex(_playlist.length - 1);
+      } else {
+        await seek(Duration.zero);
+      }
     } else {
       await seek(Duration.zero);
     }
   }
 
   Future<void> stop() async {
-    await _player.stop();
+    await _audioHandler.stop();
 
     _currentAudioUrl = null;
-    _currentFilePath = null;
     _title = '';
     _subtitle = '';
     _isPlaying = false;
@@ -494,10 +704,21 @@ class PlaybackProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _playbackEventSub?.cancel();
     _playerStateSub?.cancel();
+    _currentIndexSub?.cancel();
     _positionSub?.cancel();
     _durationSub?.cancel();
-    _player.dispose();
+    _loopModeSub?.cancel();
+    _shuffleModeSub?.cancel();
+    _audioHandler.disposeHandler();
     super.dispose();
   }
+
+  AudioServiceRepeatMode _toAudioServiceRepeatMode(LoopMode mode) =>
+      switch (mode) {
+        LoopMode.off => AudioServiceRepeatMode.none,
+        LoopMode.one => AudioServiceRepeatMode.one,
+        LoopMode.all => AudioServiceRepeatMode.all,
+      };
 }

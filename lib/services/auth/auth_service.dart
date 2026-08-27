@@ -4,7 +4,6 @@ import 'package:dio/dio.dart';
 import '../../config/app_config.dart';
 import '../../models/auth/api_error.dart';
 import '../../models/auth/auth_response.dart';
-import '../../models/auth/recent_account.dart';
 import '../../models/auth/user_model.dart';
 import 'token_storage.dart';
 import '../api/api_client.dart';
@@ -57,10 +56,20 @@ class AuthService {
 
       // Если вход успешен (без 2FA)
       if (mobileResponse.isSuccess) {
-        // Сохраняем данные пользователя (без токенов)
-        if (mobileResponse.userInfo != null) {
-          await _tokenStorage.saveUserData(mobileResponse.userInfo!.toJson());
+        final user = mobileResponse.userInfo;
+        final access = mobileResponse.accessToken;
+        final refresh = mobileResponse.refreshToken;
+        if (user == null || access == null || refresh == null) {
+          throw const ApiError(
+            message: 'Сервер не вернул полную сессию авторизации',
+          );
         }
+        await _tokenStorage.saveAccountSession(
+          userData: user.toJson(),
+          accessToken: access,
+          refreshToken: refresh,
+          deviceGrant: mobileResponse.deviceGrant,
+        );
         return MobileLoginResult.fromSuccess(mobileResponse);
       }
 
@@ -73,6 +82,7 @@ class AuthService {
       debugPrint('=== Mobile Login DioException ===');
       debugPrint('Type: ${e.type}');
       debugPrint('Message: ${e.message}');
+      debugPrint('Underlying error: ${e.error}');
       debugPrint('Response: ${e.response?.data}');
       throw _handleDioError(e);
     }
@@ -202,6 +212,10 @@ class AuthService {
         accessToken: access,
         refreshToken: refresh,
         user: user,
+        deviceGrant: data['device_grant'] as String?,
+        xsec2: data['xsec2'] is Map
+            ? Map<String, dynamic>.from(data['xsec2'] as Map)
+            : null,
       );
       await _saveAuthData(authResponse);
       return authResponse;
@@ -262,28 +276,23 @@ class AuthService {
 
       // Сохраняем токены авторизации и данные пользователя
       if (registerResponse.success) {
-        final access =
-            response.data['access'] ?? response.data['tokens']?['access'];
-        final refresh =
-            response.data['refresh'] ?? response.data['tokens']?['refresh'];
-
-        if (access != null && access is String) {
-          await _tokenStorage.saveAccessToken(access);
-        }
-        if (refresh != null && refresh is String) {
-          await _tokenStorage.saveRefreshToken(refresh);
-        }
-
-        if (registerResponse.userId != null) {
-          await _tokenStorage.saveUserData({
-            'id': registerResponse.userId,
-            'username': registerResponse.username,
-            'email': registerResponse.email,
-            'first_name': registerResponse.firstName,
-            'has_avatar': registerResponse.hasAvatar ?? (avatarFile != null),
-            if (registerResponse.avatarUrl != null)
-              'avatar': registerResponse.avatarUrl,
-          });
+        if (registerResponse.userId != null &&
+            registerResponse.accessToken != null &&
+            registerResponse.refreshToken != null) {
+          await _tokenStorage.saveAccountSession(
+            userData: {
+              'id': registerResponse.userId,
+              'username': registerResponse.username,
+              'email': registerResponse.email,
+              'first_name': registerResponse.firstName,
+              'has_avatar': registerResponse.hasAvatar ?? (avatarFile != null),
+              if (registerResponse.avatarUrl != null)
+                'avatar': registerResponse.avatarUrl,
+            },
+            accessToken: registerResponse.accessToken!,
+            refreshToken: registerResponse.refreshToken!,
+            deviceGrant: registerResponse.deviceGrant,
+          );
         }
       }
 
@@ -422,15 +431,18 @@ class AuthService {
 
   /// Выход из системы
   Future<void> logout() async {
-    await _tokenStorage.clearAll();
+    await _tokenStorage.clearActiveSession();
     _apiClient.clearAuth();
   }
 
   /// Сохранение данных авторизации
   Future<void> _saveAuthData(AuthResponse authResponse) async {
-    await _tokenStorage.saveAccessToken(authResponse.accessToken);
-    await _tokenStorage.saveRefreshToken(authResponse.refreshToken);
-    await _tokenStorage.saveUserData(authResponse.user.toJson());
+    await _tokenStorage.saveAccountSession(
+      userData: authResponse.user.toJson(),
+      accessToken: authResponse.accessToken,
+      refreshToken: authResponse.refreshToken,
+      deviceGrant: authResponse.deviceGrant,
+    );
   }
 
   /// Обработка ошибок Dio
@@ -478,18 +490,6 @@ class AuthService {
 
   // ==================== Недавние аккаунты ====================
 
-  /// Получение недавних аккаунтов для устройства
-  ///
-  /// Возвращает список аккаунтов, в которые ранее входили на этом устройстве
-  Future<RecentAccountsResponse> getRecentAccounts() async {
-    try {
-      final response = await _apiClient.get(AppConfig.authRecentAccounts);
-      return RecentAccountsResponse.fromJson(response.data);
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    }
-  }
-
   /// Быстрый вход в аккаунт
   ///
   /// Проверяет, входил ли пользователь с этого устройства ранее.
@@ -504,13 +504,22 @@ class AuthService {
   /// - requiresTfa: true если требуется код 2FA
   /// - userInfo: данные пользователя
   Future<QuickLoginResponse> quickLogin({
-    required int userId,
+    required String accountKey,
     String? tfaCode,
+    String? challengeId,
   }) async {
     try {
+      final deviceGrant = await _tokenStorage.getDeviceGrant(accountKey);
+      if (deviceGrant == null || deviceGrant.isEmpty) {
+        throw const ApiError(
+          message: 'Сохранённый вход недействителен или истёк',
+          code: 'INVALID_DEVICE_GRANT',
+        );
+      }
       final data = <String, dynamic>{
-        'user_id': userId,
+        'device_grant': deviceGrant,
         if (tfaCode != null) 'tfa_code': tfaCode,
+        if (challengeId != null) 'challenge_id': challengeId,
       };
 
       final response = await _apiClient.post(
@@ -520,19 +529,35 @@ class AuthService {
 
       final quickLoginResponse = QuickLoginResponse.fromJson(response.data);
 
-      // Если вход успешен, сохраняем данные пользователя
-      if (quickLoginResponse.success && quickLoginResponse.userInfo != null) {
-        await _tokenStorage.saveUserData({
-          'id': quickLoginResponse.userInfo!.id,
-          'username': quickLoginResponse.userInfo!.username,
-          'email': quickLoginResponse.userInfo!.email,
-          'first_name': quickLoginResponse.userInfo!.firstName,
-          'is_verified': quickLoginResponse.userInfo!.isVerified,
-          'tfa_enabled': quickLoginResponse.userInfo!.tfaEnabled,
-          'has_avatar': quickLoginResponse.userInfo!.hasAvatar,
-          if (quickLoginResponse.userInfo!.avatarUrl != null)
-            'avatar': quickLoginResponse.userInfo!.avatarUrl,
-        });
+      if (quickLoginResponse.success) {
+        final user = quickLoginResponse.userInfo;
+        final access = quickLoginResponse.accessToken;
+        final refresh = quickLoginResponse.refreshToken;
+        final replacementGrant = quickLoginResponse.deviceGrant;
+        if (user?.id == null ||
+            access == null ||
+            refresh == null ||
+            replacementGrant == null) {
+          throw const ApiError(
+            message: 'Сервер не вернул полную сессию быстрого входа',
+          );
+        }
+        await _tokenStorage.saveAccountSession(
+          userData: {
+            'id': quickLoginResponse.userInfo!.id,
+            'username': quickLoginResponse.userInfo!.username,
+            'email': quickLoginResponse.userInfo!.email,
+            'first_name': quickLoginResponse.userInfo!.firstName,
+            'is_verified': quickLoginResponse.userInfo!.isVerified,
+            'tfa_enabled': quickLoginResponse.userInfo!.tfaEnabled,
+            'has_avatar': quickLoginResponse.userInfo!.hasAvatar,
+            if (quickLoginResponse.userInfo!.avatarUrl != null)
+              'avatar': quickLoginResponse.userInfo!.avatarUrl,
+          },
+          accessToken: access,
+          refreshToken: refresh,
+          deviceGrant: replacementGrant,
+        );
       }
 
       return quickLoginResponse;
@@ -541,39 +566,20 @@ class AuthService {
     }
   }
 
-  /// Быстрый вход с получением JWT токенов
-  ///
-  /// После успешного quickLogin нужно вызвать этот метод для получения токенов.
-  /// Использует обычный login endpoint с сохранёнными credentials.
-  ///
-  /// ВНИМАНИЕ: Этот метод не должен использоваться напрямую!
-  /// Быстрый вход не требует пароля, поэтому токены выдаются сервером
-  /// в ответе quickLogin если вход успешен.
-  Future<AuthResponse?> getTokensAfterQuickLogin({
-    required int userId,
-    required String deviceToken,
-  }) async {
-    try {
-      final response = await _apiClient.post(
-        AppConfig.authQuickLogin,
-        data: {
-          'user_id': userId,
-          'device_token': deviceToken,
-          'get_tokens': true,
-        },
-      );
-
-      // Если сервер вернул токены
-      if (response.data['access'] != null && response.data['refresh'] != null) {
-        final authResponse = AuthResponse.fromJson(response.data);
-        await _saveAuthData(authResponse);
-        return authResponse;
+  Future<void> removeSavedAccount(String accountKey) async {
+    final grant = await _tokenStorage.getDeviceGrant(accountKey);
+    if (grant != null && grant.isNotEmpty) {
+      try {
+        await _apiClient.post(
+          AppConfig.authRevokeDeviceGrant,
+          data: {'device_grant': grant},
+        );
+      } catch (error) {
+        debugPrint('Could not revoke saved account grant: $error');
+        rethrow;
       }
-
-      return null;
-    } on DioException catch (e) {
-      throw _handleDioError(e);
     }
+    await _tokenStorage.removeAccount(accountKey);
   }
 
   /// Регистрация FCM пуш-токена на бэкенде
@@ -595,9 +601,27 @@ class AuthService {
     }
   }
 
+  /// Обновляет видимое создающему клиенту состояние сканирования QR-кода.
+  Future<bool> updateQrScanState({
+    required String token,
+    required String action,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        AppConfig.authQrScan,
+        data: {'token': token, 'action': action},
+      );
+      return response.data['success'] == true;
+    } on DioException catch (e) {
+      debugPrint('QR scan state error: ${e.error ?? e.message}');
+      return false;
+    }
+  }
+
   /// Подтверждение входа по QR-коду
   Future<bool> approveQrLogin({
     required String token,
+    required bool confirmed,
     Map<String, dynamic>? transferPayload,
   }) async {
     try {
@@ -605,6 +629,7 @@ class AuthService {
         AppConfig.authQrApprove,
         data: {
           'token': token,
+          'confirmed': confirmed,
           'transfer_payload': transferPayload,
         },
       );

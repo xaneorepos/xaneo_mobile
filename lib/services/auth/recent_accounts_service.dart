@@ -1,197 +1,113 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:dio/dio.dart';
+
 import '../../config/app_config.dart';
 import '../../models/auth/recent_account.dart';
 import '../api/api_client.dart';
+import 'token_storage.dart';
 
-/// Сервис для управления недавними аккаунтами
-/// 
-/// Функционал:
-/// - Получение недавних аккаунтов с сервера
-/// - Локальное хранение недавних аккаунтов
-/// - Синхронизация между сервером и локальным хранилищем
+/// Reconciles display-only account metadata with server-validated grants.
+/// Authentication remains impossible without the secret kept by TokenStorage.
 class RecentAccountsService {
   final ApiClient _apiClient;
-  final FlutterSecureStorage _storage;
-
-  /// Ключ для хранения недавних аккаунтов
-  static const String _recentAccountsKey = 'recent_accounts';
-  
-  /// Ключ для хранения времени последней синхронизации
-  static const String _lastSyncKey = 'recent_accounts_last_sync';
+  final TokenStorage _tokenStorage;
 
   RecentAccountsService({
     required ApiClient apiClient,
-    FlutterSecureStorage? storage,
+    required TokenStorage tokenStorage,
   })  : _apiClient = apiClient,
-        _storage = storage ?? const FlutterSecureStorage();
+        _tokenStorage = tokenStorage;
 
-  /// Получение недавних аккаунтов с сервера
+  Future<List<RecentAccount>> getLocalRecentAccounts() async {
+    final accounts = await _tokenStorage.getStoredAccounts();
+    return Future.wait(accounts.map((account) async {
+      final user = account.userData;
+      return RecentAccount(
+        accountKey: account.accountKey,
+        grantId: await _tokenStorage.getGrantId(account.accountKey),
+        id: account.userId!,
+        username: account.username,
+        email: account.email,
+        firstName: user['first_name']?.toString(),
+        avatar: (user['avatar'] ?? user['avatar_url'])?.toString(),
+        avatarGradient: user['avatar_gradient']?.toString(),
+        hasAvatar: user['has_avatar'] == true ||
+            (user['avatar']?.toString().isNotEmpty ?? false),
+        lastLogin: account.lastUsedAt,
+        firstLogin: account.lastUsedAt,
+      );
+    }));
+  }
+
   Future<RecentAccountsResponse> getRecentAccounts() async {
+    final grantsByAccount = await _tokenStorage.getAccountGrants();
+    if (grantsByAccount.isEmpty) {
+      return const RecentAccountsResponse(success: true);
+    }
+
     try {
-      final response = await _apiClient.get(AppConfig.authRecentAccounts);
-      return RecentAccountsResponse.fromJson(response.data);
-    } catch (e) {
-      debugPrint('Error getting recent accounts: $e');
+      final response = await _apiClient.get(
+        AppConfig.authRecentAccounts,
+        options: Options(headers: {
+          'X-Device-Grants': grantsByAccount.values.join(','),
+        }),
+      );
+      final parsed = RecentAccountsResponse.fromJson(
+        Map<String, dynamic>.from(response.data as Map),
+      );
+      final accountByGrantId = <String, String>{};
+      for (final entry in grantsByAccount.entries) {
+        final separator = entry.value.indexOf('.');
+        if (separator > 0) {
+          accountByGrantId[entry.value.substring(0, separator)] = entry.key;
+        }
+      }
+      final validated = parsed.recentAccounts
+          .map((item) => item.copyWith(
+                accountKey: accountByGrantId[item.grantId] ?? item.accountKey,
+                isAvailable: true,
+              ))
+          .where((item) => item.accountKey.isNotEmpty)
+          .toList();
+      final validatedKeys = validated.map((item) => item.accountKey).toSet();
+      final localOnly = (await getLocalRecentAccounts())
+          .where((item) => !validatedKeys.contains(item.accountKey))
+          .map((item) => item.copyWith(isAvailable: false));
+      final reconciled = [...validated, ...localOnly]
+        ..sort((a, b) => b.lastLogin.compareTo(a.lastLogin));
+      return RecentAccountsResponse(
+        success: parsed.success,
+        recentAccounts: reconciled,
+        count: reconciled.length,
+        error: parsed.error,
+      );
+    } catch (error) {
+      debugPrint('Recent accounts validation failed: $error');
+      final local = await getLocalRecentAccounts();
       return RecentAccountsResponse(
         success: false,
-        error: e.toString(),
+        recentAccounts:
+            local.map((item) => item.copyWith(isAvailable: false)).toList(),
+        count: local.length,
+        error: error.toString(),
       );
     }
   }
 
-  /// Получение недавних аккаунтов из локального хранилища
-  Future<List<RecentAccount>> getLocalRecentAccounts() async {
-    try {
-      final jsonString = await _storage.read(key: _recentAccountsKey);
-      if (jsonString == null || jsonString.isEmpty) {
-        return [];
-      }
-
-      final List<dynamic> jsonList = jsonDecode(jsonString) as List<dynamic>;
-      return jsonList
-          .map((e) => RecentAccount.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } catch (e) {
-      debugPrint('Error reading local recent accounts: $e');
-      return [];
-    }
-  }
-
-  /// Сохранение аккаунта локально
-  Future<void> saveAccountLocally(RecentAccount account) async {
-    try {
-      final accounts = await getLocalRecentAccounts();
-      
-      // Удаляем существующий аккаунт с таким же ID
-      accounts.removeWhere((a) => a.id == account.id);
-      
-      // Добавляем аккаунт в начало списка
-      accounts.insert(0, account);
-      
-      // Ограничиваем количество аккаунтов (максимум 5)
-      final limitedAccounts = accounts.take(5).toList();
-      
-      // Сохраняем
-      await _saveAccounts(limitedAccounts);
-    } catch (e) {
-      debugPrint('Error saving account locally: $e');
-    }
-  }
-
-  /// Удаление аккаунта из локального хранилища
-  Future<void> removeAccountLocally(int userId) async {
-    try {
-      final accounts = await getLocalRecentAccounts();
-      accounts.removeWhere((a) => a.id == userId);
-      await _saveAccounts(accounts);
-    } catch (e) {
-      debugPrint('Error removing account locally: $e');
-    }
-  }
-
-  /// Очистка всех локальных аккаунтов
-  Future<void> clearLocalAccounts() async {
-    try {
-      await _storage.delete(key: _recentAccountsKey);
-      await _storage.delete(key: _lastSyncKey);
-    } catch (e) {
-      debugPrint('Error clearing local accounts: $e');
-    }
-  }
-
-  /// Синхронизация с сервером
-  /// 
-  /// Алгоритм:
-  /// 1. Получаем аккаунты с сервера
-  /// 2. Получаем локальные аккаунты
-  /// 3. Объединяем, убирая дубликаты
-  /// 4. Удаляем аккаунты, которых нет на сервере (были удалены)
   Future<List<RecentAccount>> syncWithServer() async {
-    try {
-      // Получаем данные с сервера
-      final serverResponse = await getRecentAccounts();
-      if (!serverResponse.success) {
-        // Если ошибка, возвращаем локальные данные
-        return await getLocalRecentAccounts();
-      }
-
-      final serverAccounts = serverResponse.recentAccounts;
-      final localAccounts = await getLocalRecentAccounts();
-
-      // Создаём мапу для быстрого поиска
-      final serverIds = serverAccounts.map((a) => a.id).toSet();
-
-      // Фильтруем локальные аккаунты, оставляя только те, что есть на сервере
-      final validLocalAccounts = localAccounts
-          .where((a) => serverIds.contains(a.id))
-          .toList();
-
-      // Объединяем: серверные данные приоритетнее
-      final mergedMap = <int, RecentAccount>{};
-      
-      // Сначала добавляем локальные (если есть дополнительные данные)
-      for (final account in validLocalAccounts) {
-        mergedMap[account.id] = account;
-      }
-      
-      // Затем обновляем данными с сервера
-      for (final account in serverAccounts) {
-        mergedMap[account.id] = account;
-      }
-
-      // Преобразуем в список и сортируем по lastLogin
-      final mergedAccounts = mergedMap.values.toList()
-        ..sort((a, b) => b.lastLogin.compareTo(a.lastLogin));
-
-      // Сохраняем
-      await _saveAccounts(mergedAccounts);
-      
-      // Сохраняем время синхронизации
-      await _storage.write(
-        key: _lastSyncKey,
-        value: DateTime.now().toIso8601String(),
-      );
-
-      return mergedAccounts;
-    } catch (e) {
-      debugPrint('Error syncing with server: $e');
-      return await getLocalRecentAccounts();
-    }
+    final response = await getRecentAccounts();
+    return response.recentAccounts;
   }
 
-  /// Проверка, нужно ли синхронизировать
-  Future<bool> needsSync() async {
-    try {
-      final lastSyncStr = await _storage.read(key: _lastSyncKey);
-      if (lastSyncStr == null) return true;
-
-      final lastSync = DateTime.parse(lastSyncStr);
-      final now = DateTime.now();
-      
-      // Синхронизируем не чаще раза в час
-      return now.difference(lastSync).inHours >= 1;
-    } catch (e) {
-      return true;
-    }
+  Future<void> removeAccountLocally(String accountKey) {
+    return _tokenStorage.removeAccount(accountKey);
   }
 
-  /// Получение времени последней синхронизации
-  Future<DateTime?> getLastSyncTime() async {
-    try {
-      final lastSyncStr = await _storage.read(key: _lastSyncKey);
-      if (lastSyncStr == null) return null;
-      return DateTime.parse(lastSyncStr);
-    } catch (e) {
-      return null;
-    }
-  }
+  Future<void> clearLocalAccounts() => _tokenStorage.clearAll();
 
-  /// Сохранение списка аккаунтов
-  Future<void> _saveAccounts(List<RecentAccount> accounts) async {
-    final jsonList = accounts.map((a) => a.toJson()).toList();
-    final jsonString = jsonEncode(jsonList);
-    await _storage.write(key: _recentAccountsKey, value: jsonString);
-  }
+  // Compatibility: account metadata is committed together with tokens.
+  Future<void> saveAccountLocally(RecentAccount account) async {}
+
+  Future<bool> needsSync() async => true;
+  Future<DateTime?> getLastSyncTime() async => null;
 }

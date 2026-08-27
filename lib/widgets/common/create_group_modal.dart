@@ -7,6 +7,7 @@ import '../../models/chat/chat_model.dart';
 import '../../screens/chat/chat_screen.dart';
 import '../../services/chat/chat_local_repository.dart';
 import '../../services/chat/group_channel_service.dart';
+import '../../services/runtime_translations.dart';
 import '../../styles/app_styles.dart';
 import 'avatar_cropper.dart';
 import 'base_custom_modal.dart';
@@ -91,14 +92,18 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
 
     if (name.isEmpty) {
       setState(() {
-        _errorMessage = (AppLocalizations.of(context)?.vvediteNazvanieGruppy_0a69 ?? 'Fallback');
+        _errorMessage =
+            (AppLocalizations.of(context)?.vvediteNazvanieGruppy_0a69 ??
+                'Fallback');
       });
       return;
     }
 
     if (!_isPrivate && username.isEmpty) {
       setState(() {
-        _errorMessage = (AppLocalizations.of(context)?.dlyaPublichnoyGruppyTrebuetsyaNikneym_15d0 ?? 'Fallback');
+        _errorMessage = (AppLocalizations.of(context)
+                ?.dlyaPublichnoyGruppyTrebuetsyaNikneym_15d0 ??
+            'Fallback');
       });
       return;
     }
@@ -119,8 +124,12 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
 
     if (!mounted) return;
 
-    if (result != null && (result['success'] == true || result['id'] != null || result['group_id'] != null)) {
-      final groupIdRaw = result['id'] ?? result['group_id'] ?? result['chat_id'];
+    if (result != null &&
+        (result['success'] == true ||
+            result['id'] != null ||
+            result['group_id'] != null)) {
+      final groupIdRaw =
+          result['id'] ?? result['group_id'] ?? result['chat_id'];
       final String chatId = groupIdRaw.toString().startsWith('group_')
           ? groupIdRaw.toString()
           : 'group_$groupIdRaw';
@@ -129,19 +138,22 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
         id: chatId,
         name: name,
         avatar: result['avatar']?.toString(),
-        avatarGradient: result['avatar_gradient']?.toString() ?? result['gradient']?.toString(),
+        avatarGradient: result['avatar_gradient']?.toString() ??
+            result['gradient']?.toString(),
         isGroup: true,
         isPersonal: false,
         isChannel: false,
         isFavorites: false,
-        lastMessage: (AppLocalizations.of(context)?.gruppaSozdana_6b3b ?? 'Fallback'),
+        lastMessage:
+            (AppLocalizations.of(context)?.gruppaSozdana_6b3b ?? 'Fallback'),
         lastMessageTime: DateTime.now(),
         otherUser: {
           'members_count': 1,
           'online_count': 1,
           'description': description,
           'username': !_isPrivate ? username.replaceAll('@', '') : null,
-          'avatar_gradient': result['avatar_gradient']?.toString() ?? result['gradient']?.toString(),
+          'avatar_gradient': result['avatar_gradient']?.toString() ??
+              result['gradient']?.toString(),
         },
       );
 
@@ -158,7 +170,10 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
     } else {
       setState(() {
         _isLoading = false;
-        _errorMessage = result?['error']?.toString() ?? result?['message']?.toString() ?? (AppLocalizations.of(context)?.oshibkaPriSozdaniiGruppy_794e ?? 'Fallback');
+        _errorMessage = result?['error']?.toString() ??
+            result?['message']?.toString() ??
+            (AppLocalizations.of(context)?.oshibkaPriSozdaniiGruppy_794e ??
+                'Fallback');
       });
     }
   }
@@ -231,7 +246,8 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    (AppLocalizations.of(context)?.sozdatGruppu_459f ?? 'Fallback'),
+                    (AppLocalizations.of(context)?.sozdatGruppu_459f ??
+                        'Fallback'),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 19,
@@ -242,7 +258,9 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                   ),
                   SizedBox(height: 2),
                   Text(
-                    (AppLocalizations.of(context)?.nazhmiteNaIkonkuChtobyVybrat_af03 ?? 'Fallback'),
+                    (AppLocalizations.of(context)
+                            ?.nazhmiteNaIkonkuChtobyVybrat_af03 ??
+                        'Fallback'),
                     style: TextStyle(
                       color: Color(0xFF999999),
                       fontSize: 12.5,
@@ -263,18 +281,21 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
           controller: _nameController,
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: InputDecoration(
-            hintText: (AppLocalizations.of(context)?.nazvanieGruppy_9a39 ?? 'Fallback'),
+            hintText: (AppLocalizations.of(context)?.nazvanieGruppy_9a39 ??
+                'Fallback'),
             hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 15),
             filled: true,
             fillColor: Colors.white.withOpacity(0.05),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+              borderSide:
+                  BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
             ),
           ),
         ),
@@ -287,18 +308,24 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
           maxLines: 2,
           style: const TextStyle(color: Colors.white, fontSize: 15),
           decoration: InputDecoration(
-            hintText: (AppLocalizations.of(context)?.opisanieNeobyazatelno_7812 ?? 'Fallback'),
+            hintText: RuntimeTranslations.instance.resolve(
+              'messenger.createGroup.descriptionPlaceholder',
+              AppLocalizations.of(context)?.opisanieNeobyazatelno_7812 ??
+                  'Fallback',
+            ),
             hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 15),
             filled: true,
             fillColor: Colors.white.withOpacity(0.05),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+              borderSide:
+                  BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
             ),
           ),
         ),
@@ -326,7 +353,13 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _isPrivate ? (AppLocalizations.of(context)?.privatnayaGruppa_d20e ?? 'Fallback') : (AppLocalizations.of(context)?.publichnayaGruppa_50f8 ?? 'Fallback'),
+                      _isPrivate
+                          ? (AppLocalizations.of(context)
+                                  ?.privatnayaGruppa_d20e ??
+                              'Fallback')
+                          : (AppLocalizations.of(context)
+                                  ?.publichnayaGruppa_50f8 ??
+                              'Fallback'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
@@ -336,8 +369,12 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                     ),
                     Text(
                       _isPrivate
-                          ? (AppLocalizations.of(context)?.vhodTolkoPoPriglasheniyu_97a1 ?? 'Fallback')
-                          : (AppLocalizations.of(context)?.lyuboyMozhetNaytiIVstupit_5e26 ?? 'Fallback'),
+                          ? (AppLocalizations.of(context)
+                                  ?.vhodTolkoPoPriglasheniyu_97a1 ??
+                              'Fallback')
+                          : (AppLocalizations.of(context)
+                                  ?.lyuboyMozhetNaytiIVstupit_5e26 ??
+                              'Fallback'),
                       style: const TextStyle(
                         color: Color(0xFF888888),
                         fontSize: 12,
@@ -367,20 +404,28 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
             controller: _usernameController,
             style: const TextStyle(color: Colors.white, fontSize: 16),
             decoration: InputDecoration(
-              hintText: (AppLocalizations.of(context)?.publichnayaSsylkanikneymMyGroup_6640 ?? 'Fallback'),
-              hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 14.5),
+              hintText: (AppLocalizations.of(context)
+                      ?.publichnayaSsylkanikneymMyGroup_6640 ??
+                  'Fallback'),
+              hintStyle:
+                  const TextStyle(color: Color(0xFF666666), fontSize: 14.5),
               prefixText: '@ ',
-              prefixStyle: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              prefixStyle: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold),
               filled: true,
               fillColor: Colors.white.withOpacity(0.05),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+                borderSide:
+                    BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
               ),
             ),
           ),
@@ -425,7 +470,8 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                     ),
                   )
                 : Text(
-                    (AppLocalizations.of(context)?.sozdatGruppu_459f ?? 'Fallback'),
+                    (AppLocalizations.of(context)?.sozdatGruppu_459f ??
+                        'Fallback'),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

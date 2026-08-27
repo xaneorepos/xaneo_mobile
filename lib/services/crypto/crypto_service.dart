@@ -16,8 +16,8 @@ import '../../config/app_config.dart';
 /// Реализует E2E шифрование с использованием X25519 ECDH + AES-256-GCM
 /// Совместим с веб-клиентом (libsodium-wrappers)
 class CryptoService {
-  static const String _keysStorageKey = 'xsec2_user_keys';
-  static const String _chatKeysCacheKey = 'xsec2_chat_keys_cache';
+  static const String _legacyKeysStorageKey = 'xsec2_user_keys';
+  static const String _legacyChatKeysCacheKey = 'xsec2_chat_keys_cache';
   static const String _rootKeyContext = 'XSEC-2 root key';
   static const bool _logKeyCandidates = true;
 
@@ -71,6 +71,19 @@ class CryptoService {
 
   /// ID текущего пользователя (устанавливается извне)
   String? _currentUserId;
+
+  String get _storageScope {
+    final userId = _currentUserId;
+    if (userId == null || userId.isEmpty) return 'inactive';
+    final server = Uri.parse(AppConfig.apiBaseUrl)
+        .replace(query: null, fragment: null)
+        .toString()
+        .replaceFirst(RegExp(r'/+$'), '');
+    return base64UrlEncode(utf8.encode('$server::$userId')).replaceAll('=', '');
+  }
+
+  String get _keysStorageKey => 'xsec2_user_keys::$_storageScope';
+  String get _chatKeysCacheKey => 'xsec2_chat_keys_cache::$_storageScope';
 
   bool _serverKeysPresentWithoutRecovery = false;
   bool get serverKeysPresentWithoutRecovery =>
@@ -131,7 +144,17 @@ class CryptoService {
 
   /// Загружает ключи пользователя из secure storage
   Future<void> _loadUserKeys() async {
-    final keysJson = await _storage.read(key: _keysStorageKey);
+    var keysJson = await _storage.read(key: _keysStorageKey);
+    if (keysJson == null && _storageScope != 'inactive') {
+      // One-time migration from the pre-multi-account singleton key. It is
+      // consumed immediately so it can never be copied into another account.
+      keysJson = await _storage.read(key: _legacyKeysStorageKey);
+      if (keysJson != null) {
+        await _storage.write(key: _keysStorageKey, value: keysJson);
+        await _storage.delete(key: _legacyKeysStorageKey);
+        await _storage.delete(key: _legacyChatKeysCacheKey);
+      }
+    }
     if (keysJson != null) {
       try {
         _userKeys = jsonDecode(keysJson) as Map<String, dynamic>;
@@ -145,6 +168,10 @@ class CryptoService {
   Future<void> clearAllKeys() async {
     await _storage.delete(key: _keysStorageKey);
     await _storage.delete(key: _chatKeysCacheKey);
+    _clearMemoryCaches();
+  }
+
+  void _clearMemoryCaches() {
     _userKeys = null;
     _chatKeyCache.clear();
     _legacyChatKeyCache.clear();
@@ -160,7 +187,9 @@ class CryptoService {
     _sharedSecretCache.clear();
     _lastSuccessfulDecryptKey.clear();
     _candidateDecryptKeyCache.clear();
+    _decryptedMessageCache.clear();
     _sessionBlobRootKey = null;
+    _serverKeysPresentWithoutRecovery = false;
   }
 
   /// Получает наш публичный ключ
@@ -169,6 +198,24 @@ class CryptoService {
   /// Устанавливает ID текущего пользователя
   void setCurrentUserId(String userId) {
     _currentUserId = userId;
+  }
+
+  /// Atomically changes the cryptographic identity used by this service.
+  /// No decrypted data or in-flight cache is retained across the boundary.
+  Future<void> activateAccountScope(String userId) async {
+    if (_currentUserId == userId && _initialized) return;
+    _clearMemoryCaches();
+    _initialized = false;
+    _currentUserId = userId;
+    if (userId.isNotEmpty) {
+      await init();
+    }
+  }
+
+  Future<void> deactivateAccountScope() async {
+    _clearMemoryCaches();
+    _initialized = false;
+    _currentUserId = null;
   }
 
   // ================================================================
@@ -187,29 +234,29 @@ class CryptoService {
     }
 
     final future = () async {
-    try {
-      final response = await _apiClient.get(
-        '/xsec2/keys/$userId/',
-        options:
-            Options(validateStatus: (status) => status != null && status < 500),
-      );
+      try {
+        final response = await _apiClient.get(
+          '/xsec2/keys/$userId/',
+          options: Options(
+              validateStatus: (status) => status != null && status < 500),
+        );
 
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data as Map<String, dynamic>;
-        if (data['success'] == true) {
-          _userPublicKeyCache[userId] = data;
-          return data;
+        if (response.statusCode == 200 && response.data != null) {
+          final data = response.data as Map<String, dynamic>;
+          if (data['success'] == true) {
+            _userPublicKeyCache[userId] = data;
+            return data;
+          }
+        } else if (response.statusCode == 404) {
+          debugPrint('XSEC-2: User key not found for userId=$userId');
+          _userPublicKeyCache[userId] = null;
+          return null;
         }
-      } else if (response.statusCode == 404) {
-        debugPrint('XSEC-2: User key not found for userId=$userId');
-        _userPublicKeyCache[userId] = null;
-        return null;
+      } catch (e) {
+        debugPrint('XSEC-2: Error fetching user public key: $e');
       }
-    } catch (e) {
-      debugPrint('XSEC-2: Error fetching user public key: $e');
-    }
-    _userPublicKeyCache[userId] = null;
-    return null;
+      _userPublicKeyCache[userId] = null;
+      return null;
     }();
 
     _userPublicKeyInFlight[userId] = future;
@@ -767,13 +814,13 @@ class CryptoService {
       );
       final sharedBytes =
           Uint8List.fromList(await sharedSecretKey.extractBytes());
-        _sharedSecretCache[normalizedPublicKey] = sharedBytes;
+      _sharedSecretCache[normalizedPublicKey] = sharedBytes;
       debugPrint(
           'XSEC-2: _computeSharedSecret: sharedSecret computed (cryptography.X25519)');
       return sharedBytes;
     } catch (_) {
       final sharedSecret = x25519.X25519(myPrivateKey, theirPublicKey);
-        _sharedSecretCache[normalizedPublicKey] = sharedSecret;
+      _sharedSecretCache[normalizedPublicKey] = sharedSecret;
       debugPrint(
           'XSEC-2: _computeSharedSecret: sharedSecret computed (x25519 fallback)');
       return sharedSecret;
@@ -804,7 +851,9 @@ class CryptoService {
     try {
       final parts = chatId.split('_');
       final currentUserId = await _getCurrentUserId();
-      if (parts.length >= 3 && currentUserId != null && currentUserId.isNotEmpty) {
+      if (parts.length >= 3 &&
+          currentUserId != null &&
+          currentUserId.isNotEmpty) {
         final sharedSecret = await _computeSharedSecret(theirPublicKey);
         return _derivePersonalWebKey(sharedSecret, chatId);
       }
@@ -1142,9 +1191,10 @@ class CryptoService {
 
           if (response.data is Map) {
             final dataMap = response.data as Map;
-            final epNum = int.tryParse(dataMap['epoch_number']?.toString() ?? '') ??
-                          int.tryParse(dataMap['epoch_id']?.toString() ?? '') ??
-                          int.tryParse(dataMap['epoch']?.toString() ?? '');
+            final epNum =
+                int.tryParse(dataMap['epoch_number']?.toString() ?? '') ??
+                    int.tryParse(dataMap['epoch_id']?.toString() ?? '') ??
+                    int.tryParse(dataMap['epoch']?.toString() ?? '');
             if (epNum != null) {
               _groupCurrentEpochNumber[chatId] = epNum;
             }
@@ -1178,7 +1228,8 @@ class CryptoService {
     }
   }
 
-  Future<List<Uint8List>> _fetchHistoricalEpochKeys(String chatId, int currentEpochNumber) async {
+  Future<List<Uint8List>> _fetchHistoricalEpochKeys(
+      String chatId, int currentEpochNumber) async {
     final results = <Uint8List>[];
     if (currentEpochNumber <= 1) return results;
 
@@ -1195,15 +1246,16 @@ class CryptoService {
       }
 
       try {
-        final response = await _apiClient.get('/xsec2/group/$chatId/epoch/$ep/');
+        final response =
+            await _apiClient.get('/xsec2/group/$chatId/epoch/$ep/');
         if (response.statusCode == 200 && response.data != null) {
           final data = response.data;
           if (data is Map) {
             final map = Map<String, dynamic>.from(data);
             Uint8List? key;
             final keyStr = map['server_epoch_key']?.toString() ??
-                           map['epoch_key']?.toString() ??
-                           map['key']?.toString();
+                map['epoch_key']?.toString() ??
+                map['key']?.toString();
             if (keyStr != null && keyStr.isNotEmpty) {
               final decoded = _decodeServerKey(keyStr);
               if (decoded != null && decoded.length == 32) {
@@ -1222,7 +1274,8 @@ class CryptoService {
           }
         }
       } catch (e) {
-        debugPrint('XSEC-2: Error fetching historical epoch $ep for $chatId: $e');
+        debugPrint(
+            'XSEC-2: Error fetching historical epoch $ep for $chatId: $e');
       }
     }
 
@@ -1264,7 +1317,8 @@ class CryptoService {
     final encryptedSegmentBytes =
         _decodeOpaqueBytes(segmentDistribution['encrypted_segment_key']);
     final segmentNonce = _decodeOpaqueBytes(segmentDistribution['nonce']);
-    final senderPublicKey = segmentDistribution['sender_public_key']?.toString();
+    final senderPublicKey =
+        segmentDistribution['sender_public_key']?.toString();
 
     final encryptedEpochBytes =
         _decodeOpaqueBytes(epochDistribution['encrypted_epoch_key']);
@@ -1320,7 +1374,8 @@ class CryptoService {
 
       final epochKey = _normalizeDecryptedKeyMaterial(epochMaterial);
       if (epochKey != null) {
-        debugPrint('XSEC-2: group epoch distribution decrypt success for $chatId');
+        debugPrint(
+            'XSEC-2: group epoch distribution decrypt success for $chatId');
         return epochKey;
       }
     }
@@ -1351,14 +1406,16 @@ class CryptoService {
     const tagLen = 16;
     if (encryptedBytes.length <= tagLen || key.length != 32) return null;
 
-    final ciphertext = encryptedBytes.sublist(0, encryptedBytes.length - tagLen);
+    final ciphertext =
+        encryptedBytes.sublist(0, encryptedBytes.length - tagLen);
     final tag = encryptedBytes.sublist(encryptedBytes.length - tagLen);
     final secretKey = crypto.SecretKey(key);
 
     try {
       if (nonce.length == 24) {
         final xchacha20 = crypto.Xchacha20.poly1305Aead();
-        final box = crypto.SecretBox(ciphertext, nonce: nonce, mac: crypto.Mac(tag));
+        final box =
+            crypto.SecretBox(ciphertext, nonce: nonce, mac: crypto.Mac(tag));
         final decrypted = await xchacha20.decrypt(box, secretKey: secretKey);
         return Uint8List.fromList(decrypted);
       }
@@ -1367,7 +1424,8 @@ class CryptoService {
     try {
       if (nonce.length == 12) {
         final aesGcm = crypto.AesGcm.with256bits();
-        final box = crypto.SecretBox(ciphertext, nonce: nonce, mac: crypto.Mac(tag));
+        final box =
+            crypto.SecretBox(ciphertext, nonce: nonce, mac: crypto.Mac(tag));
         final decrypted = await aesGcm.decrypt(box, secretKey: secretKey);
         return Uint8List.fromList(decrypted);
       }
@@ -1531,7 +1589,8 @@ class CryptoService {
     return decrypted;
   }
 
-  Future<String?> _performDecryptMessage(String encryptedBase64, String chatId) async {
+  Future<String?> _performDecryptMessage(
+      String encryptedBase64, String chatId) async {
     try {
       debugPrint('XSEC-2: decryptMessage start for chat $chatId');
 
@@ -1580,8 +1639,7 @@ class CryptoService {
           );
           if (result != null) {
             _lastSuccessfulDecryptKey[chatId] = candidateKeys[index];
-            debugPrint(
-                'XSEC-2: XChaCha20 decrypted with key variant #$index');
+            debugPrint('XSEC-2: XChaCha20 decrypted with key variant #$index');
             return result;
           }
         }
@@ -1597,8 +1655,7 @@ class CryptoService {
           );
           if (result != null) {
             _lastSuccessfulDecryptKey[chatId] = candidateKeys[index];
-            debugPrint(
-                'XSEC-2: AES-GCM decrypted with key variant #$index');
+            debugPrint('XSEC-2: AES-GCM decrypted with key variant #$index');
             return result;
           }
 
@@ -1626,8 +1683,7 @@ class CryptoService {
           );
           if (result != null) {
             _lastSuccessfulDecryptKey[chatId] = candidateKeys[index];
-            debugPrint(
-                'XSEC-2: XChaCha20 decrypted with key variant #$index');
+            debugPrint('XSEC-2: XChaCha20 decrypted with key variant #$index');
             return result;
           }
         }
@@ -1950,7 +2006,8 @@ class CryptoService {
       'created_at': DateTime.now().toIso8601String(),
     };
 
-    if (keys['ed25519_private_key'] != null && keys['ed25519_public_key'] != null) {
+    if (keys['ed25519_private_key'] != null &&
+        keys['ed25519_public_key'] != null) {
       try {
         var ed25519PrivHex = keys['ed25519_private_key'].toString();
         if (ed25519PrivHex.length == 128) {
@@ -2065,13 +2122,15 @@ class CryptoService {
 
     if (!isEncryptedStructuredBlob && password != null && password.isNotEmpty) {
       try {
-        final encryptedBlobMap = await encryptPrivateKeys(currentKeys, password);
+        final encryptedBlobMap =
+            await encryptPrivateKeys(currentKeys, password);
         currentKeys['encrypted_blob'] = encryptedBlobMap;
         changed = true;
       } catch (e) {
         debugPrint('XSEC-2: Failed to encrypt blob with Argon2id: $e');
       }
-    } else if (!isEncryptedStructuredBlob && (blobObj == null || blobObj.toString().isEmpty)) {
+    } else if (!isEncryptedStructuredBlob &&
+        (blobObj == null || blobObj.toString().isEmpty)) {
       final blobPayload = {
         'version': 1,
         'x25519_private_key': currentKeys['x25519_private_key'],
@@ -2152,7 +2211,8 @@ class CryptoService {
       final currentEp = _groupCurrentEpochNumber[chatId] ?? 1;
       if (currentEp > 1) {
         try {
-          final historicalKeys = await _fetchHistoricalEpochKeys(chatId, currentEp);
+          final historicalKeys =
+              await _fetchHistoricalEpochKeys(chatId, currentEp);
           for (final key in historicalKeys) {
             add(key, label: 'group.epoch.historical');
           }
@@ -2445,17 +2505,28 @@ class CryptoService {
                 'favorites_user_$currentUserIdStr:d8b0ca99b31bfb3856b642f4eb357405'))
             .then((h) => Uint8List.fromList(h.bytes));
         add(pwHash, label: 'favorites.sha256(chatId:salt)');
-        
-        var pbkdf2 = crypto.Pbkdf2(macAlgorithm: crypto.Hmac.sha256(), iterations: 100000, bits: 256);
-        final derivedPb1 = await pbkdf2.deriveKey(secretKey: crypto.SecretKey(utf8.encode('favorites_user_$currentUserIdStr')), nonce: _hexToBytes('d8b0ca99b31bfb3856b642f4eb357405'));
-        add(Uint8List.fromList(await derivedPb1.extractBytes()), label: 'favorites.pbkdf2(favorites_user,salt)');
-        
-        final derivedPb2 = await pbkdf2.deriveKey(secretKey: crypto.SecretKey(utf8.encode('favorites_user_$currentUserIdStr')), nonce: utf8.encode('favorites'));
-        add(Uint8List.fromList(await derivedPb2.extractBytes()), label: 'favorites.pbkdf2(favorites_user,favorites)');
 
-        final derivedPb3 = await pbkdf2.deriveKey(secretKey: crypto.SecretKey(utf8.encode('favorites')), nonce: utf8.encode('favorites_user_$currentUserIdStr'));
-        add(Uint8List.fromList(await derivedPb3.extractBytes()), label: 'favorites.pbkdf2(favorites,favorites_user)');
-        
+        var pbkdf2 = crypto.Pbkdf2(
+            macAlgorithm: crypto.Hmac.sha256(), iterations: 100000, bits: 256);
+        final derivedPb1 = await pbkdf2.deriveKey(
+            secretKey: crypto.SecretKey(
+                utf8.encode('favorites_user_$currentUserIdStr')),
+            nonce: _hexToBytes('d8b0ca99b31bfb3856b642f4eb357405'));
+        add(Uint8List.fromList(await derivedPb1.extractBytes()),
+            label: 'favorites.pbkdf2(favorites_user,salt)');
+
+        final derivedPb2 = await pbkdf2.deriveKey(
+            secretKey: crypto.SecretKey(
+                utf8.encode('favorites_user_$currentUserIdStr')),
+            nonce: utf8.encode('favorites'));
+        add(Uint8List.fromList(await derivedPb2.extractBytes()),
+            label: 'favorites.pbkdf2(favorites_user,favorites)');
+
+        final derivedPb3 = await pbkdf2.deriveKey(
+            secretKey: crypto.SecretKey(utf8.encode('favorites')),
+            nonce: utf8.encode('favorites_user_$currentUserIdStr'));
+        add(Uint8List.fromList(await derivedPb3.extractBytes()),
+            label: 'favorites.pbkdf2(favorites,favorites_user)');
       } catch (_) {}
     }
 
@@ -2563,7 +2634,8 @@ class CryptoService {
     }
 
     if (encryptedData.length >= 40) {
-      final xchacha = await _decryptXChaCha20(encryptedData, key, chatId: chatId);
+      final xchacha =
+          await _decryptXChaCha20(encryptedData, key, chatId: chatId);
       if (xchacha != null) return xchacha;
     }
 
@@ -2748,7 +2820,10 @@ class CryptoService {
   }
 
   /// Создает зашифрованный payload для передачи E2EE ключей через QR-код на веб-клиент.
-  Future<Map<String, dynamic>?> createQrTransferPayload(String webPublicKeyHex) async {
+  Future<Map<String, dynamic>?> createQrTransferPayload(
+    String webPublicKeyHex,
+    String token,
+  ) async {
     try {
       if (_userKeys == null) {
         await _loadUserKeys();
@@ -2765,25 +2840,43 @@ class CryptoService {
       final ephemeralPubKey = await ephemeralKeyPair.extractPublicKey();
 
       final webPubKeyBytes = _hexToBytes(webPublicKeyHex);
-      final webPublicKey = crypto.SimplePublicKey(webPubKeyBytes, type: crypto.KeyPairType.x25519);
+      final webPublicKey = crypto.SimplePublicKey(webPubKeyBytes,
+          type: crypto.KeyPairType.x25519);
 
       final sharedSecretBytes = await crypto.X25519().sharedSecretKey(
-        keyPair: ephemeralKeyPair,
-        remotePublicKey: webPublicKey,
+            keyPair: ephemeralKeyPair,
+            remotePublicKey: webPublicKey,
+          );
+      final sharedSecretKeyBytes =
+          Uint8List.fromList(await sharedSecretBytes.extractBytes());
+
+      final hkdf = crypto.Hkdf(
+        hmac: crypto.Hmac.sha256(),
+        outputLength: 32,
       );
-      final sharedSecretKeyBytes = Uint8List.fromList(await sharedSecretBytes.extractBytes());
+      final derivedKey = await hkdf.deriveKey(
+        secretKey: crypto.SecretKey(sharedSecretKeyBytes),
+        nonce: _hexToBytes(token),
+        info: utf8.encode('xaneo-qr-login-v2'),
+      );
+      final aesKeyBytes = Uint8List.fromList(await derivedKey.extractBytes());
+      final aad = utf8.encode(
+        'xaneo_qr_login|2|$token|${webPublicKeyHex.toLowerCase()}',
+      );
 
       final algorithm = crypto.AesGcm.with256bits();
       final nonce = algorithm.newNonce();
-      final secretKey = crypto.SecretKey(sharedSecretKeyBytes);
+      final secretKey = crypto.SecretKey(aesKeyBytes);
 
       final secretBox = await algorithm.encrypt(
         utf8.encode(jsonPayloadStr),
         secretKey: secretKey,
         nonce: nonce,
+        aad: aad,
       );
 
-      final combinedCiphertext = Uint8List.fromList([...secretBox.cipherText, ...secretBox.mac.bytes]);
+      final combinedCiphertext =
+          Uint8List.fromList([...secretBox.cipherText, ...secretBox.mac.bytes]);
 
       return {
         'ciphertext': _bytesToHex(combinedCiphertext),
@@ -2794,6 +2887,139 @@ class CryptoService {
       debugPrint('XSEC-2: createQrTransferPayload error: $e');
       return null;
     }
+  }
+
+  /// Расшифровывает перенос XSEC-2 ключей на новом устройстве (QR v2 format).
+  Future<bool> importDeviceTransferPayload({
+    required Map<String, dynamic> transferPayload,
+    required crypto.SimpleKeyPair ephemeralKeyPair,
+    required String token,
+    required String recipientPublicKeyHex,
+  }) async {
+    try {
+      final combined = _hexToBytes(transferPayload['ciphertext'] as String);
+      final nonce = _hexToBytes(transferPayload['nonce'] as String);
+      final sender = crypto.SimplePublicKey(
+        _hexToBytes(transferPayload['sender_pub'] as String),
+        type: crypto.KeyPairType.x25519,
+      );
+      if (combined.length < 16) return false;
+      final shared = await crypto.X25519().sharedSecretKey(
+            keyPair: ephemeralKeyPair,
+            remotePublicKey: sender,
+          );
+      final key = await crypto.Hkdf(
+        hmac: crypto.Hmac.sha256(),
+        outputLength: 32,
+      ).deriveKey(
+        secretKey: crypto.SecretKey(await shared.extractBytes()),
+        nonce: _hexToBytes(token),
+        info: utf8.encode('xaneo-qr-login-v2'),
+      );
+      final box = crypto.SecretBox(
+        combined.sublist(0, combined.length - 16),
+        nonce: nonce,
+        mac: crypto.Mac(combined.sublist(combined.length - 16)),
+      );
+      final clear = await crypto.AesGcm.with256bits().decrypt(
+        box,
+        secretKey: key,
+        aad: utf8.encode(
+          'xaneo_qr_login|2|$token|${recipientPublicKeyHex.toLowerCase()}',
+        ),
+      );
+      final decoded = jsonDecode(utf8.decode(clear));
+      if (decoded is! Map) return false;
+
+      // The web KeyVault transfers its native nested representation:
+      // {x25519: {privateKey, publicKey}, ed25519: {...}}.  Mobile storage
+      // uses flat snake_case names. Saving the web object verbatim makes
+      // hasKeys false even though the transfer itself decrypted correctly.
+      final imported = _normalizeTransferredUserKeys(
+        Map<String, dynamic>.from(decoded),
+      );
+      if (imported == null) return false;
+
+      await saveUserKeys(imported);
+      _initialized = true;
+      return true;
+    } catch (e) {
+      debugPrint('XSEC-2: importDeviceTransferPayload error: $e');
+      return false;
+    }
+  }
+
+  Map<String, dynamic>? _normalizeTransferredUserKeys(
+    Map<String, dynamic> raw,
+  ) {
+    Map<String, dynamic>? asStringMap(dynamic value) {
+      if (value is! Map) return null;
+      return Map<String, dynamic>.from(value);
+    }
+
+    final x25519Keys = asStringMap(raw['x25519']);
+    final ed25519Keys = asStringMap(raw['ed25519']);
+    final x25519Private = (raw['x25519_private_key'] ??
+            raw['x25519_private'] ??
+            x25519Keys?['privateKey'] ??
+            x25519Keys?['private_key'])
+        ?.toString()
+        .toLowerCase();
+    var x25519Public = (raw['x25519_public_key'] ??
+            raw['x25519_public'] ??
+            x25519Keys?['publicKey'] ??
+            x25519Keys?['public_key'])
+        ?.toString()
+        .toLowerCase();
+
+    if (x25519Private == null ||
+        !RegExp(r'^[0-9a-f]{64}$').hasMatch(x25519Private)) {
+      debugPrint('XSEC-2: transferred payload has no valid X25519 private key');
+      return null;
+    }
+
+    final derivedPublic = _derivePublicFromPrivate(x25519Private);
+    if (x25519Public == null || x25519Public.isEmpty) {
+      x25519Public = derivedPublic;
+    } else if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(x25519Public) ||
+        x25519Public != derivedPublic) {
+      debugPrint('XSEC-2: transferred X25519 private/public keys mismatch');
+      return null;
+    }
+
+    final ed25519Private = (raw['ed25519_private_key'] ??
+            raw['ed25519_private'] ??
+            ed25519Keys?['privateKey'] ??
+            ed25519Keys?['private_key'])
+        ?.toString()
+        .toLowerCase();
+    final ed25519Public = (raw['ed25519_public_key'] ??
+            raw['ed25519_public'] ??
+            ed25519Keys?['publicKey'] ??
+            ed25519Keys?['public_key'])
+        ?.toString()
+        .toLowerCase();
+
+    if (ed25519Private != null &&
+        !RegExp(r'^(?:[0-9a-f]{64}|[0-9a-f]{128})$').hasMatch(ed25519Private)) {
+      debugPrint('XSEC-2: transferred payload has invalid Ed25519 private key');
+      return null;
+    }
+    if (ed25519Public != null &&
+        !RegExp(r'^[0-9a-f]{64}$').hasMatch(ed25519Public)) {
+      debugPrint('XSEC-2: transferred payload has invalid Ed25519 public key');
+      return null;
+    }
+
+    return <String, dynamic>{
+      'x25519_private_key': x25519Private,
+      'x25519_public_key': x25519Public,
+      if (ed25519Private != null) 'ed25519_private_key': ed25519Private,
+      if (ed25519Public != null) 'ed25519_public_key': ed25519Public,
+      'created_at': raw['created_at'] ??
+          raw['createdAt'] ??
+          DateTime.now().toIso8601String(),
+    };
   }
 
   Map<String, dynamic>? _tryDecodeBase64Json(String data) {
@@ -2860,7 +3086,8 @@ class CryptoService {
     try {
       final tokenStorage = TokenStorage();
       final userData = await tokenStorage.getUserData();
-      final storageUserId = userData?['id']?.toString() ?? userData?['user_id']?.toString();
+      final storageUserId =
+          userData?['id']?.toString() ?? userData?['user_id']?.toString();
       if (storageUserId != null && storageUserId.isNotEmpty) {
         _currentUserId = storageUserId;
         return storageUserId;

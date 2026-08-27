@@ -1,0 +1,2 @@
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_audio_notification,@drawable/ic_audio_shuffle,@drawable/ic_audio_shuffle_on,@drawable/ic_audio_repeat,@drawable/ic_audio_repeat_on,@drawable/ic_audio_repeat_one" />

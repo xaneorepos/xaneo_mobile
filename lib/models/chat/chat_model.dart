@@ -20,6 +20,9 @@ String? inferChatMessageType(
     if (type == 'image' || type == 'photo' || type.startsWith('image/')) {
       return 'image';
     }
+    if (type == 'audio' || type == 'music' || type.startsWith('audio/')) {
+      return 'audio';
+    }
     if (type == 'document' || type == 'attachment') return 'file';
     return type;
   }

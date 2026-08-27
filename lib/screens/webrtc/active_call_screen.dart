@@ -220,6 +220,15 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
+                  // Кнопка спикера (Громкая связь)
+                  _buildControlCircleButton(
+                    onTap: callManager.toggleSpeaker,
+                    icon: callManager.isSpeakerOn
+                        ? FontAwesomeIcons.volumeHigh
+                        : FontAwesomeIcons.volumeOff,
+                    isActive: callManager.isSpeakerOn,
+                  ),
+
                   // Кнопка микрофона (Mute)
                   _buildControlCircleButton(
                     onTap: callManager.toggleMicrophone,
@@ -247,6 +256,14 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
               ),
             ),
           ),
+
+          // 5. Полноэкранный черный экран при поднесении к уху (Proximity sensor)
+          if (callManager.isNearEar)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black,
+              ),
+            ),
         ],
       ),
     );

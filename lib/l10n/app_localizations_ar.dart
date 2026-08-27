@@ -1847,6 +1847,11 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get zapreschennyh_1f49 => 'محظور';
   @override
+  String get obIspolzovaniiParolya_9739 => 'حول استخدام كلمة المرور';
+  @override
+  String get parolTolkoDlyaAvariynogoVhoda_b142 =>
+      'تُستخدم كلمة المرور فقط في الحالات الطارئة — إذا تعذر تسجيل الدخول برمز من بوت إشعارات Xaneo أو بالرمز المرسل إلى بريدك الإلكتروني.';
+  @override
   String get sozdatAkkaunt_19ed => 'إنشاء حساب';
   @override
   String get naprimerIvan_d7cb => 'على سبيل المثال، إيفان';
@@ -2290,4 +2295,120 @@ class AppLocalizationsAr extends AppLocalizations {
   String get qrScanConfirmButton => 'تأكيد المصادقة';
   @override
   String get qrScanProcessing => 'جاري مصادقة الجهاز...';
+
+  @override
+  String get qrScanConfirmDesc =>
+      'طلب جهاز آخر تسجيل الدخول إلى حسابك. تحقّق من الرمز القصير وأكّد الطلب.';
+
+  @override
+  String get qrScanSecurityNote =>
+      'تابع فقط إذا كان رمز QR معروضًا على جهاز تتحكم به.';
+
+  @override
+  String get qrScanDoneButton => 'تم';
+
+  @override
+  String get authNotificationSendingCode => 'جارٍ إرسال الرمز';
+
+  @override
+  String get authNotificationEnterCode => 'أدخل الرمز';
+
+  @override
+  String get authNotificationConfirmLogin => 'تأكيد تسجيل الدخول';
+
+  @override
+  String get authNotificationPasswordLogin => 'تسجيل الدخول بكلمة المرور';
+
+  @override
+  String get authNotificationSendingSubtitle => 'سيصل الرمز إلى محادثة "إشعارات Xaneo". لا تغلق هذه الشاشة.';
+
+  @override
+  String get authNotificationEnterCodeSubtitle => 'أدخل الرمز المكون من 6 أرقام من الرسالة.';
+
+  @override
+  String get authNotificationConfirmSubtitle => 'افتح Xaneo على جهاز مصرح به مسبقًا وتحقق من تفاصيل الطلب.';
+
+  @override
+  String get authNotificationPasswordSubtitle => 'هذه الطريقة متاحة فقط بعد انتهاء فترة الانتظار. لا يتم حفظ كلمة المرور.';
+
+  @override
+  String get authNotificationBotSource => 'يأتي الرمز من "إشعارات Xaneo".';
+
+  @override
+  String authNotificationCodeSentToEmail(String email) => 'تم إرسال الرمز إلى $email';
+
+  @override
+  String get authNotificationNoBotAccess => 'لا يمكنك الوصول إلى البوت؟';
+
+  @override
+  String get authNotificationGetCodeViaEmail => 'الحصول على الرمز عبر البريد';
+
+  @override
+  String get authNotificationResendCodeViaEmail => 'إعادة إرسال الرمز إلى البريد';
+
+  @override
+  String get authNotificationEmailUnavailable => 'الرمز عبر البريد غير متاح: لا يوجد بريد إلكتروني موثق في الحساب.';
+
+  @override
+  String authNotificationEmailAvailableIn(int seconds) => 'سيتوفر الرمز عبر البريد خلال $seconds ثانية.';
+
+  @override
+  String get authNotificationLoginWithPassword => 'تسجيل الدخول بكلمة المرور';
+
+  @override
+  String authNotificationPasswordAvailableIn(int seconds) => 'سيتوفر تسجيل الدخول بكلمة المرور خلال $seconds ثانية.';
+
+  @override
+  String get authNotificationErrorSendFailed => 'فشل إرسال الرمز. يرجى المحاولة لاحقًا.';
+
+  @override
+  String get authNotificationErrorInvalidCode => 'رمز غير صالح أو منتهي الصلاحية';
+
+  @override
+  String get authNotificationErrorRequestExpired => 'تم رفض الطلب أو انتهت صلاحيته';
+
+  @override
+  String get authNotificationErrorEmailFailed => 'فشل إرسال الرمز إلى البريد. يرجى المحاولة لاحقًا.';
+
+  @override
+  String get authNotificationErrorPasswordFailed => 'فشل تسجيل الدخول. تحقق من كلمة المرور أو ابدأ من جديد.';
+
+  @override
+  String get authNotificationGetCodeBtn => 'الحصول على الرمز';
+
+  @override
+  String get authRejectedTitle => 'تم رفض تسجيل الدخول';
+
+  @override
+  String get authRejectedDesc =>
+      'تم رفض طلب تسجيل الدخول على جهازك الآخر. إذا لم يكن هذا أنت، فنوصي بمراجعة أمان حسابك.';
+
+  @override
+  String get authRejectedButton => 'فهمت';
+
+  @override
+  String get deviceAuthApprovalSubtitle =>
+      'تم التحقق من الرمز. اسمح بتسجيل الدخول فقط إذا كنت أنت من أنشأ هذا الطلب.';
+
+  @override
+  String get deviceAuthApprovalKeysNotice =>
+      'سيتم نقل مفاتيح المحادثات إلى الجهاز الجديد بشكل مشفر.';
+
+  @override
+  String get deviceAuthApprovalAllow => 'السماح بتسجيل الدخول';
+
+  @override
+  String get deviceAuthApprovalDecline => 'رفض';
+
+  @override
+  String get deviceAuthDevice => 'الجهاز';
+
+  @override
+  String get deviceAuthApp => 'التطبيق';
+
+  @override
+  String get deviceAuthIp => 'عنوان IP';
+
+  @override
+  String get importLanguageFromJson => 'استيراد لغة من ملف JSON';
 }

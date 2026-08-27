@@ -241,6 +241,17 @@ class LocalChatRepository {
           .toList();
 
       for (final staleChat in staleChats) {
+        final countExpr = _db.messages.id.count();
+        final row = await (_db.selectOnly(_db.messages)
+              ..addColumns([countExpr])
+              ..where(_db.messages.chatId.equals(staleChat.id)))
+            .getSingle();
+        final count = row.read(countExpr) ?? 0;
+        if (count > 0) {
+          // Не удаляем чат, если в локальной базе уже есть отправленные/полученные сообщения
+          continue;
+        }
+
         await (_db.delete(_db.messages)
               ..where((message) => message.chatId.equals(staleChat.id)))
             .go();

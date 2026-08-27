@@ -16,20 +16,6 @@ class AppConfig {
     ),
   );
 
-  /// Флаг режима AUTH_v2.
-  /// Активируется тогда и только тогда когда base url сервера содержит 192.168.1.42
-  static bool get isAuthV2 {
-    const bool authV2Bool = bool.fromEnvironment('AUTH_V2', defaultValue: false);
-    const String authV2Str = String.fromEnvironment('AUTH_V2', defaultValue: 'false');
-    const envApi = String.fromEnvironment('API_BASE_URL');
-    const envBase = String.fromEnvironment('BASE_URL');
-    final bool authV2Flag = authV2Bool || authV2Str.toLowerCase() == 'true';
-    return authV2Flag ||
-           apiBaseUrl.contains('192.168.1.42') ||
-           envApi.contains('192.168.1.42') ||
-           envBase.contains('192.168.1.42');
-  }
-
   /// Версия приложения из Git-тега (передаётся CI через --dart-define).
   static const String appVersion = String.fromEnvironment(
     'APP_VERSION',
@@ -55,10 +41,10 @@ class AppConfig {
     if (url.startsWith('/')) return '$serverOrigin$url';
     return '$serverOrigin/$url';
   }
-  
+
   /// Таймаут для API запросов
   static const Duration apiTimeout = Duration(seconds: 30);
-  
+
   /// Таймаут для долгих операций (загрузка файлов)
   static const Duration apiLongTimeout = Duration(minutes: 5);
 
@@ -79,6 +65,9 @@ class AppConfig {
   /// Подтверждение сканирования QR-кода для входа
   static const String authQrApprove = '/auth/qr-approve/';
 
+  /// Сообщает создающему клиенту, что QR отсканирован и ожидает решения.
+  static const String authQrScan = '/auth/qr-scan/';
+
   /// Стандартный вход (возвращает JWT токены)
   /// - Rate limiting: 5 попыток / 5 минут
   /// - Возвращает access + refresh токены
@@ -95,20 +84,21 @@ class AppConfig {
   /// - Проверяет флаг email_verified в сессии
   /// - Возвращает user_id, username, email, first_name
   static const String authMobileRegister = '/auth/mobile-register/';
-  
+
   /// Проверка доступности username
   /// - IsMobileAppPermission
   static const String authCheckUsername = '/auth/check-username/';
-  
+
   /// Проверка доступности email
   /// - IsMobileAppPermission
   /// - Проверка на временные email-адреса
   static const String authCheckEmail = '/auth/check-email/';
-  
+
   /// Отправка кода верификации email
   /// - Код действует 10 минут
-  static const String authSendVerificationCode = '/auth/send-verification-code/';
-  
+  static const String authSendVerificationCode =
+      '/auth/send-verification-code/';
+
   /// Подтверждение кода email
   /// - Устанавливает флаг в сессии
   static const String authVerifyEmailCode = '/auth/verify-email-code/';
@@ -124,15 +114,18 @@ class AppConfig {
   /// - Поддержка 2FA
   static const String authQuickLogin = '/auth/quick-login/';
 
+  /// Отзывает конкретный сохранённый вход по proof-of-possession grant.
+  static const String authRevokeDeviceGrant = '/auth/device-grant/revoke/';
+
   /// Отправка 2FA кода
   static const String authSendTfaCode = '/auth/send-tfa-code/';
-  
+
   /// Подтверждение 2FA кода
   static const String authVerifyTfaCode = '/auth/verify-tfa-code/';
-  
+
   /// Обновление JWT токена
   static const String authTokenRefresh = '/auth/token/refresh/';
-  
+
   /// Проверка JWT токена
   static const String authTokenVerify = '/auth/token/verify/';
 
@@ -161,98 +154,117 @@ class AppConfig {
   static const String xsec2GroupEpochCurrent = '/xsec2/group/epoch/current';
 
   // ========== Security ==========
-  
+
   /// User-Agent для идентификации мобильного приложения
   static String get userAgent => 'XaneoMobile/$appVersion';
-  
+
   /// Порог для автоматического обновления токена (за 5 минут до истечения)
   static const Duration tokenRefreshThreshold = Duration(minutes: 5);
-  
+
   /// Время жизни access токена (для справки)
   static const Duration accessTokenLifetime = Duration(minutes: 15);
-  
+
   /// Время жизни refresh токена (для справки)
   static const Duration refreshTokenLifetime = Duration(days: 7);
 
   // ========== Storage Keys ==========
-  
+
   /// Ключ для хранения access токена
   static const String accessTokenKey = 'xaneo_access_token';
-  
+
   /// Ключ для хранения refresh токена
   static const String refreshTokenKey = 'xaneo_refresh_token';
-  
+
   /// Ключ для хранения данных пользователя
   static const String userDataKey = 'xaneo_user_data';
-  
+
   /// Ключ для хранения настроек темы
   static const String themeKey = 'xaneo_theme';
-  
+
   /// Ключ для хранения языка
   static String localeKey = 'xaneo_locale';
 
   // ========== Validation ==========
-  
+
   /// Минимальная длина пароля
   static const int minPasswordLength = 8;
-  
+
   /// Максимальная длина пароля
   static const int maxPasswordLength = 128;
-  
+
   /// Минимальная длина username
   static const int minUsernameLength = 3;
-  
+
   /// Максимальная длина username
   static const int maxUsernameLength = 32;
-  
+
   /// Длина кода верификации
   static const int verificationCodeLength = 6;
-  
+
   /// Минимальный возраст пользователя
   static const int minUserAge = 13;
 
   // ========== Supported Email Domains ==========
-  
+
   /// Поддерживаемые почтовые провайдеры
   static const Set<String> supportedEmailDomains = {
-    'yandex.ru', 'yandex.com', 'yandex.by', 'yandex.kz', 'yandex.ua',
-    'gmail.com', 'googlemail.com',
-    'icloud.com', 'me.com', 'mac.com',
-    'mail.ru', 'inbox.ru', 'bk.ru', 'list.ru',
-    'yahoo.com', 'yahoo.ru', 'yahoo.de', 'yahoo.fr', 'yahoo.es', 'yahoo.co.uk',
-    'outlook.com', 'outlook.ru', 'hotmail.com', 'live.com',
+    'yandex.ru',
+    'yandex.com',
+    'yandex.by',
+    'yandex.kz',
+    'yandex.ua',
+    'gmail.com',
+    'googlemail.com',
+    'icloud.com',
+    'me.com',
+    'mac.com',
+    'mail.ru',
+    'inbox.ru',
+    'bk.ru',
+    'list.ru',
+    'yahoo.com',
+    'yahoo.ru',
+    'yahoo.de',
+    'yahoo.fr',
+    'yahoo.es',
+    'yahoo.co.uk',
+    'outlook.com',
+    'outlook.ru',
+    'hotmail.com',
+    'live.com',
   };
 
   // ========== UI Constants ==========
-  
+
   /// Длительность анимации появления
   static const Duration fadeInDuration = Duration(milliseconds: 800);
-  
+
   /// Длительность анимации слайда
   static const Duration slideInDuration = Duration(milliseconds: 1000);
-  
+
   /// Длительность анимации пульсации
   static const Duration pulseDuration = Duration(milliseconds: 1500);
-  
+
   /// Длительность вращения фона
   static const Duration backgroundRotationDuration = Duration(seconds: 30);
 
   // ========== Error Messages ==========
-  
+
   /// Сообщение о превышении rate limit
-  static const String rateLimitError = 'Слишком много попыток. Попробуйте позже.';
-  
+  static const String rateLimitError =
+      'Слишком много попыток. Попробуйте позже.';
+
   /// Сообщение об ошибке сети
   static const String networkError = 'Ошибка сети. Проверьте подключение.';
-  
+
   /// Сообщение об ошибке сервера
   static const String serverError = 'Ошибка сервера. Попробуйте позже.';
-  
+
   /// Сообщение о неверных учетных данных
   static const String invalidCredentials = 'Неверные учетные данные.';
 
   // ========== Private Constructor ==========
-  
+
   // Запрещаем создание экземпляров
   AppConfig._();
 }

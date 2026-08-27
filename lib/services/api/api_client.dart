@@ -5,6 +5,7 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../config/app_config.dart';
+import '../../utils/ssl_helper.dart';
 import '../auth/token_storage.dart';
 import 'dart:io';
 
@@ -54,13 +55,15 @@ class ApiClient {
       },
     ));
 
-    // Поддержка самоподписанных SSL сертификатов для разработки
-    // ВНИМАНИЕ: Отключить в продакшене!
+    // Self-signed certificates are allowed only for the configured private
+    // development backend, and only in debug builds. Public hosts always
+    // keep normal TLS verification.
     _dio.httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: () {
         final client = HttpClient();
-        client.badCertificateCallback =
-            (X509Certificate cert, String host, int port) => true;
+        if (kDebugMode) {
+          client.badCertificateCallback = allowConfiguredDevelopmentCertificate;
+        }
         return client;
       },
     );
@@ -130,7 +133,9 @@ class ApiClient {
 
     _isRefreshing = true;
     try {
-      final refreshToken = await _tokenStorage.getRefreshToken();
+      final session = await _tokenStorage.captureRefreshSession();
+      final refreshToken =
+          session?.refreshToken ?? await _tokenStorage.getRefreshToken();
       if (refreshToken == null) {
         _resolvePendingRequests(null);
         return null;
@@ -144,12 +149,25 @@ class ApiClient {
 
       if (response.statusCode == 200 && response.data['access'] != null) {
         final newAccessToken = response.data['access'] as String;
-        await _tokenStorage.saveAccessToken(newAccessToken);
-
-        // Если есть новый refresh токен, сохраняем его тоже
-        if (response.data['refresh'] != null) {
-          await _tokenStorage
-              .saveRefreshToken(response.data['refresh'] as String);
+        final newRefreshToken = response.data['refresh'] as String?;
+        final saved = session == null
+            ? true
+            : await _tokenStorage.saveRefreshedTokensIfCurrent(
+                session,
+                newAccessToken,
+                refreshToken: newRefreshToken,
+              );
+        if (!saved) {
+          // The account changed while refresh was in flight. Never write or
+          // return credentials belonging to the previous identity.
+          _resolvePendingRequests(null);
+          return null;
+        }
+        if (session == null) {
+          await _tokenStorage.saveAccessToken(newAccessToken);
+          if (newRefreshToken != null) {
+            await _tokenStorage.saveRefreshToken(newRefreshToken);
+          }
         }
 
         _resolvePendingRequests(newAccessToken);

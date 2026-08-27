@@ -35,23 +35,39 @@ import 'services/grpc_service.dart';
 import 'services/webrtc/call_manager.dart';
 import 'services/notifications/notification_service.dart';
 import 'utils/local_proxy.dart';
+import 'utils/ssl_helper.dart';
 
 import 'dart:io';
 
 import 'package:logging/logging.dart' as dart_logging;
 import 'package:livekit_client/livekit_client.dart';
+import 'package:audio_service/audio_service.dart';
+import 'services/audio/xaneo_audio_handler.dart';
+
+late final XaneoAudioHandler xaneoAudioHandler;
 
 class _DevHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     return super.createHttpClient(context)
-      ..badCertificateCallback =
-          (X509Certificate cert, String host, int port) => true;
+      ..badCertificateCallback = allowConfiguredDevelopmentCertificate;
   }
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  xaneoAudioHandler = await AudioService.init<XaneoAudioHandler>(
+    builder: XaneoAudioHandler.new,
+    config: const AudioServiceConfig(
+      androidNotificationChannelId: 'net.xaneo.audio',
+      androidNotificationChannelName: 'Xaneo Music Playback',
+      androidNotificationOngoing: false,
+      androidStopForegroundOnPause: false,
+      androidNotificationIcon: 'drawable/ic_audio_notification',
+      notificationColor: Color(0xFF111111),
+    ),
+  );
 
   // Проверяем первый запуск приложения после установки/очистки данных
   final prefs = await SharedPreferences.getInstance();
@@ -67,6 +83,7 @@ void main() async {
 
     final recentAccountsService = RecentAccountsService(
       apiClient: ApiClient(tokenStorage: tokenStorage, deviceId: ''),
+      tokenStorage: tokenStorage,
     );
     await recentAccountsService.clearLocalAccounts();
 
@@ -94,7 +111,12 @@ void main() async {
     });
   }
 
-  HttpOverrides.global = _DevHttpOverrides();
+  // A self-signed certificate is accepted only for the configured private
+  // development backend, and only in debug builds. Public hosts always
+  // keep normal TLS verification.
+  if (kDebugMode) {
+    HttpOverrides.global = _DevHttpOverrides();
+  }
   LocalProxy.start();
 
   // Получаем путь к документам и ключ шифрования БД один раз при запуске
@@ -156,7 +178,7 @@ class XaneoApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<PlaybackProvider>(
-            create: (_) => PlaybackProvider()),
+            create: (_) => PlaybackProvider(xaneoAudioHandler)),
         ChangeNotifierProvider<LocaleProvider>(create: (_) => LocaleProvider()),
         // ApiClient для всех экранов
         Provider<ApiClient>.value(value: apiClient),
@@ -170,7 +192,7 @@ class XaneoApp extends StatelessWidget {
             final apiClient = context.read<ApiClient>();
             final cryptoService = context.read<CryptoService>();
             final authProvider = AuthProviderFactory.createWithCryptoService(
-                apiClient, cryptoService);
+                apiClient, cryptoService, tokenStorage);
 
             // Register callback to log out the user on session expiry
             apiClient.onSessionExpired = () {
@@ -178,9 +200,7 @@ class XaneoApp extends StatelessWidget {
             };
 
             // Инициализируем авторизацию с CryptoService для XSEC-2
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              authProvider.checkAuthStatus(cryptoService: cryptoService);
-            });
+            authProvider.checkAuthStatus(cryptoService: cryptoService);
             return authProvider;
           },
         ),
@@ -402,6 +422,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _checkOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
     });
@@ -409,18 +430,23 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    if (_hasSeenOnboarding == null) {
-      return const SplashScreen();
-    }
-
     return Consumer<AuthProvider>(
       builder: (context, auth, child) {
-        if (auth.status == AuthStatus.checking) {
+        // Показываем SplashScreen пока идёт проверка авторизации или загрузка настроек
+        if (_hasSeenOnboarding == null ||
+            auth.status == AuthStatus.initial ||
+            auth.status == AuthStatus.checking) {
           return const SplashScreen();
         }
 
         if (auth.status == AuthStatus.authenticated) {
-          return const MainScreen();
+          // A different account must get a fresh account-scoped widget tree.
+          // Several screens own Drift streams and repositories for their
+          // entire State lifetime, so reusing the old MainScreen would leave
+          // them attached to the database that was closed during the switch.
+          return MainScreen(
+            key: ValueKey('main-user-${auth.user?.id ?? 'unknown'}'),
+          );
         }
 
         if (_hasSeenOnboarding == false) {
@@ -433,54 +459,114 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 }
 
-/// Загрузочный экран
-class SplashScreen extends StatelessWidget {
+/// Загрузочный экран в строгом чёрно-белом стиле Xaneo
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _fadeAnimation;
+  late final Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: AppStyles.animationMedium,
+    );
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: AppStyles.curveEaseOut,
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.94, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: AppStyles.curveEaseOut,
+      ),
+    );
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppStyles.backgroundColor,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Логотип
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AppStyles.textPrimaryColor,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: const Center(
-                child: FaIcon(
-                  FontAwesomeIcons.solidComment,
-                  size: 44,
-                  color: AppStyles.backgroundColor,
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
+      body: SafeArea(
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Spacer(flex: 3),
 
-            // Название
-            const Text(
-              'Xaneo',
-              style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.bold,
-                color: AppStyles.textPrimaryColor,
-                letterSpacing: 4,
+                  // Официальный логотип Xaneo
+                  Image.asset(
+                    'assets/images/logo.png',
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: FaIcon(
+                        FontAwesomeIcons.shieldHalved,
+                        color: AppStyles.textPrimaryColor,
+                        size: 48,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Название приложения в стиле дизайн-системы
+                  const Text(
+                    'Xaneo',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: AppStyles.textPrimaryColor,
+                      letterSpacing: -0.5,
+                      fontFamily: AppStyles.fontFamily,
+                    ),
+                  ),
+
+                  const Spacer(flex: 3),
+
+                  // Минималистичный монохромный индикатор загрузки
+                  const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppStyles.textPrimaryColor,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 48),
+                ],
               ),
             ),
-            const SizedBox(height: 48),
-
-            // Индикатор загрузки
-            const CircularProgressIndicator(
-              valueColor:
-                  AlwaysStoppedAnimation<Color>(AppStyles.textPrimaryColor),
-            ),
-          ],
+          ),
         ),
       ),
     );

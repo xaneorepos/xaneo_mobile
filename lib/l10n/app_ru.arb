@@ -395,5 +395,38 @@
   "qrScanProcessing": "Авторизация устройства...",
   "@qrScanProcessing": {
     "description": "Текст во время обработки QR"
+  },
+  "qrScanConfirmDesc": "На другом устройстве запрошен вход в ваш аккаунт. Сверьте короткий код и подтвердите действие.",
+  "qrScanSecurityNote": "Продолжайте только если QR-код открыт на устройстве, которым вы управляете.",
+  "qrScanDoneButton": "Готово",
+  "authNotificationSendingCode": "Отправляем код",
+  "authNotificationEnterCode": "Введите код",
+  "authNotificationConfirmLogin": "Подтвердите вход",
+  "authNotificationPasswordLogin": "Вход по паролю",
+  "authNotificationSendingSubtitle": "Код придёт в чат «Уведомления Xaneo». Не закрывайте этот экран.",
+  "authNotificationEnterCodeSubtitle": "Введите шестизначный код из сообщения.",
+  "authNotificationConfirmSubtitle": "Откройте Xaneo на уже авторизованном устройстве и проверьте детали запроса.",
+  "authNotificationPasswordSubtitle": "Этот способ доступен только после ожидания. Пароль не сохраняется.",
+  "authNotificationBotSource": "Код приходит от «Уведомления Xaneo».",
+  "authNotificationNoBotAccess": "Нет доступа к боту?",
+  "authNotificationGetCodeViaEmail": "Получить код на почту",
+  "authNotificationResendCodeViaEmail": "Отправить код на почту повторно",
+  "authNotificationEmailUnavailable": "Код по почте недоступен: в аккаунте нет подтверждённого email.",
+  "authNotificationLoginWithPassword": "Войти по паролю",
+  "authNotificationErrorSendFailed": "Не удалось отправить код. Попробуйте позже.",
+  "authNotificationErrorInvalidCode": "Неверный или просроченный код",
+  "authNotificationErrorRequestExpired": "Запрос отклонён или истёк",
+  "authNotificationErrorEmailFailed": "Не удалось отправить код на почту. Попробуйте позже.",
+  "authNotificationErrorPasswordFailed": "Не удалось войти. Проверьте пароль или начните заново.",
+  "authNotificationGetCodeBtn": "Получить код",
+  "authRejectedTitle": "Вход отклонён",
+  "authRejectedDesc": "Запрос на авторизацию был отклонён на другом устройстве. Если это были не вы, рекомендуем проверить безопасность аккаунта.",
+  "authRejectedButton": "Понятно",
+  "@authRejectedButton": {
+    "description": "Кнопка диалога отклонённого входа"
+  },
+  "importLanguageFromJson": "Импортировать язык из JSON",
+  "@importLanguageFromJson": {
+    "description": "Кнопка импорта пользовательского языкового пакета из JSON-файла"
   }
 }
