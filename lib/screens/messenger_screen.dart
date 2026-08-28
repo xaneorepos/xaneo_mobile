@@ -5289,6 +5289,15 @@ class _MessengerScreenState extends State<MessengerScreen> {
     );
   }
 
+  /// Ссылка на сгенерированную бэкендом SVG-аватарку (буква+градиент/призрак),
+  /// когда бэкенд отдаёт её обычным URL на CDN, а не data: URI.
+  bool _isGeneratedSvgAvatar(String avatar) {
+    if (avatar.startsWith('data:image/svg+xml')) return true;
+    if (avatar.contains('/svg_avatars/')) return true;
+    final withoutQuery = avatar.split('?').first;
+    return withoutQuery.toLowerCase().endsWith('.svg');
+  }
+
   Widget _buildAvatar(
     String? avatarUrl,
     String displayName,
@@ -5383,6 +5392,14 @@ class _MessengerScreenState extends State<MessengerScreen> {
         return _buildInitialsAvatar(initials, radius, scale, isDark,
             avatarGradient: avatarGradient, borderRadius: borderRadius);
       }
+    }
+
+    if (_isGeneratedSvgAvatar(avatarUrl)) {
+      // Сгенерированная бэкендом SVG-аватарка ссылкой на CDN (S3 настроен) —
+      // разметки нет, рисуем инициалы+градиент нативно (как раньше при <text>
+      // в data: URI — SvgPicture плохо центрирует текст).
+      return _buildInitialsAvatar(initials, radius, scale, isDark,
+          avatarGradient: avatarGradient, borderRadius: borderRadius);
     }
 
     String fullUrl = avatarUrl;

@@ -488,6 +488,13 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
     );
   }
 
+  /// Ссылка на сгенерированную бэкендом SVG-аватарку ссылкой на CDN, а не data: URI.
+  bool _isGeneratedSvgAvatarUrl(String avatar) {
+    if (avatar.contains('/svg_avatars/')) return true;
+    final withoutQuery = avatar.split('?').first;
+    return withoutQuery.toLowerCase().endsWith('.svg');
+  }
+
   Widget _buildAvatarWidget(
     String? avatarUrl,
     String displayName,
@@ -589,6 +596,10 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
         } catch (e) {
           debugPrint('Error parsing SVG avatar in search: $e');
         }
+      } else if (_isGeneratedSvgAvatarUrl(avatarUrl)) {
+        // Сгенерированная бэкендом SVG-аватарка ссылкой на CDN — разметки нет,
+        // показываем инициалы+градиент вместо попытки скормить SVG в Image.network.
+        return _buildFallbackAvatar(initials, iconColor, size, scale, avatarGradient: avatarGradient);
       } else {
         // PNG / JPEG / Network image
         return ClipOval(

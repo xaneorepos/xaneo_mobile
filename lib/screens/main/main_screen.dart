@@ -42,6 +42,7 @@ class _MainScreenState extends State<MainScreen> {
   Timer? _deviceAuthTimer;
   final Set<String> _handledDeviceAuthRequests = {};
   bool _deviceAuthDialogOpen = false;
+  AppVersionInfo? _pendingUpdate;
 
   @override
   void initState() {
@@ -68,16 +69,11 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _checkAppUpdate() async {
-    var update = await UpdateService().checkForUpdates(force: true);
-    update ??= AppVersionInfo(
-      version: '2.1.0',
-      downloadUrl:
-          'https://github.com/xaneorepos/xaneo_mobile/releases/latest/download/xaneo.apk',
-      htmlUrl: 'https://github.com/xaneorepos/xaneo_mobile/releases/latest',
-      releaseNotes: 'Тестовое обновление',
-    );
-    if (mounted) {
-      CustomUpdateToast.show(context, update);
+    final update = await UpdateService().checkForUpdates(force: true);
+    if (update != null && mounted) {
+      setState(() {
+        _pendingUpdate = update;
+      });
     }
   }
 
@@ -206,6 +202,23 @@ class _MainScreenState extends State<MainScreen> {
             bottom: 84, // Above the navigation bar
             child: _buildWideMediaBar(),
           ),
+          if (_pendingUpdate != null)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 84,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: CustomUpdateToast(
+                  updateInfo: _pendingUpdate!,
+                  onDismiss: () {
+                    setState(() {
+                      _pendingUpdate = null;
+                    });
+                  },
+                ),
+              ),
+            ),
           Positioned(
             left: 0,
             right: 0,
