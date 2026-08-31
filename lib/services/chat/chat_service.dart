@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../config/app_config.dart';
 import '../../models/chat/chat_model.dart';
@@ -61,6 +62,53 @@ class ChatService {
     } catch (e) {
       debugPrint('Error archiving chat $chatId: $e');
       return false;
+    }
+  }
+
+  /// Нажатие на inline-кнопку бота под сообщением (callback_data-кнопка).
+  /// Эндпоинт живёт под /api/bots/, а не /api/{apiVersion}/, поэтому бьём
+  /// напрямую в serverOrigin, а не через baseUrl клиента.
+  /// Возвращает null при успехе, иначе текст ошибки для показа пользователю.
+  Future<String?> activateBotCallback(int messageId, String buttonId) async {
+    try {
+      final response = await _apiClient.post(
+        '${AppConfig.serverOrigin}/api/bots/callbacks/activate/',
+        data: {'message_id': messageId, 'button_id': buttonId},
+      );
+      if (response.statusCode == 200) return null;
+      return 'Не удалось выполнить действие';
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map && data['detail'] is String) {
+        return data['detail'] as String;
+      }
+      return 'Не удалось выполнить действие: ${e.message}';
+    } catch (e) {
+      debugPrint('Error activating bot callback: $e');
+      return 'Не удалось выполнить действие: $e';
+    }
+  }
+
+  /// Список зарегистрированных команд бота для меню рядом с полем ввода.
+  Future<List<Map<String, String>>> getBotCommands(String username) async {
+    try {
+      final encodedUsername = Uri.encodeComponent(username);
+      final response = await _apiClient.get(
+        '${AppConfig.serverOrigin}/api/bots/$encodedUsername/commands/',
+      );
+      final data = response.data;
+      if (response.statusCode != 200 || data is! Map) return const [];
+      final result = data['result'];
+      if (result is! List) return const [];
+      return result.whereType<Map>().map((item) {
+        return {
+          'command': item['command']?.toString() ?? '',
+          'description': item['description']?.toString() ?? '',
+        };
+      }).where((item) => item['command']!.isNotEmpty).toList();
+    } catch (e) {
+      debugPrint('Error loading bot commands for $username: $e');
+      return const [];
     }
   }
 

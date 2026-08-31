@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' show pi;
 import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img_lib;
 
 import 'package:url_launcher/url_launcher.dart';
 import 'package:drift/drift.dart' hide Column;
@@ -32,6 +34,8 @@ import '../../utils/chat_name_localizer.dart';
 import '../../widgets/common/chat_info_modal.dart';
 import '../../widgets/common/chat_context_menu.dart';
 import '../../widgets/common/base_custom_modal.dart';
+import '../../widgets/common/compress_image_modal.dart';
+import '../../widgets/common/confirm_action_modal.dart';
 import '../../widgets/common/music_playlist_modal.dart';
 import '../../services/webrtc/call_manager.dart';
 import '../webrtc/active_call_screen.dart';
@@ -176,6 +180,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // Local copy of otherUser to reflect WS status updates
   Map<String, dynamic>? _otherUser;
+  static final Map<String, List<Map<String, String>>> _botCommandsCache = {};
+  List<Map<String, String>> _botCommands = const [];
 
   // State variables for pagination/virtualization
   bool _isHistoryLoading = false;
@@ -354,6 +360,7 @@ class _ChatScreenState extends State<ChatScreen> {
         : null;
     _localChatRepo = context.read<LocalChatRepository>();
     _chatService = ChatService(apiClient: context.read<ApiClient>());
+    _loadBotCommands();
     _messagesStream = _localChatRepo.watchMessagesForServerChat(widget.chat.id,
         limit: _limit);
     _chatWebSocketService = ChatWebSocketService(
@@ -1002,6 +1009,11 @@ class _ChatScreenState extends State<ChatScreen> {
           final votesByOptionVal = item['votes_by_option'] != null
               ? jsonEncode(item['votes_by_option'])
               : null;
+          final itemMessageData = item['message_data'];
+          final replyMarkupVal =
+              (itemMessageData is Map && itemMessageData['reply_markup'] != null)
+                  ? jsonEncode(itemMessageData['reply_markup'])
+                  : null;
 
           final isServerRead = _parseIsRead(Map<String, dynamic>.from(item),
               isFavorites: widget.chat.isFavorites);
@@ -1035,6 +1047,7 @@ class _ChatScreenState extends State<ChatScreen> {
               replyToId: Value(replyToIdVal),
               replyText: Value(replyTextVal),
               replyAuthorName: Value(replyAuthorNameVal),
+              replyMarkup: Value(replyMarkupVal),
             ),
           );
         }
@@ -1427,6 +1440,11 @@ class _ChatScreenState extends State<ChatScreen> {
           final votesByOptionVal = item['votes_by_option'] != null
               ? jsonEncode(item['votes_by_option'])
               : null;
+          final itemMessageData = item['message_data'];
+          final replyMarkupVal =
+              (itemMessageData is Map && itemMessageData['reply_markup'] != null)
+                  ? jsonEncode(itemMessageData['reply_markup'])
+                  : null;
 
           final isServerRead = _parseIsRead(Map<String, dynamic>.from(item),
               isFavorites: widget.chat.isFavorites);
@@ -1461,6 +1479,7 @@ class _ChatScreenState extends State<ChatScreen> {
               replyToId: Value(replyToIdVal),
               replyText: Value(replyTextVal),
               replyAuthorName: Value(replyAuthorNameVal),
+              replyMarkup: Value(replyMarkupVal),
             ),
           );
         }
@@ -1796,6 +1815,11 @@ class _ChatScreenState extends State<ChatScreen> {
       final votesByOptionVal = event['votes_by_option'] != null
           ? jsonEncode(event['votes_by_option'])
           : null;
+      final eventMessageData = event['message_data'];
+      final replyMarkupVal =
+          (eventMessageData is Map && eventMessageData['reply_markup'] != null)
+              ? jsonEncode(eventMessageData['reply_markup'])
+              : null;
 
       final bool isAlreadyKnown = _initialMessageIds.contains(msgId) ||
           _animatedMessageIds.contains(msgId);
@@ -1874,6 +1898,7 @@ class _ChatScreenState extends State<ChatScreen> {
             replyToId: Value(replyToIdVal),
             replyText: Value(replyTextVal),
             replyAuthorName: Value(replyAuthorNameVal),
+            replyMarkup: Value(replyMarkupVal),
           ),
         );
       }
@@ -2933,16 +2958,64 @@ class _ChatScreenState extends State<ChatScreen> {
     return 'document';
   }
 
+  /// Диалог "сжать фото перед отправкой?" — тот же выбор, что и на вебе
+  /// (compressImage checkbox в imagePreviewModal), для экономии трафика.
+  /// Возвращает true (сжать), false (отправить как есть) или null (отмена).
+  Future<bool?> _showCompressImageDialog() {
+    return CompressImageModal.show(context);
+  }
+
+  /// Пережимает фото до 800px по большей стороне (JPEG) — как canvas-ресайз
+  /// в веб-клиенте (xc-files.js: compressAndAddImage, maxSize = 800).
+  Future<File?> _compressImageFile(File file) async {
+    try {
+      final bytes = await file.readAsBytes();
+      final decoded = img_lib.decodeImage(bytes);
+      if (decoded == null) return null;
+      const maxSize = 800;
+      img_lib.Image resized = decoded;
+      if (decoded.width > maxSize || decoded.height > maxSize) {
+        resized = decoded.width >= decoded.height
+            ? img_lib.copyResize(decoded, width: maxSize)
+            : img_lib.copyResize(decoded, height: maxSize);
+      }
+      final jpgBytes = img_lib.encodeJpg(resized, quality: 85);
+      final tempDir = await getTemporaryDirectory();
+      final tempPath =
+          '${tempDir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      return File(tempPath).writeAsBytes(jpgBytes);
+    } catch (e) {
+      debugPrint('Error compressing image: $e');
+      return null;
+    }
+  }
+
   Future<void> _processPickedFiles(List<File> files) async {
     if (files.isEmpty) return;
 
+    bool isCompressibleImage(File f) =>
+        _detectFileType(f.path) == 'image' &&
+        !f.path.toLowerCase().endsWith('.gif');
+
+    bool compressImages = false;
+    if (files.any(isCompressibleImage)) {
+      final choice = await _showCompressImageDialog();
+      if (choice == null) return; // Отменено пользователем
+      compressImages = choice;
+    }
+
     final List<AttachmentComposition> newAttachments = [];
     for (final file in files) {
-      final name = file.path.split('/').last;
-      final size = file.lengthSync();
+      var effectiveFile = file;
       final type = _detectFileType(file.path);
+      if (compressImages && isCompressibleImage(file)) {
+        final compressed = await _compressImageFile(file);
+        if (compressed != null) effectiveFile = compressed;
+      }
+      final name = effectiveFile.path.split('/').last;
+      final size = effectiveFile.lengthSync();
       newAttachments.add(AttachmentComposition(
-        file: file,
+        file: effectiveFile,
         status: 'uploading',
         fileType: type,
         fileSize: size,
@@ -4238,7 +4311,9 @@ class _ChatScreenState extends State<ChatScreen> {
         return true;
       }
       final username = other['username']?.toString().toLowerCase() ?? '';
-      if (username.endsWith('bot')) {
+      if (username == 'bot_constructor' ||
+          username.startsWith('bot_') ||
+          username.endsWith('bot')) {
         return true;
       }
     }
@@ -4246,6 +4321,120 @@ class _ChatScreenState extends State<ChatScreen> {
       return true;
     }
     return false;
+  }
+
+  String? _botUsername() {
+    if (!widget.chat.isPersonal || !_isBot()) return null;
+    final username = _otherUser?['username']?.toString().trim() ?? '';
+    return username.isEmpty ? null : username;
+  }
+
+  Future<void> _loadBotCommands() async {
+    final username = _botUsername();
+    if (username == null) return;
+
+    final cached = _botCommandsCache[username];
+    if (cached != null) {
+      if (mounted) setState(() => _botCommands = cached);
+      return;
+    }
+
+    final commands = await _chatService.getBotCommands(username);
+    _botCommandsCache[username] = commands;
+    if (mounted && _botUsername() == username) {
+      setState(() => _botCommands = commands);
+    }
+  }
+
+  void _sendBotCommand(String command) {
+    _messageController.text = '/$command';
+    _messageController.selection = TextSelection.collapsed(
+      offset: _messageController.text.length,
+    );
+    _sendMessage();
+  }
+
+  Future<void> _showBotCommandsMenu() async {
+    if (_botCommands.isEmpty) return;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.55,
+            ),
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF202024)
+                  : const Color(0xFFF8F8FA),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.08),
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _botCommands.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                indent: 16,
+                endIndent: 16,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.06),
+              ),
+              itemBuilder: (context, index) {
+                final command = _botCommands[index];
+                final name = command['command'] ?? '';
+                final description = command['description'] ?? '';
+                return ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 3,
+                  ),
+                  title: Text(
+                    '/$name',
+                    style: TextStyle(
+                      color: isDark ? Colors.white : const Color(0xFF202024),
+                      fontFamily: 'monospace',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  subtitle: description.isEmpty
+                      ? null
+                      : Text(
+                          description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.58)
+                                : Colors.black.withValues(alpha: 0.55),
+                            fontSize: 12.5,
+                          ),
+                        ),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _sendBotCommand(name);
+                  },
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
   }
 
   bool _canCall() {
@@ -4666,6 +4855,8 @@ class _ChatScreenState extends State<ChatScreen> {
               child: NewMessageAnimator(
                 key: ValueKey('anim_${msg.id}'),
                 animate: isNewMessage,
+                animateSize:
+                    msg.replyMarkup == null || msg.replyMarkup!.isEmpty,
                 onStartAnimating: isNewMessage
                     ? () {
                         _messagesToAnimate.remove(msg.serverMessageId);
@@ -4702,6 +4893,13 @@ class _ChatScreenState extends State<ChatScreen> {
                             _getMusicPlaylistFromChat(),
                             selectedUrl: selectedUrl,
                           ),
+                  onInlineButtonTap: (buttonId, tappedMessage) async {
+                    final serverId =
+                        int.tryParse(tappedMessage.serverMessageId);
+                    if (serverId == null) return 'Сообщение ещё не отправлено';
+                    return _chatService.activateBotCallback(
+                        serverId, buttonId);
+                  },
                 ),
               ),
             );
@@ -5359,6 +5557,30 @@ class _ChatScreenState extends State<ChatScreen> {
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (_botCommands.isNotEmpty) ...[
+                    Tooltip(
+                      message: 'Команды бота',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(22),
+                          onTap: _showBotCommandsMenu,
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                          child: Transform.rotate(
+                            angle: pi / 6,
+                            child: FaIcon(
+                              FontAwesomeIcons.slash,
+                              color: Colors.white.withValues(alpha: 0.65),
+                              size: 17,
+                            ),
+                          ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                  ],
                   // 1. Attach Button
                   Material(
                     color: Colors.transparent,
@@ -6652,12 +6874,14 @@ class FormattedText extends StatelessWidget {
 class NewMessageAnimator extends StatefulWidget {
   final Widget child;
   final bool animate;
+  final bool animateSize;
   final VoidCallback? onStartAnimating;
 
   const NewMessageAnimator({
     super.key,
     required this.child,
     required this.animate,
+    this.animateSize = true,
     this.onStartAnimating,
   });
 
@@ -6719,16 +6943,20 @@ class _NewMessageAnimatorState extends State<NewMessageAnimator>
 
   @override
   Widget build(BuildContext context) {
+    final animatedChild = FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: widget.child,
+      ),
+    );
+
+    if (!widget.animateSize) return animatedChild;
+
     return SizeTransition(
       sizeFactor: _sizeAnimation,
       alignment: Alignment.bottomCenter,
-      child: FadeTransition(
-        opacity: _fadeAnimation,
-        child: SlideTransition(
-          position: _slideAnimation,
-          child: widget.child,
-        ),
-      ),
+      child: animatedChild,
     );
   }
 }
@@ -6751,6 +6979,8 @@ class MessageBubble extends StatelessWidget {
   final void Function(String emoji)? onToggleReaction;
   final void Function(Message message)? onLongPress;
   final Future<void> Function(String selectedUrl)? onPlayMusicRequested;
+  final Future<String?> Function(String buttonId, Message message)?
+      onInlineButtonTap;
 
   const MessageBubble({
     super.key,
@@ -6771,7 +7001,28 @@ class MessageBubble extends StatelessWidget {
     this.onToggleReaction,
     this.onLongPress,
     this.onPlayMusicRequested,
+    this.onInlineButtonTap,
   });
+
+  Widget _buildImagePlaceholder({
+    double? width,
+    double? height,
+  }) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: const ColoredBox(
+        color: Color(0xFF242428),
+        child: Center(
+          child: Icon(
+            Icons.image_outlined,
+            color: Colors.white30,
+            size: 30,
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildReplyQuote(BuildContext context) {
     final replyAuthor = message.replyAuthorName ??
@@ -7056,16 +7307,7 @@ class MessageBubble extends StatelessWidget {
             ),
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
-              return Container(
-                color: Colors.black12,
-                child: const Center(
-                  child: SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 1.5),
-                  ),
-                ),
-              );
+              return _buildImagePlaceholder();
             },
           );
         }
@@ -7883,7 +8125,11 @@ class MessageBubble extends StatelessWidget {
         final isVideoMessage = fileData['type'] == 'video_message';
 
         isOnlyFile = displayContent.isEmpty;
-        isOnlyMedia = isOnlyFile && (isImage || isVideo || isVideoMessage);
+        final hasReply = _parseReplyField(message.replyToId) != null ||
+            _parseReplyField(message.replyText) != null ||
+            _parseReplyField(message.replyAuthorName) != null;
+        isOnlyMedia =
+            isOnlyFile && !hasReply && (isImage || isVideo || isVideoMessage);
 
         if (fileData['type'] == 'todo_list') {
           attachmentWidget = TodoListWidget(
@@ -8012,6 +8258,7 @@ class MessageBubble extends StatelessWidget {
               margin: isOnlyMedia
                   ? EdgeInsets.zero
                   : const EdgeInsets.only(bottom: 8),
+              width: 260,
               constraints: const BoxConstraints(maxHeight: 280),
               decoration: isOnlyMedia
                   ? null
@@ -8033,32 +8280,21 @@ class MessageBubble extends StatelessWidget {
                         headers: jwtToken != null
                             ? {'Authorization': 'Bearer $jwtToken'}
                             : null,
+                        width: 260,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
                           debugPrint('IMAGE PREVIEW LOAD ERROR: $error');
                           debugPrint('IMAGE PREVIEW URL: $absoluteUrl');
-                          return Container(
+                          return _buildImagePlaceholder(
+                            width: 260,
                             height: 120,
-                            color: Colors.black12,
-                            child: const Center(
-                              child: Icon(Icons.broken_image,
-                                  color: Colors.white54, size: 36),
-                            ),
                           );
                         },
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
-                          return Container(
+                          return _buildImagePlaceholder(
+                            width: 260,
                             height: 150,
-                            color: Colors.black12,
-                            child: const Center(
-                              child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            ),
                           );
                         },
                       ),
@@ -8278,7 +8514,14 @@ class MessageBubble extends StatelessWidget {
       alignment: effectiveIsMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2.5, horizontal: 12),
-        child: Row(
+        // Клавиатура бота — отдельный блок ПОД баблом (Column), а не внутри
+        // декорированного контейнера самого бабла (см. Row ниже).
+        child: Column(
+          crossAxisAlignment:
+              effectiveIsMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisAlignment:
@@ -8438,6 +8681,17 @@ class MessageBubble extends StatelessWidget {
                 ),
               ),
             ),
+          ],
+        ),
+            if (message.replyMarkup != null &&
+                message.replyMarkup!.isNotEmpty)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 280),
+                child: _BotInlineKeyboard(
+                  message: message,
+                  onButtonTap: onInlineButtonTap,
+                ),
+              ),
           ],
         ),
       ),
@@ -8741,6 +8995,201 @@ class MessageBubble extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Inline-клавиатура бота под сообщением (Telegram-style callback/url кнопки).
+/// Отдельный StatefulWidget, чтобы держать локальное состояние "кнопка нажата,
+/// ждём ответ сервера" без превращения MessageBubble в StatefulWidget.
+class _BotInlineKeyboard extends StatefulWidget {
+  final Message message;
+  final Future<String?> Function(String buttonId, Message message)?
+      onButtonTap;
+
+  const _BotInlineKeyboard({required this.message, this.onButtonTap});
+
+  @override
+  State<_BotInlineKeyboard> createState() => _BotInlineKeyboardState();
+}
+
+class _BotInlineKeyboardState extends State<_BotInlineKeyboard> {
+  final Set<String> _pendingIds = {};
+  late List<List<Map<String, dynamic>>> _rows;
+
+  @override
+  void initState() {
+    super.initState();
+    _decodeRows();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BotInlineKeyboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.message.replyMarkup != widget.message.replyMarkup) {
+      _decodeRows();
+    }
+  }
+
+  void _decodeRows() {
+    final raw = widget.message.replyMarkup;
+    if (raw == null || raw.isEmpty) {
+      _rows = const [];
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(raw);
+      final replyMarkup = decoded is Map
+          ? Map<String, dynamic>.from(decoded)
+          : const <String, dynamic>{};
+      final rawRows = replyMarkup['inline_keyboard'] as List? ?? const [];
+      _rows = rawRows
+          .whereType<List>()
+          .map((row) => row
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList())
+          .where((row) => row.isNotEmpty)
+          .toList();
+    } catch (_) {
+      _rows = const [];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_rows.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: _rows.map<Widget>((row) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                for (int i = 0; i < row.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 6),
+                  Expanded(
+                    child: _buildButton(
+                      context,
+                      row[i],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildButton(BuildContext context, Map<String, dynamic> item) {
+    final text = item['text']?.toString() ?? '';
+    final buttonId = item['id']?.toString();
+    final action = item['action']?.toString();
+    if (text.isEmpty || buttonId == null) return const SizedBox.shrink();
+
+    final bgColor =
+        _parseHexColor(item['color']?.toString()) ?? const Color(0xFF426B63);
+    final fgColor =
+        bgColor.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+    final isPending = _pendingIds.contains(buttonId);
+
+    return SizedBox(
+      height: 40,
+      child: ElevatedButton(
+        onPressed:
+            isPending ? null : () => _handleTap(context, item, buttonId, action),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: bgColor,
+          foregroundColor: fgColor,
+          disabledBackgroundColor: bgColor.withOpacity(0.7),
+          disabledForegroundColor: fgColor.withOpacity(0.7),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          elevation: 0,
+        ),
+        child: isPending
+            ? SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: fgColor,
+                ),
+              )
+            : Text(
+                text,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Future<void> _handleTap(
+    BuildContext context,
+    Map<String, dynamic> item,
+    String buttonId,
+    String? action,
+  ) async {
+    if (action == 'url') {
+      final urlStr = item['url']?.toString();
+      Uri? uri;
+      if (urlStr != null) {
+        try {
+          uri = Uri.parse(urlStr);
+        } catch (_) {
+          uri = null;
+        }
+      }
+      if (uri == null || uri.scheme != 'https') {
+        _showError(context, 'Ссылка недоступна');
+        return;
+      }
+      final confirmed = await ConfirmActionModal.confirm(
+        context: context,
+        title: 'Перейти по ссылке?',
+        message: uri.host,
+        confirmLabel: 'Перейти',
+      );
+      if (confirmed) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      return;
+    }
+
+    if (action != 'callback' || widget.onButtonTap == null) return;
+
+    setState(() => _pendingIds.add(buttonId));
+    try {
+      final error = await widget.onButtonTap!(buttonId, widget.message);
+      if (error != null && mounted) _showError(context, error);
+    } finally {
+      if (mounted) setState(() => _pendingIds.remove(buttonId));
+    }
+  }
+
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
+    );
+  }
+
+  Color? _parseHexColor(String? hex) {
+    if (hex == null) return null;
+    final match = RegExp(r'^#([0-9A-Fa-f]{6})$').firstMatch(hex);
+    if (match == null) return null;
+    return Color(int.parse('FF${match.group(1)}', radix: 16));
   }
 }
 

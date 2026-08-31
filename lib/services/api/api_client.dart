@@ -55,13 +55,12 @@ class ApiClient {
       },
     ));
 
-    // Self-signed certificates are allowed only for the configured private
-    // development backend, and only in debug builds. Public hosts always
-    // keep normal TLS verification.
+    // TEMPORARY: allow the configured private development backend in release
+    // builds too. The callback still rejects every public host.
     _dio.httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: () {
         final client = HttpClient();
-        if (kDebugMode) {
+        if (AppConfig.allowInsecurePrivateCertificates) {
           client.badCertificateCallback = allowConfiguredDevelopmentCertificate;
         }
         return client;

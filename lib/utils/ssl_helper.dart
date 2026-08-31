@@ -1,7 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
-
 import '../config/app_config.dart';
 
 /// Allows an invalid certificate only for the explicitly configured private
@@ -15,7 +13,7 @@ bool allowConfiguredDevelopmentCertificate(
 }
 
 bool isConfiguredPrivateDevelopmentHost(String host) {
-  if (!kDebugMode) return false;
+  if (!AppConfig.allowInsecurePrivateCertificates) return false;
 
   final configuredHost = Uri.tryParse(AppConfig.apiBaseUrl)?.host;
   if (configuredHost == null || host != configuredHost) return false;

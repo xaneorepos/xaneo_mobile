@@ -48,6 +48,16 @@ class AppConfig {
   /// Таймаут для долгих операций (загрузка файлов)
   static const Duration apiLongTimeout = Duration(minutes: 5);
 
+  /// TEMPORARY: allow a self-signed certificate for the explicitly configured
+  /// private development host in release builds as well. Public hosts are
+  /// never accepted by this bypass. Set to false with
+  /// --dart-define=ALLOW_INSECURE_PRIVATE_CERTIFICATES=false once the backend
+  /// certificate is trusted by the platform.
+  static const bool allowInsecurePrivateCertificates = bool.fromEnvironment(
+    'ALLOW_INSECURE_PRIVATE_CERTIFICATES',
+    defaultValue: true,
+  );
+
   // ========== gRPC Configuration ==========
   static String get grpcHost => Uri.parse(apiBaseUrl).host;
   static const int grpcChatPort = 50051;

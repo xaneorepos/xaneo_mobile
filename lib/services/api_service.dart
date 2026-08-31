@@ -6,7 +6,6 @@ import 'package:dio/io.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart';
 import 'account_service.dart';
 import 'logger_service.dart';
 import '../config/app_config.dart';
@@ -152,13 +151,12 @@ class ApiService {
       },
     ));
 
-    // Self-signed certificates are allowed only for the configured private
-    // development backend, and only in debug builds. Public hosts always
-    // keep normal TLS verification.
+    // TEMPORARY: allow the configured private development backend in release
+    // builds too. The callback still rejects every public host.
     _dio.httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: () {
         final client = HttpClient();
-        if (kDebugMode) {
+        if (AppConfig.allowInsecurePrivateCertificates) {
           client.badCertificateCallback = allowConfiguredDevelopmentCertificate;
         }
         return client;

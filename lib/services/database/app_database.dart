@@ -82,7 +82,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -108,6 +108,9 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(messages, messages.replyToId);
             await m.addColumn(messages, messages.replyText);
             await m.addColumn(messages, messages.replyAuthorName);
+          }
+          if (from < 6) {
+            await m.addColumn(messages, messages.replyMarkup);
           }
         },
         beforeOpen: (details) async {

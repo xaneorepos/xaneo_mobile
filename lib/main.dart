@@ -111,10 +111,9 @@ void main() async {
     });
   }
 
-  // A self-signed certificate is accepted only for the configured private
-  // development backend, and only in debug builds. Public hosts always
-  // keep normal TLS verification.
-  if (kDebugMode) {
+  // TEMPORARY: also enable the private-host certificate override in release.
+  // The callback rejects public hosts, so their normal TLS validation remains.
+  if (AppConfig.allowInsecurePrivateCertificates) {
     HttpOverrides.global = _DevHttpOverrides();
   }
   LocalProxy.start();

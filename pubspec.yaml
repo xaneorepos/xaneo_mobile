@@ -54,6 +54,8 @@ dependencies:
 
   # Image picking and cropping
   image_picker: ^1.0.7
+  # Client-side image resize/compression before sending as a chat photo
+  image: ^4.3.0
 
   # Permissions
   permission_handler: ^11.3.0

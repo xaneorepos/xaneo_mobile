@@ -22,4 +22,7 @@ class Messages extends Table {
   TextColumn get replyToId => text().nullable()();
   TextColumn get replyText => text().nullable()();
   TextColumn get replyAuthorName => text().nullable()();
+
+  // Support for bot inline keyboards
+  TextColumn get replyMarkup => text().nullable()(); // JSON string: {"inline_keyboard": [[{...}]]}
 }
