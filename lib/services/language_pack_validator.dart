@@ -19,7 +19,8 @@ class ValidationIssue {
       };
 
   @override
-  String toString() => key != null ? '[$code] ($key) $message' : '[$code] $message';
+  String toString() =>
+      key != null ? '[$code] ($key) $message' : '[$code] $message';
 }
 
 /// Result of language pack validation
@@ -40,7 +41,14 @@ class ValidationResult {
 /// Strict validator for Custom Language Packs in Flutter
 class LanguagePackValidator {
   static const Set<String> allowedFallbackLocales = {
-    'ru', 'en', 'fr', 'es', 'zh', 'ja', 'ko', 'ar'
+    'ru',
+    'en',
+    'fr',
+    'es',
+    'zh',
+    'ja',
+    'ko',
+    'ar'
   };
 
   static const int maxPackSizeBytes = 2 * 1024 * 1024; // 2 MiB
@@ -48,9 +56,11 @@ class LanguagePackValidator {
   static const int maxMetadataLength = 80;
   static const int maxLocaleLength = 35;
 
-  static final RegExp controlCharsRegex = RegExp(r'[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]');
+  static final RegExp controlCharsRegex =
+      RegExp(r'[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]');
   static final RegExp bidiCharsRegex = RegExp(r'[\u202A-\u202E\u2066-\u2069]');
-  static final RegExp localeTagRegex = RegExp(r'^[a-zA-Z0-9]+([-_][a-zA-Z0-9]+)*$');
+  static final RegExp localeTagRegex =
+      RegExp(r'^[a-zA-Z0-9]+([-_][a-zA-Z0-9]+)*$');
   static final RegExp placeholderRegex = RegExp(r'\{([a-zA-Z0-9_]+)\}');
 
   /// Parse JSON strictly detecting duplicate keys
@@ -200,10 +210,12 @@ class LanguagePackValidator {
 
     // 6. Fallback locale
     final dynamic fallbackLocale = parsed['fallback_locale'];
-    if (fallbackLocale is! String || !allowedFallbackLocales.contains(fallbackLocale)) {
+    if (fallbackLocale is! String ||
+        !allowedFallbackLocales.contains(fallbackLocale)) {
       errors.add(ValidationIssue(
         code: 'INVALID_FALLBACK_LOCALE',
-        message: 'fallback_locale must be one of: ${allowedFallbackLocales.join(', ')}',
+        message:
+            'fallback_locale must be one of: ${allowedFallbackLocales.join(', ')}',
       ));
     }
 
@@ -243,7 +255,8 @@ class LanguagePackValidator {
           errors.add(ValidationIssue(
             code: 'OVERSIZED_STRING',
             key: key,
-            message: 'String for key "$key" exceeds $maxStringLength characters',
+            message:
+                'String for key "$key" exceeds $maxStringLength characters',
           ));
           continue;
         }
@@ -252,13 +265,15 @@ class LanguagePackValidator {
           errors.add(ValidationIssue(
             code: 'CONTROL_CHARACTERS',
             key: key,
-            message: 'String for key "$key" contains illegal control characters',
+            message:
+                'String for key "$key" contains illegal control characters',
           ));
           continue;
         }
 
         final dynamic keyDef = manifestKeys[key];
-        if (keyDef is Map<String, dynamic> && keyDef['security_critical'] == true) {
+        if (keyDef is Map<String, dynamic> &&
+            keyDef['security_critical'] == true) {
           warnings.add(ValidationIssue(
             code: 'SECURITY_CRITICAL_OVERRIDE_IGNORED',
             key: key,
@@ -278,7 +293,8 @@ class LanguagePackValidator {
             errors.add(ValidationIssue(
               code: 'INVALID_PLACEHOLDER',
               key: key,
-              message: 'Unbalanced braces (malformed placeholder/ICU syntax) in key "$key"',
+              message:
+                  'Unbalanced braces (malformed placeholder/ICU syntax) in key "$key"',
             ));
             continue;
           }

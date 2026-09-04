@@ -47,11 +47,11 @@ class CreateOptionsModal extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Color(0xFF141416),
+        color: context.xaneoSurface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         border: Border(
           top: BorderSide(
-            color: Colors.white.withOpacity(0.08),
+            color: context.xaneoDivider,
             width: 1.5,
           ),
         ),
@@ -69,7 +69,7 @@ class CreateOptionsModal extends StatelessWidget {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.18),
+                    color: context.xaneoOverlay(0.18),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -80,9 +80,10 @@ class CreateOptionsModal extends StatelessWidget {
               Padding(
                 padding: EdgeInsets.only(left: 4, bottom: 14),
                 child: Text(
-                  (AppLocalizations.of(context)?.sozdatNovyyChat_fd41 ?? 'Fallback'),
+                  (AppLocalizations.of(context)?.sozdatNovyyChat_fd41 ??
+                      'Fallback'),
                   style: TextStyle(
-                    color: Colors.white,
+                    color: context.xaneoTextPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     fontFamily: AppStyles.fontFamily,
@@ -96,8 +97,11 @@ class CreateOptionsModal extends StatelessWidget {
                 context: context,
                 icon: FontAwesomeIcons.solidComment,
                 iconColor: const Color(0xFF60A5FA),
-                title: (AppLocalizations.of(context)?.lichnyyChat_cbec ?? 'Fallback'),
-                subtitle: (AppLocalizations.of(context)?.nachatObschenieSPolzovatelem_0578 ?? 'Fallback'),
+                title: (AppLocalizations.of(context)?.lichnyyChat_cbec ??
+                    'Fallback'),
+                subtitle: (AppLocalizations.of(context)
+                        ?.nachatObschenieSPolzovatelem_0578 ??
+                    'Fallback'),
                 onTap: () async {
                   final authProvider = context.read<AuthProvider>();
                   final rootContext = Navigator.of(context).context;
@@ -122,8 +126,11 @@ class CreateOptionsModal extends StatelessWidget {
                 context: context,
                 icon: FontAwesomeIcons.users,
                 iconColor: const Color(0xFF34D399),
-                title: (AppLocalizations.of(context)?.sozdatGruppu_459f ?? 'Fallback'),
-                subtitle: (AppLocalizations.of(context)?.gruppovoyChatDlyaObscheniyaS_01ba ?? 'Fallback'),
+                title: (AppLocalizations.of(context)?.sozdatGruppu_459f ??
+                    'Fallback'),
+                subtitle: (AppLocalizations.of(context)
+                        ?.gruppovoyChatDlyaObscheniyaS_01ba ??
+                    'Fallback'),
                 onTap: () async {
                   final rootContext = Navigator.of(context).context;
 
@@ -146,8 +153,11 @@ class CreateOptionsModal extends StatelessWidget {
                 context: context,
                 icon: FontAwesomeIcons.bullhorn,
                 iconColor: const Color(0xFFA78BFA),
-                title: (AppLocalizations.of(context)?.sozdatKanal_9022 ?? 'Fallback'),
-                subtitle: (AppLocalizations.of(context)?.kanalDlyaShirokoyAuditorii_9dba ?? 'Fallback'),
+                title: (AppLocalizations.of(context)?.sozdatKanal_9022 ??
+                    'Fallback'),
+                subtitle: (AppLocalizations.of(context)
+                        ?.kanalDlyaShirokoyAuditorii_9dba ??
+                    'Fallback'),
                 onTap: () async {
                   final rootContext = Navigator.of(context).context;
 
@@ -186,10 +196,10 @@ class CreateOptionsModal extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.04),
+            color: context.xaneoOverlay(0.04),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withOpacity(0.06),
+              color: context.xaneoDivider,
               width: 1,
             ),
           ),
@@ -217,8 +227,8 @@ class CreateOptionsModal extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: context.xaneoTextPrimary,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         fontFamily: AppStyles.fontFamily,

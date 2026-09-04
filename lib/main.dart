@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/cupertino.dart';
@@ -11,6 +12,7 @@ import 'config/app_config.dart';
 import 'providers/auth_provider.dart';
 import 'providers/playback_provider.dart';
 import 'providers/locale_provider.dart';
+import 'providers/appearance_provider.dart';
 import 'l10n/app_localizations.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
@@ -40,9 +42,9 @@ import 'utils/ssl_helper.dart';
 import 'dart:io';
 
 import 'package:logging/logging.dart' as dart_logging;
-import 'package:livekit_client/livekit_client.dart';
 import 'package:audio_service/audio_service.dart';
 import 'services/audio/xaneo_audio_handler.dart';
+import 'services/audio/audio_track_cache.dart';
 
 late final XaneoAudioHandler xaneoAudioHandler;
 
@@ -54,7 +56,27 @@ class _DevHttpOverrides extends HttpOverrides {
   }
 }
 
-void main() async {
+void main() {
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
+
+  runZonedGuarded(
+    _bootstrap,
+    (error, stackTrace) {
+      if (!kReleaseMode) {
+        debugPrint('Uncaught application error: $error\n$stackTrace');
+      }
+    },
+    zoneSpecification: ZoneSpecification(
+      print: (self, parent, zone, line) {
+        if (!kReleaseMode) parent.print(zone, line);
+      },
+    ),
+  );
+}
+
+Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   xaneoAudioHandler = await AudioService.init<XaneoAudioHandler>(
@@ -106,7 +128,7 @@ void main() async {
   if (kDebugMode) {
     dart_logging.Logger.root.level = dart_logging.Level.ALL;
     dart_logging.Logger.root.onRecord.listen((record) {
-      print(
+      debugPrint(
           '[LiveKit] ${record.level.name}: ${record.time}: ${record.message}');
     });
   }
@@ -172,13 +194,15 @@ class XaneoApp extends StatelessWidget {
       host: AppConfig.grpcHost,
       chatPort: AppConfig.grpcChatPort,
       presencePort: AppConfig.grpcPresencePort,
+      useTls: AppConfig.grpcUseTls,
     );
 
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<PlaybackProvider>(
-            create: (_) => PlaybackProvider(xaneoAudioHandler)),
         ChangeNotifierProvider<LocaleProvider>(create: (_) => LocaleProvider()),
+        ChangeNotifierProvider<AppearanceProvider>(
+          create: (_) => AppearanceProvider(),
+        ),
         // ApiClient для всех экранов
         Provider<ApiClient>.value(value: apiClient),
         // CryptoService для расшифровки сообщений
@@ -232,6 +256,14 @@ class XaneoApp extends StatelessWidget {
                   repo.dispose();
                 },
               ),
+        ChangeNotifierProxyProvider<LocalChatRepository, PlaybackProvider>(
+          create: (_) => PlaybackProvider(xaneoAudioHandler),
+          update: (context, repository, playback) {
+            final provider = playback ?? PlaybackProvider(xaneoAudioHandler);
+            provider.attachTrackCache(AudioTrackCache(repository.database));
+            return provider;
+          },
+        ),
         // PresenceService для фонового и глобального отслеживания активности (в сети / не в сети)
         Provider<PresenceService>(
           lazy: false,
@@ -278,8 +310,8 @@ class XaneoApp extends StatelessWidget {
           },
         ),
       ],
-      child: Consumer<LocaleProvider>(
-        builder: (context, localeProvider, child) {
+      child: Consumer2<LocaleProvider, AppearanceProvider>(
+        builder: (context, localeProvider, appearance, child) {
           return MaterialApp(
             title: 'Xaneo',
             locale: localeProvider.locale,
@@ -287,9 +319,39 @@ class XaneoApp extends StatelessWidget {
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             navigatorKey: NotificationService.navigatorKey,
             debugShowCheckedModeBanner: false,
+            themeMode: appearance.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+            themeAnimationDuration: appearance.animationsEnabled
+                ? const Duration(milliseconds: 200)
+                : Duration.zero,
+            builder: (context, child) {
+              final brightness = Theme.of(context).brightness;
+              final mediaQuery = MediaQuery.of(context);
+              return AnnotatedRegion<SystemUiOverlayStyle>(
+                value: SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: brightness == Brightness.dark
+                      ? Brightness.light
+                      : Brightness.dark,
+                  systemNavigationBarColor: brightness == Brightness.dark
+                      ? Colors.black
+                      : const Color(0xFFF7F7F8),
+                  systemNavigationBarIconBrightness:
+                      brightness == Brightness.dark
+                          ? Brightness.light
+                          : Brightness.dark,
+                ),
+                child: AppAnimationPolicy(
+                  enabled: appearance.animationsEnabled,
+                  mediaQuery: mediaQuery,
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              );
+            },
+
+            theme: _buildLightTheme(appearance.animationsEnabled),
 
             // Чёрно-белая тема
-            theme: ThemeData(
+            darkTheme: ThemeData(
               useMaterial3: true,
               brightness: Brightness.dark,
               scaffoldBackgroundColor: AppStyles.backgroundColor,
@@ -355,6 +417,9 @@ class XaneoApp extends StatelessWidget {
               elevatedButtonTheme: ElevatedButtonThemeData(
                 style: AppStyles.primaryButton,
               ),
+              filledButtonTheme: FilledButtonThemeData(
+                style: AppStyles.filledButton,
+              ),
               textButtonTheme: TextButtonThemeData(
                 style: AppStyles.textButton,
               ),
@@ -377,13 +442,8 @@ class XaneoApp extends StatelessWidget {
                   );
                 }),
               ),
-              pageTransitionsTheme: const PageTransitionsTheme(
-                builders: <TargetPlatform, PageTransitionsBuilder>{
-                  TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-                  TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-                  TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-                },
-              ),
+              pageTransitionsTheme:
+                  _pageTransitions(appearance.animationsEnabled),
             ),
 
             // Начальный экран
@@ -401,6 +461,143 @@ class XaneoApp extends StatelessWidget {
       ),
     );
   }
+
+  ThemeData _buildLightTheme(bool animationsEnabled) {
+    const background = Color(0xFFF7F7F8);
+    const surface = Colors.white;
+    const foreground = Color(0xFF18181B);
+    const muted = Color(0xFF71717A);
+    const border = Color(0xFFE4E4E7);
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: background,
+      fontFamily: AppStyles.fontFamily,
+      colorScheme: const ColorScheme.light(
+        primary: foreground,
+        secondary: muted,
+        surface: surface,
+        error: AppStyles.errorColor,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: background,
+        foregroundColor: foreground,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      textTheme: ThemeData.light().textTheme.apply(
+            bodyColor: foreground,
+            displayColor: foreground,
+            fontFamily: AppStyles.fontFamily,
+          ),
+      iconTheme: const IconThemeData(color: foreground),
+      dividerColor: border,
+      cardColor: surface,
+      canvasColor: surface,
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: surface,
+        textStyle: const TextStyle(color: foreground),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.selected) ? foreground : muted,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? foreground.withValues(alpha: 0.3)
+              : muted.withValues(alpha: 0.2),
+        ),
+      ),
+      sliderTheme: const SliderThemeData(
+        activeTrackColor: foreground,
+        thumbColor: foreground,
+        inactiveTrackColor: border,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: foreground),
+        ),
+      ),
+      pageTransitionsTheme: _pageTransitions(animationsEnabled),
+    );
+  }
+
+  PageTransitionsTheme _pageTransitions(bool animationsEnabled) {
+    if (!animationsEnabled) {
+      return const PageTransitionsTheme(
+        builders: <TargetPlatform, PageTransitionsBuilder>{
+          TargetPlatform.android: _NoPageTransitionsBuilder(),
+          TargetPlatform.iOS: _NoPageTransitionsBuilder(),
+          TargetPlatform.macOS: _NoPageTransitionsBuilder(),
+          TargetPlatform.linux: _NoPageTransitionsBuilder(),
+          TargetPlatform.windows: _NoPageTransitionsBuilder(),
+        },
+      );
+    }
+    return const PageTransitionsTheme(
+      builders: <TargetPlatform, PageTransitionsBuilder>{
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+      },
+    );
+  }
+}
+
+class AppAnimationPolicy extends StatelessWidget {
+  const AppAnimationPolicy({
+    super.key,
+    required this.enabled,
+    required this.mediaQuery,
+    required this.child,
+  });
+
+  final bool enabled;
+  final MediaQueryData mediaQuery;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => MediaQuery(
+        data: mediaQuery.copyWith(disableAnimations: !enabled),
+        child: child,
+      );
+}
+
+class _NoPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _NoPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) =>
+      child;
 }
 
 class AuthWrapper extends StatefulWidget {
@@ -471,6 +668,7 @@ class _SplashScreenState extends State<SplashScreen>
   late final AnimationController _controller;
   late final Animation<double> _fadeAnimation;
   late final Animation<double> _scaleAnimation;
+  bool _motionInitialized = false;
 
   @override
   void initState() {
@@ -492,8 +690,17 @@ class _SplashScreenState extends State<SplashScreen>
         curve: AppStyles.curveEaseOut,
       ),
     );
+  }
 
-    _controller.forward();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.value = 1;
+    } else if (!_motionInitialized) {
+      _controller.forward();
+    }
+    _motionInitialized = true;
   }
 
   @override
@@ -505,7 +712,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppStyles.backgroundColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -524,10 +731,12 @@ class _SplashScreenState extends State<SplashScreen>
                     width: 72,
                     height: 72,
                     fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => const Center(
+                    color: context.xaneoTextPrimary,
+                    colorBlendMode: BlendMode.srcIn,
+                    errorBuilder: (context, error, stackTrace) => Center(
                       child: FaIcon(
                         FontAwesomeIcons.shieldHalved,
-                        color: AppStyles.textPrimaryColor,
+                        color: context.xaneoTextPrimary,
                         size: 48,
                       ),
                     ),
@@ -536,12 +745,12 @@ class _SplashScreenState extends State<SplashScreen>
                   const SizedBox(height: 24),
 
                   // Название приложения в стиле дизайн-системы
-                  const Text(
+                  Text(
                     'Xaneo',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
-                      color: AppStyles.textPrimaryColor,
+                      color: context.xaneoTextPrimary,
                       letterSpacing: -0.5,
                       fontFamily: AppStyles.fontFamily,
                     ),
@@ -550,13 +759,13 @@ class _SplashScreenState extends State<SplashScreen>
                   const Spacer(flex: 3),
 
                   // Минималистичный монохромный индикатор загрузки
-                  const SizedBox(
+                  SizedBox(
                     width: 24,
                     height: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        AppStyles.textPrimaryColor,
+                        context.xaneoTextPrimary,
                       ),
                     ),
                   ),

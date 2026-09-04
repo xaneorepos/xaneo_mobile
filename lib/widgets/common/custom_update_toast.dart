@@ -52,6 +52,7 @@ class _CustomUpdateToastState extends State<CustomUpdateToast>
   late AnimationController _controller;
   late Animation<double> _slideAnimation;
   late Animation<double> _fadeAnimation;
+  bool _motionInitialized = false;
 
   @override
   void initState() {
@@ -66,8 +67,17 @@ class _CustomUpdateToastState extends State<CustomUpdateToast>
       CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
     _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+  }
 
-    _controller.forward();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.value = 1;
+    } else if (!_motionInitialized) {
+      _controller.forward();
+    }
+    _motionInitialized = true;
   }
 
   @override
@@ -77,7 +87,9 @@ class _CustomUpdateToastState extends State<CustomUpdateToast>
   }
 
   Future<void> _dismiss() async {
-    await _controller.reverse();
+    if (!MediaQuery.disableAnimationsOf(context)) {
+      await _controller.reverse();
+    }
     widget.onDismiss();
   }
 

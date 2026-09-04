@@ -60,8 +60,9 @@ class AppConfig {
 
   // ========== gRPC Configuration ==========
   static String get grpcHost => Uri.parse(apiBaseUrl).host;
-  static const int grpcChatPort = 50051;
-  static const int grpcPresencePort = 50053;
+  static bool get grpcUseTls => Uri.parse(apiBaseUrl).scheme == 'https';
+  static int get grpcChatPort => grpcUseTls ? 443 : 50051;
+  static int get grpcPresencePort => grpcUseTls ? 443 : 50053;
 
   // ========== Auth Endpoints ==========
 

@@ -4,10 +4,10 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
+import '../services/audio/audio_track_cache.dart';
 import '../services/audio/media_artwork_service.dart';
 import '../services/audio/xaneo_audio_handler.dart';
 import '../services/auth/token_storage.dart';
@@ -19,6 +19,7 @@ class PlaybackItem {
   final String? mimeType;
   final Duration? duration;
   final Uri? artUri;
+  final Map<String, dynamic>? payload;
 
   PlaybackItem({
     required this.url,
@@ -27,6 +28,7 @@ class PlaybackItem {
     this.mimeType,
     this.duration,
     this.artUri,
+    this.payload,
   });
 }
 
@@ -38,6 +40,9 @@ class PlaybackProvider extends ChangeNotifier {
 
   final XaneoAudioHandler _audioHandler;
   final AudioPlayer _player;
+  AudioTrackCache? _trackCache;
+  Object? _trackCacheDatabaseIdentity;
+  StreamSubscription<Set<String>>? _cachedTracksSub;
   StreamSubscription? _playerStateSub;
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
@@ -49,13 +54,16 @@ class PlaybackProvider extends ChangeNotifier {
   String? _currentAudioUrl;
   String _title = '';
   String _subtitle = '';
+  Uri? _currentArtUri;
   bool _isPlaying = false;
   bool _isInitialized = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   bool _isLoading = false;
+  final Map<String, double> _downloadProgressByUrl = <String, double>{};
   bool _isSeeking = false;
   bool _isVideo = false;
+  bool _playerControlsDismissed = false;
 
   LoopMode _loopMode = LoopMode.off;
   LoopMode get loopMode => _loopMode;
@@ -70,12 +78,43 @@ class PlaybackProvider extends ChangeNotifier {
   String? get currentAudioUrl => _currentAudioUrl;
   String get title => _title;
   String get subtitle => _subtitle;
+  Uri? get currentArtUri => _currentArtUri;
   bool get isPlaying => _isPlaying;
   bool get isInitialized => _isInitialized;
   Duration get position => _position;
   Duration get duration => _duration;
   bool get isLoading => _isLoading;
+  double downloadProgressFor(String url) =>
+      (_downloadProgressByUrl[_stableCacheKey(url)] ?? 0.0)
+          .clamp(0.0, 1.0)
+          .toDouble();
   bool get isVideo => _isVideo;
+  bool get showPlayerControls =>
+      _currentAudioUrl != null && !_playerControlsDismissed;
+
+  void attachTrackCache(AudioTrackCache cache) {
+    if (identical(_trackCacheDatabaseIdentity, cache.databaseIdentity)) return;
+    _cachedTracksSub?.cancel();
+    _trackCache = cache;
+    _trackCacheDatabaseIdentity = cache.databaseIdentity;
+    _downloadProgressByUrl.clear();
+    _cachedTracksSub = cache.watchCachedSourceUrls().listen(
+      (sourceUrls) {
+        _downloadProgressByUrl.removeWhere(
+          (url, progress) => progress >= 1.0 && !sourceUrls.contains(url),
+        );
+        for (final sourceUrl in sourceUrls) {
+          _downloadProgressByUrl[sourceUrl] = 1.0;
+        }
+        notifyListeners();
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (kDebugMode) {
+          debugPrint('Audio cache state subscription failed: $error');
+        }
+      },
+    );
+  }
 
   List<PlaybackItem> _playlist = [];
   int _currentIndex = -1;
@@ -91,6 +130,14 @@ class PlaybackProvider extends ChangeNotifier {
           (_currentIndex >= 0 && _currentIndex < _playlist.length - 1));
   bool get hasPrevious =>
       _playlist.isNotEmpty && (_loopMode == LoopMode.all || _currentIndex > 0);
+
+  String _safeUrlForLog(String value) {
+    final uri = Uri.tryParse(value);
+    if (uri == null || !uri.hasScheme) return '<local-file>';
+    final port = uri.hasPort ? ':${uri.port}' : '';
+    final queryMarker = uri.hasQuery ? '?<redacted>' : '';
+    return '${uri.scheme}://${uri.host}$port${uri.path}$queryMarker';
+  }
 
   void _initializePlayerSubscriptions() {
     _playbackEventSub = _player.playbackEventStream.listen(
@@ -112,6 +159,9 @@ class PlaybackProvider extends ChangeNotifier {
 
     _playerStateSub = _player.playerStateStream.listen((state) {
       _isPlaying = state.playing;
+      if (state.playing && _playerControlsDismissed) {
+        _playerControlsDismissed = false;
+      }
 
       if (state.processingState == ProcessingState.completed) {
         _isPlaying = false;
@@ -142,6 +192,7 @@ class PlaybackProvider extends ChangeNotifier {
           _currentAudioUrl = item.url;
           _title = item.title;
           _subtitle = item.subtitle;
+          _currentArtUri = item.artUri;
           if (item.duration != null && item.duration! > Duration.zero) {
             _duration = item.duration!;
           }
@@ -195,16 +246,25 @@ class PlaybackProvider extends ChangeNotifier {
     _queueIndex = startIndex;
   }
 
-  Future<String> _ensureLocalFile(String url, {String? mimeType}) async {
-    if (!url.startsWith('http')) {
-      return url;
-    }
-
+  Future<String> _ensureLocalFile(PlaybackItem item) async {
+    final metadata = _cacheMetadata(item);
+    await _saveMetadata(metadata);
     try {
+      if (!item.url.startsWith('http')) {
+        final localFile = File(item.url);
+        if (await localFile.exists() &&
+            !await (_trackCache?.hasAudio(metadata.sourceUrl) ??
+                Future<bool>.value(false))) {
+          await _trackCache?.storeFile(metadata, localFile);
+        }
+        _setDownloadProgress(item.url, 1.0);
+        return item.url;
+      }
+
       final tempDir = await getTemporaryDirectory();
       String ext = '.mp3';
-      if (mimeType != null) {
-        final mime = mimeType.toLowerCase();
+      if (item.mimeType != null) {
+        final mime = item.mimeType!.toLowerCase();
         if (mime.contains('webm')) {
           ext = '.webm';
         } else if (mime.contains('ogg') || mime.contains('opus')) {
@@ -220,7 +280,17 @@ class PlaybackProvider extends ChangeNotifier {
         }
       }
 
-      final baseUrl = url.split('?').first;
+      final restored = await _trackCache?.restoreFile(
+        metadata.sourceUrl,
+        tempDir,
+        extension: ext,
+      );
+      if (restored != null && await restored.exists()) {
+        _setDownloadProgress(item.url, 1.0);
+        return restored.path;
+      }
+
+      final baseUrl = item.url.split('?').first;
       final safeName = baseUrl.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
       final shortName = safeName.length > 50
           ? safeName.substring(safeName.length - 50)
@@ -230,13 +300,15 @@ class PlaybackProvider extends ChangeNotifier {
       final file = File(localFilePath);
 
       if (await file.exists() && await file.length() > 0) {
+        _setDownloadProgress(item.url, 1.0);
+        await _trackCache?.storeFile(metadata, file);
         debugPrint(
             '📁 [Audio Cache] Found file (${await file.length()} bytes): $localFilePath');
         return localFilePath;
       }
 
       final freshToken = await TokenStorage().getAccessToken();
-      Uri targetUri = Uri.parse(url);
+      Uri targetUri = Uri.parse(item.url);
       if (freshToken != null && freshToken.isNotEmpty) {
         final newParams = Map<String, String>.from(targetUri.queryParameters);
         newParams['token'] = freshToken;
@@ -244,8 +316,13 @@ class PlaybackProvider extends ChangeNotifier {
       }
       final downloadUrl = targetUri.toString();
 
-      debugPrint(
-          '⬇️ [Audio Download] Downloading for playback: $downloadUrl -> $localFilePath');
+      if (kDebugMode) {
+        debugPrint(
+          '⬇️ [Audio Download] ${_safeUrlForLog(downloadUrl)}',
+        );
+      }
+
+      _setDownloadProgress(item.url, 0.0);
 
       final dio = Dio();
       (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
@@ -263,19 +340,75 @@ class PlaybackProvider extends ChangeNotifier {
               ? {'Authorization': 'Bearer $freshToken'}
               : {},
         ),
+        onReceiveProgress: (received, total) {
+          if (total > 0) {
+            _setDownloadProgress(
+              item.url,
+              received >= total ? 1.0 : received / total,
+            );
+          }
+        },
       );
 
-      if (response.statusCode == 200 && await file.exists()) {
+      final statusCode = response.statusCode ?? 0;
+      if (statusCode >= 200 && statusCode < 300 && await file.exists()) {
+        _setDownloadProgress(item.url, 1.0);
+        await _trackCache?.storeFile(metadata, file);
         debugPrint(
             '✅ [Audio Download] Completed (${await file.length()} bytes): $localFilePath');
         return localFilePath;
       }
     } catch (e, stack) {
-      debugPrint(
-          '⚠️ [Audio Download Error] Failed to download ($url): $e\n$stack');
+      if (kDebugMode) {
+        debugPrint(
+          '⚠️ [Audio Download Error] ${_safeUrlForLog(item.url)}: '
+          '$e\n$stack',
+        );
+      }
     }
 
-    return url;
+    return item.url;
+  }
+
+  void _setDownloadProgress(String url, double progress) {
+    final cacheKey = _stableCacheKey(url);
+    final normalized = progress.clamp(0.0, 1.0).toDouble();
+    final previous = _downloadProgressByUrl[cacheKey];
+    if (previous != null &&
+        normalized < 1.0 &&
+        (normalized - previous).abs() < 0.005) {
+      return;
+    }
+    _downloadProgressByUrl[cacheKey] = normalized;
+    notifyListeners();
+  }
+
+  AudioTrackMetadata _cacheMetadata(PlaybackItem item) => AudioTrackMetadata(
+        sourceUrl: _stableCacheKey(item.url),
+        title: item.title,
+        artist: item.subtitle,
+        album: item.payload?['album']?.toString() ?? '',
+        mimeType: item.mimeType,
+        duration: item.duration,
+        artworkUri: item.artUri,
+      );
+
+  String _stableCacheKey(String sourceUrl) {
+    final uri = Uri.tryParse(sourceUrl);
+    if (uri == null || !uri.hasScheme) return sourceUrl;
+    final query = Map<String, String>.from(uri.queryParameters)
+      ..remove('token');
+    return uri
+        .replace(queryParameters: query.isEmpty ? null : query)
+        .toString();
+  }
+
+  Future<void> _saveMetadata(AudioTrackMetadata metadata) async {
+    try {
+      await _trackCache?.saveMetadata(metadata);
+    } catch (error, stack) {
+      debugPrint('⚠️ [Audio Cache] Failed to save metadata: $error\n$stack');
+    }
   }
 
   Future<MediaItem> _createMediaItem(PlaybackItem item) async => MediaItem(
@@ -296,7 +429,7 @@ class PlaybackProvider extends ChangeNotifier {
   Future<AudioSource> _createAudioSource(PlaybackItem item) async {
     final mediaItem = await _createMediaItem(item);
 
-    final localPath = await _ensureLocalFile(item.url, mimeType: item.mimeType);
+    final localPath = await _ensureLocalFile(item);
     if (!localPath.startsWith('http')) {
       final file = File(localPath);
       if (await file.exists()) {
@@ -315,10 +448,15 @@ class PlaybackProvider extends ChangeNotifier {
     Duration? duration,
     Uri? artUri,
   }) async {
-    debugPrint(
-        '▶️ [Playback.play] url=$url, title="$title", subtitle="$subtitle", mimeType=$mimeType, duration=$duration, artUri=$artUri');
+    if (kDebugMode) {
+      debugPrint(
+        '▶️ [Playback.play] url=${_safeUrlForLog(url)}, '
+        'mimeType=$mimeType, duration=$duration',
+      );
+    }
 
     if (_currentAudioUrl == url) {
+      _playerControlsDismissed = false;
       _togglePlay();
       return;
     }
@@ -334,8 +472,10 @@ class PlaybackProvider extends ChangeNotifier {
     await stop();
 
     _currentAudioUrl = url;
+    _playerControlsDismissed = false;
     _title = title;
     _subtitle = subtitle;
+    _currentArtUri = artUri;
     _isLoading = true;
     _duration = duration ?? Duration.zero;
     notifyListeners();
@@ -352,7 +492,8 @@ class PlaybackProvider extends ChangeNotifier {
 
       final audioSource = await _createAudioSource(item);
       final mediaItem = await _createMediaItem(item);
-      debugPrint('🎵 [Playback.play] Setting AudioSource: $audioSource');
+      _currentArtUri = mediaItem.artUri;
+      if (kDebugMode) debugPrint('🎵 [Playback.play] Audio source ready');
       await _audioHandler.loadSingle(source: audioSource, item: mediaItem);
       await _audioHandler.setRepeatMode(_toAudioServiceRepeatMode(_loopMode));
       await _audioHandler.setShuffleMode(
@@ -369,10 +510,14 @@ class PlaybackProvider extends ChangeNotifier {
         _duration = duration;
       }
 
-      await _player.play();
+      if (!_playerControlsDismissed) {
+        await _player.play();
+      }
       notifyListeners();
     } catch (e, stackTrace) {
-      debugPrint('❌ [Playback Error on play] url=$url: $e');
+      debugPrint(
+        '❌ [Playback Error on play] url=${_safeUrlForLog(url)}: $e',
+      );
       debugPrint('❌ [Error Type]: ${e.runtimeType}');
       if (e is PlayerException) {
         debugPrint(
@@ -386,6 +531,7 @@ class PlaybackProvider extends ChangeNotifier {
       _isLoading = false;
       _isInitialized = false;
       _currentAudioUrl = null;
+      _currentArtUri = null;
       notifyListeners();
     }
   }
@@ -446,8 +592,10 @@ class PlaybackProvider extends ChangeNotifier {
 
     _isVideo = true;
     _currentAudioUrl = url;
+    _playerControlsDismissed = false;
     _title = title;
     _subtitle = subtitle;
+    _currentArtUri = null;
     _isPlaying = true;
     _isInitialized = true;
     _duration = duration ?? Duration.zero;
@@ -541,6 +689,9 @@ class PlaybackProvider extends ChangeNotifier {
 
   void setPlaylist(List<PlaybackItem> items, {String? initialUrl}) {
     _playlist = List.from(items);
+    for (final item in _playlist) {
+      unawaited(_saveMetadata(_cacheMetadata(item)));
+    }
     if (initialUrl != null) {
       _currentIndex = _playlist.indexWhere((item) => item.url == initialUrl);
     } else if (_playlist.isNotEmpty) {
@@ -578,14 +729,20 @@ class PlaybackProvider extends ChangeNotifier {
     _currentIndex = index;
     final item = _playlist[index];
     _currentAudioUrl = item.url;
+    _playerControlsDismissed = false;
     _title = item.title;
     _subtitle = item.subtitle;
+    _currentArtUri = item.artUri;
     _isLoading = true;
     _duration = item.duration ?? Duration.zero;
     notifyListeners();
 
-    debugPrint(
-        '▶️ [playItemAtIndex] index=$index, title="${item.title}", url="${item.url}", totalTracks=${_playlist.length}');
+    if (kDebugMode) {
+      debugPrint(
+        '▶️ [playItemAtIndex] index=$index, '
+        'url=${_safeUrlForLog(item.url)}, totalTracks=${_playlist.length}',
+      );
+    }
 
     try {
       final sources = await Future.wait(
@@ -594,6 +751,7 @@ class PlaybackProvider extends ChangeNotifier {
       final mediaItems = sources
           .map((source) => (source as IndexedAudioSource).tag as MediaItem)
           .toList(growable: false);
+      _currentArtUri = mediaItems[index].artUri;
 
       await _audioHandler.loadPlaylist(
         sources: sources,
@@ -607,11 +765,15 @@ class PlaybackProvider extends ChangeNotifier {
 
       _isInitialized = true;
       _isLoading = false;
-      await _player.play();
+      if (!_playerControlsDismissed) {
+        await _player.play();
+      }
       notifyListeners();
     } catch (e, stackTrace) {
       debugPrint(
-          '❌ [Playback Error on playItemAtIndex] index=$index, url="${item.url}": $e');
+        '❌ [Playback Error on playItemAtIndex] index=$index, '
+        'url=${_safeUrlForLog(item.url)}: $e',
+      );
       debugPrint('❌ [Error Type]: ${e.runtimeType}');
       if (e is PlayerException) {
         debugPrint(
@@ -674,6 +836,7 @@ class PlaybackProvider extends ChangeNotifier {
     _currentAudioUrl = null;
     _title = '';
     _subtitle = '';
+    _currentArtUri = null;
     _isPlaying = false;
     _isInitialized = false;
     _position = Duration.zero;
@@ -681,9 +844,28 @@ class PlaybackProvider extends ChangeNotifier {
     _isLoading = false;
     _isSeeking = false;
     _isVideo = false;
+    _playerControlsDismissed = false;
     _seekTargetPosition = null;
     _seekCompletedAt = null;
     notifyListeners();
+  }
+
+  /// Скрывает встроенные панели, сохраняя текущий трек в media session.
+  /// Если пользователь снова запустит его из системного уведомления или
+  /// экрана блокировки, playerStateStream автоматически покажет панели.
+  Future<void> dismissPlayerControls() async {
+    if (_currentAudioUrl == null) return;
+    if (_isVideo) {
+      await stop();
+      return;
+    }
+
+    _playerControlsDismissed = true;
+    _isPlaying = false;
+    _isLoading = false;
+    _isSeeking = false;
+    notifyListeners();
+    await _audioHandler.pause();
   }
 
   void next() {
@@ -704,6 +886,7 @@ class PlaybackProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _cachedTracksSub?.cancel();
     _playbackEventSub?.cancel();
     _playerStateSub?.cancel();
     _currentIndexSub?.cancel();

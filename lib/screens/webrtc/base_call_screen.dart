@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:provider/provider.dart';
 
 import '../../services/webrtc/call_manager.dart';
 import '../../config/app_config.dart';
@@ -11,7 +10,8 @@ abstract class BaseCallScreen extends StatefulWidget {
   const BaseCallScreen({super.key});
 }
 
-abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T> with SingleTickerProviderStateMixin {
+abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T>
+    with SingleTickerProviderStateMixin {
   late AnimationController callingAnimationController;
 
   @override
@@ -20,7 +20,19 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T> wi
     callingAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      callingAnimationController
+        ..stop()
+        ..value = 0;
+    } else if (!callingAnimationController.isAnimating) {
+      callingAnimationController.repeat();
+    }
   }
 
   @override
@@ -79,8 +91,10 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T> wi
           if (onMinimize != null)
             IconButton(
               onPressed: onMinimize,
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 28),
-              tooltip: (AppLocalizations.of(context)?.svernut_ca9f ?? 'Fallback'),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                  color: Colors.white, size: 28),
+              tooltip:
+                  (AppLocalizations.of(context)?.svernut_ca9f ?? 'Fallback'),
             ),
         ],
       ),
@@ -125,7 +139,9 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T> wi
               // Спикер/Громкая связь
               buildControlCircleButton(
                 onTap: onToggleSpeaker,
-                icon: isSpeakerOn ? FontAwesomeIcons.volumeHigh : FontAwesomeIcons.volumeOff,
+                icon: isSpeakerOn
+                    ? FontAwesomeIcons.volumeHigh
+                    : FontAwesomeIcons.volumeOff,
                 isActive: isSpeakerOn,
                 activeColor: const Color(0xFF3B82F6),
               ),
@@ -133,7 +149,9 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T> wi
               // Микрофон
               buildControlCircleButton(
                 onTap: onToggleAudio,
-                icon: isMicOn ? FontAwesomeIcons.microphone : FontAwesomeIcons.microphoneSlash,
+                icon: isMicOn
+                    ? FontAwesomeIcons.microphone
+                    : FontAwesomeIcons.microphoneSlash,
                 isActive: isMicOn,
                 activeColor: const Color(0xFF3B82F6),
               ),
@@ -141,7 +159,9 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T> wi
               // Камера
               buildControlCircleButton(
                 onTap: onToggleVideo,
-                icon: isCamOn ? FontAwesomeIcons.video : FontAwesomeIcons.videoSlash,
+                icon: isCamOn
+                    ? FontAwesomeIcons.video
+                    : FontAwesomeIcons.videoSlash,
                 isActive: isCamOn,
                 activeColor: const Color(0xFF3B82F6),
               ),
@@ -182,7 +202,9 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T> wi
           shape: BoxShape.circle,
           color: isActive ? activeColor.withOpacity(0.25) : Colors.white12,
           border: Border.all(
-            color: isActive ? activeColor.withOpacity(0.6) : Colors.white.withOpacity(0.08),
+            color: isActive
+                ? activeColor.withOpacity(0.6)
+                : Colors.white.withOpacity(0.08),
             width: 1,
           ),
         ),
@@ -244,7 +266,8 @@ class BaseCallAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initials = username.isNotEmpty ? username.substring(0, 1).toUpperCase() : "?";
+    final initials =
+        username.isNotEmpty ? username.substring(0, 1).toUpperCase() : "?";
 
     if (avatar != null && avatar!.isNotEmpty) {
       String fullUrl = avatar!;
@@ -260,7 +283,8 @@ class BaseCallAvatar extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _buildInitials(initials),
+          errorBuilder: (context, error, stackTrace) =>
+              _buildInitials(initials),
         ),
       );
     }

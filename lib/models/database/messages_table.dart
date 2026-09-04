@@ -12,11 +12,16 @@ class Messages extends Table {
   DateTimeColumn get timestamp => dateTime()();
 
   // Support for ToDo lists and Polls
-  TextColumn get messageType => text().nullable()(); // 'todo_list', 'poll', 'voice', 'text', etc.
-  TextColumn get messageId => text().nullable()(); // UUID of TodoListMessage or PollMessage
-  TextColumn get completionStatus => text().nullable()(); // JSON string: completion status map
-  TextColumn get votesByOption => text().nullable()(); // JSON string: votes by option map
-  TextColumn get userVotes => text().nullable()(); // JSON string: list of option IDs voted by the current user
+  TextColumn get messageType =>
+      text().nullable()(); // 'todo_list', 'poll', 'voice', 'text', etc.
+  TextColumn get messageId =>
+      text().nullable()(); // UUID of TodoListMessage or PollMessage
+  TextColumn get completionStatus =>
+      text().nullable()(); // JSON string: completion status map
+  TextColumn get votesByOption =>
+      text().nullable()(); // JSON string: votes by option map
+  TextColumn get userVotes => text()
+      .nullable()(); // JSON string: list of option IDs voted by the current user
 
   // Support for Replies
   TextColumn get replyToId => text().nullable()();
@@ -24,5 +29,6 @@ class Messages extends Table {
   TextColumn get replyAuthorName => text().nullable()();
 
   // Support for bot inline keyboards
-  TextColumn get replyMarkup => text().nullable()(); // JSON string: {"inline_keyboard": [[{...}]]}
+  TextColumn get replyMarkup =>
+      text().nullable()(); // JSON string: {"inline_keyboard": [[{...}]]}
 }

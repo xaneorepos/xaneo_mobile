@@ -4269,6 +4269,65 @@ class DynamicAppLocalizations extends AppLocalizations {
       const ['mobile.fontSizeText', 'fontSizeText'], base.fontSizeText);
 
   @override
+  String get changePhoto =>
+      _resolve(const ['profile.avatar.change'], base.changePhoto);
+
+  @override
+  String get avatarUpdated =>
+      _resolve(const ['mobile.avatarUpdated'], base.avatarUpdated);
+
+  @override
+  String get avatarUploadFailed =>
+      _resolve(const ['mobile.avatarUploadFailed'], base.avatarUploadFailed);
+
+  @override
+  String get invalidNicknameFormat => _resolve(
+      const ['mobile.invalidNicknameFormat'], base.invalidNicknameFormat);
+
+  @override
+  String get deleteAccountPrompt => _resolve(
+      const ['profile.settings.deleteAccountDesc'], base.deleteAccountPrompt);
+
+  @override
+  String get deleteAccountFailed =>
+      _resolve(const ['mobile.deleteAccountFailed'], base.deleteAccountFailed);
+
+  @override
+  String get chatFontSize =>
+      _resolve(const ['messenger.chatSettings.textSize'], base.chatFontSize);
+
+  @override
+  String get chatWallpaper =>
+      _resolve(const ['messenger.chatSettings.wallpaper'], base.chatWallpaper);
+
+  @override
+  String get myMessageColor => _resolve(
+      const ['messenger.chatSettings.myMessages'], base.myMessageColor);
+
+  @override
+  String get otherMessageColor => _resolve(
+      const ['messenger.chatSettings.otherMessages'], base.otherMessageColor);
+
+  @override
+  String get notificationStyle => _resolve(
+      const ['messenger.chatSettings.notificationStyle'],
+      base.notificationStyle);
+
+  @override
+  String get standardNotificationStyle => _resolve(
+      const ['messenger.chatSettings.standard'],
+      base.standardNotificationStyle);
+
+  @override
+  String get blackRavenNotificationStyle => _resolve(
+      const ['messenger.chatSettings.blackRaven'],
+      base.blackRavenNotificationStyle);
+
+  @override
+  String get wallpaperUploadFailed => _resolve(
+      const ['mobile.wallpaperUploadFailed'], base.wallpaperUploadFailed);
+
+  @override
   String get showPopups =>
       _resolve(const ['mobile.showPopups', 'showPopups'], base.showPopups);
 
@@ -5095,4 +5154,26 @@ class DynamicAppLocalizations extends AppLocalizations {
         'mobile.importLanguageFromJson',
         'messenger.language.importFromJson'
       ], base.importLanguageFromJson);
+
+  @override
+  String get customColor =>
+      _resolve(const ['customColor', 'mobile.customColor'], base.customColor);
+  @override
+  String get customGradient => _resolve(
+      const ['customGradient', 'mobile.customGradient'], base.customGradient);
+  @override
+  String get colorOne =>
+      _resolve(const ['colorOne', 'mobile.colorOne'], base.colorOne);
+  @override
+  String get colorTwo =>
+      _resolve(const ['colorTwo', 'mobile.colorTwo'], base.colorTwo);
+  @override
+  String get diagonal =>
+      _resolve(const ['diagonal', 'mobile.diagonal'], base.diagonal);
+  @override
+  String get vertical =>
+      _resolve(const ['vertical', 'mobile.vertical'], base.vertical);
+  @override
+  String get horizontal =>
+      _resolve(const ['horizontal', 'mobile.horizontal'], base.horizontal);
 }

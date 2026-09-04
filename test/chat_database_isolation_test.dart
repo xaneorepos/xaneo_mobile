@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xaneo/models/chat/chat_model.dart';
@@ -117,6 +118,148 @@ void main() {
       expect(chat?.name, 'Fresh server metadata');
       expect(chat?.lastMessage, 'new websocket message');
       expect(chat?.unreadCount, 3);
+    });
+  });
+
+  group('cached message attachments', () {
+    late AppDatabase database;
+    late LocalChatRepository repository;
+    late int chatId;
+
+    setUp(() async {
+      database = AppDatabase.forTesting(NativeDatabase.memory());
+      repository = LocalChatRepository(database);
+      await repository.saveChat(ChatModel(id: 'chat-a', name: 'Chat'));
+      chatId = (await repository.getLocalChatId('chat-a'))!;
+    });
+
+    tearDown(() async {
+      await repository.dispose();
+    });
+
+    test('keeps a valid E2EE attachment when file JSON equals message text',
+        () async {
+      const fileJson =
+          '{"type":"image","file_id":"file-1","file_name":"photo.jpg"}';
+      await repository.saveMessage(
+        MessagesCompanion.insert(
+          serverMessageId: 'message-1',
+          chatId: chatId,
+          senderId: '7',
+          textContent: fileJson,
+          fileUrl: const Value(fileJson),
+          messageType: const Value('image'),
+          timestamp: DateTime.utc(2026),
+        ),
+      );
+
+      await repository.cleanupFakeFileMessages(chatId);
+
+      final message =
+          (await repository.getMessagesByServerIds(['message-1'])).single;
+      expect(message.fileUrl, fileJson);
+    });
+
+    test('removes an invalid attachment-shaped text payload', () async {
+      const fakeJson = '{"type":"image"}';
+      await repository.saveMessage(
+        MessagesCompanion.insert(
+          serverMessageId: 'message-2',
+          chatId: chatId,
+          senderId: '7',
+          textContent: fakeJson,
+          fileUrl: const Value(fakeJson),
+          timestamp: DateTime.utc(2026),
+        ),
+      );
+
+      await repository.cleanupFakeFileMessages(chatId);
+
+      final message =
+          (await repository.getMessagesByServerIds(['message-2'])).single;
+      expect(message.fileUrl, isNull);
+    });
+
+    test('restores a valid attachment cleared by an older client', () async {
+      const fileJson =
+          '{"type":"image","file_id":"file-3","file_name":"old.jpg"}';
+      await repository.saveMessage(
+        MessagesCompanion.insert(
+          serverMessageId: 'message-3',
+          chatId: chatId,
+          senderId: '7',
+          textContent: fileJson,
+          messageType: const Value('image'),
+          timestamp: DateTime.utc(2026),
+        ),
+      );
+
+      await repository.cleanupFakeFileMessages(chatId);
+
+      final message =
+          (await repository.getMessagesByServerIds(['message-3'])).single;
+      expect(message.fileUrl, fileJson);
+    });
+  });
+
+  group('optimistic message acknowledgement', () {
+    late AppDatabase database;
+    late LocalChatRepository repository;
+    late int chatId;
+
+    setUp(() async {
+      database = AppDatabase.forTesting(NativeDatabase.memory());
+      repository = LocalChatRepository(database);
+      await repository.saveChat(ChatModel(id: 'bot-chat', name: 'Bot'));
+      chatId = (await repository.getLocalChatId('bot-chat'))!;
+    });
+
+    tearDown(() async {
+      await repository.dispose();
+    });
+
+    test('replaces local time with server time to preserve reply order',
+        () async {
+      final localTime = DateTime.utc(2026, 9, 4, 12, 0, 5);
+      final sentAt = DateTime.utc(2026, 9, 4, 12);
+      final repliedAt = DateTime.utc(2026, 9, 4, 12, 0, 1);
+
+      await repository.saveMessage(
+        MessagesCompanion.insert(
+          serverMessageId: 'temp-1',
+          chatId: chatId,
+          senderId: 'me',
+          textContent: 'question',
+          timestamp: localTime,
+        ),
+      );
+      await repository.updateMessageServerId(
+        'temp-1',
+        'message-1',
+        timestamp: sentAt,
+      );
+      await repository.saveMessage(
+        MessagesCompanion.insert(
+          serverMessageId: 'message-2',
+          chatId: chatId,
+          senderId: 'bot',
+          textContent: 'answer',
+          timestamp: repliedAt,
+        ),
+      );
+
+      final messages = await repository.getMessagesForChat(chatId);
+      expect(
+        messages.map((message) => message.serverMessageId),
+        ['message-2', 'message-1'],
+      );
+      expect(
+        (await repository.getMessagesByServerIds(['message-1']))
+            .single
+            .timestamp
+            .toUtc(),
+        sentAt,
+      );
     });
   });
 }

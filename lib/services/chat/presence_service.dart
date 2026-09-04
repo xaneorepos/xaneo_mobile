@@ -6,7 +6,7 @@ import '../api/api_client.dart';
 import '../grpc_service.dart';
 
 /// Глобальный сервис присутствия
-/// 
+///
 /// Отвечает за:
 /// - Поддержание WebSocket-соединения с сервером, пока приложение активно на переднем плане
 /// - Корректное закрытие сокета при сворачивании приложения в фон
@@ -21,7 +21,8 @@ class PresenceService with WidgetsBindingObserver {
     required ApiClient apiClient,
     ChatWebSocketService? chatWebSocketService,
   })  : _authProvider = authProvider,
-        _chatWebSocketService = chatWebSocketService ?? ChatWebSocketService(apiClient: apiClient);
+        _chatWebSocketService =
+            chatWebSocketService ?? ChatWebSocketService(apiClient: apiClient);
 
   /// Поток всех событий, приходящих из WebSocket
   Stream<Map<String, dynamic>> get events => _chatWebSocketService.events;
@@ -60,11 +61,13 @@ class PresenceService with WidgetsBindingObserver {
   void _updateConnection() {
     final isAuthenticated = _authProvider.isAuthenticated;
     final lifecycleState = WidgetsBinding.instance.lifecycleState;
-    
-    // Если состояние еще не определено (первый кадр), считаем, что мы на переднем плане (resumed)
-    final isForeground = lifecycleState == null || lifecycleState == AppLifecycleState.resumed;
 
-    debugPrint('PresenceService: updateConnection. Auth=$isAuthenticated, Foreground=$isForeground');
+    // Если состояние еще не определено (первый кадр), считаем, что мы на переднем плане (resumed)
+    final isForeground =
+        lifecycleState == null || lifecycleState == AppLifecycleState.resumed;
+
+    debugPrint(
+        'PresenceService: updateConnection. Auth=$isAuthenticated, Foreground=$isForeground');
 
     if (isAuthenticated && isForeground) {
       _connect();
@@ -82,9 +85,10 @@ class PresenceService with WidgetsBindingObserver {
     // Подключаемся к специальному каналу 'favorites_user_${user.id}', который есть у каждого пользователя по умолчанию.
     // Это сохраняет сокет открытым и отмечает пользователя "в сети" на бэкенде.
     final favoritesChatId = 'favorites_user_${user.id}';
-    debugPrint('PresenceService: connecting to presence websocket with ID $favoritesChatId...');
+    debugPrint(
+        'PresenceService: connecting to presence websocket with ID $favoritesChatId...');
     _chatWebSocketService.connect(favoritesChatId);
-    
+
     // Send gRPC Presence Ping
     XaneoGrpcService().sendPresence(user.id.toString(), 'online');
   }

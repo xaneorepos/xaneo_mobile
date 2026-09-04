@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../styles/app_styles.dart';
+import '../../providers/appearance_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Плавающая навигационная панель без дорогого backdrop blur.
@@ -16,6 +18,9 @@ class LiquidGlassNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final animationsEnabled =
+        context.watch<AppearanceProvider>().animationsEnabled;
     return SafeArea(
       top: false,
       child: Padding(
@@ -23,10 +28,12 @@ class LiquidGlassNavBar extends StatelessWidget {
         child: Container(
           height: 56,
           decoration: BoxDecoration(
-            color: const Color(0xF2141416),
+            color: isDark ? const Color(0xF2141416) : const Color(0xF5FFFFFF),
             borderRadius: BorderRadius.circular(32),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.15),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.15)
+                  : Colors.black.withValues(alpha: 0.1),
               width: 1,
             ),
           ),
@@ -38,7 +45,9 @@ class LiquidGlassNavBar extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: AnimatedAlign(
-                      duration: const Duration(milliseconds: 300),
+                      duration: animationsEnabled
+                          ? const Duration(milliseconds: 300)
+                          : Duration.zero,
                       curve: Curves.easeOutCubic,
                       alignment: _getAlignment(selectedIndex),
                       child: Container(
@@ -46,7 +55,9 @@ class LiquidGlassNavBar extends StatelessWidget {
                         height: 40,
                         margin: const EdgeInsets.symmetric(vertical: 8),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.15)
+                              : Colors.black.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
@@ -123,6 +134,12 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final animationsEnabled =
+        context.watch<AppearanceProvider>().animationsEnabled;
+    final selectedColor = isDark ? Colors.white : const Color(0xFF18181B);
+    final mutedColor =
+        isDark ? AppStyles.textMutedColor : const Color(0xFF71717A);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -132,26 +149,26 @@ class _NavItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: animationsEnabled
+                  ? const Duration(milliseconds: 200)
+                  : Duration.zero,
               curve: Curves.easeOutCubic,
               child: FaIcon(
                 icon,
                 size: isSelected ? 24 : 22,
-                color: isSelected
-                    ? AppStyles.textPrimaryColor
-                    : AppStyles.textMutedColor,
+                color: isSelected ? selectedColor : mutedColor,
               ),
             ),
             const SizedBox(height: 2),
             AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
+              duration: animationsEnabled
+                  ? const Duration(milliseconds: 200)
+                  : Duration.zero,
               curve: Curves.easeOutCubic,
               style: TextStyle(
                 fontSize: isSelected ? 10 : 9,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected
-                    ? AppStyles.textPrimaryColor
-                    : AppStyles.textMutedColor,
+                color: isSelected ? selectedColor : mutedColor,
                 fontFamily: AppStyles.fontFamily,
               ),
               child: Text(

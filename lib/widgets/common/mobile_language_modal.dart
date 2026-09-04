@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/locale_provider.dart';
 import '../../services/runtime_translations.dart';
+import '../../styles/app_styles.dart';
 import 'base_custom_modal.dart';
 import 'custom_language_pack_dialogs.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
@@ -61,17 +62,17 @@ class _MobileLanguageModalState
               child: Text(
                 (AppLocalizations.of(context)?.yazykInterfeysa_b78b ??
                     'Язык интерфейса'),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: context.xaneoTextPrimary,
                 ),
               ),
             ),
             IconButton(
               icon: Icon(
                 Icons.close_rounded,
-                color: Colors.white.withValues(alpha: 0.5),
+                color: context.xaneoTextMuted,
               ),
               onPressed: () => Navigator.of(context).pop(),
             ),
@@ -86,8 +87,8 @@ class _MobileLanguageModalState
           margin: const EdgeInsets.only(bottom: 16),
           child: ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
+              backgroundColor: context.xaneoTextPrimary,
+              foregroundColor: Theme.of(context).scaffoldBackgroundColor,
               padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -100,7 +101,8 @@ class _MobileLanguageModalState
                   rt.resolveByText('Импортировать язык из JSON')),
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             ),
-            onPressed: () => CustomLanguagePackDialogs.pickAndImportLanguagePack(context),
+            onPressed: () =>
+                CustomLanguagePackDialogs.pickAndImportLanguagePack(context),
           ),
         ),
 
@@ -110,8 +112,8 @@ class _MobileLanguageModalState
             padding: const EdgeInsets.only(left: 4, bottom: 8),
             child: Text(
               rt.resolveByText('Пользовательские языки').toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white38,
+              style: TextStyle(
+                color: context.xaneoTextMuted,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.8,
@@ -125,7 +127,7 @@ class _MobileLanguageModalState
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xFF6366F1).withValues(alpha: 0.15)
-                    : Colors.white.withValues(alpha: 0.03),
+                    : context.xaneoOverlay(0.03),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isSelected
@@ -138,7 +140,9 @@ class _MobileLanguageModalState
                 title: Text(
                   pack.name,
                   style: TextStyle(
-                    color: isSelected ? const Color(0xFF818CF8) : Colors.white,
+                    color: isSelected
+                        ? const Color(0xFF6366F1)
+                        : context.xaneoTextPrimary,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                     fontSize: 15,
                   ),
@@ -146,7 +150,9 @@ class _MobileLanguageModalState
                 subtitle: Text(
                   '${pack.nativeName} (${pack.locale}) • ${pack.stringCount} ${rt.resolveByText("строк")}',
                   style: TextStyle(
-                    color: isSelected ? const Color(0xFF818CF8).withValues(alpha: 0.7) : Colors.white38,
+                    color: isSelected
+                        ? const Color(0xFF6366F1).withValues(alpha: 0.7)
+                        : context.xaneoTextMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -160,7 +166,8 @@ class _MobileLanguageModalState
                         size: 20,
                       ),
                     IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, color: Colors.white38, size: 18),
+                      icon: Icon(Icons.delete_outline_rounded,
+                          color: context.xaneoTextMuted, size: 18),
                       tooltip: rt.resolveByText('Удалить'),
                       onPressed: () async {
                         await localeProvider.deleteCustomPack(pack.id);
@@ -183,8 +190,8 @@ class _MobileLanguageModalState
           padding: const EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
             rt.resolveByText('Официальные языки').toUpperCase(),
-            style: const TextStyle(
-              color: Colors.white38,
+            style: TextStyle(
+              color: context.xaneoTextMuted,
               fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.8,
@@ -201,7 +208,7 @@ class _MobileLanguageModalState
             decoration: BoxDecoration(
               color: isSelected
                   ? const Color(0xFF6366F1).withValues(alpha: 0.15)
-                  : Colors.white.withValues(alpha: 0.03),
+                  : context.xaneoOverlay(0.03),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: isSelected
@@ -214,7 +221,9 @@ class _MobileLanguageModalState
               title: Text(
                 name,
                 style: TextStyle(
-                  color: isSelected ? const Color(0xFF818CF8) : Colors.white,
+                  color: isSelected
+                      ? const Color(0xFF6366F1)
+                      : context.xaneoTextPrimary,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   fontSize: 15,
                 ),

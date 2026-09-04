@@ -1951,6 +1951,34 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get fontSizeText => '글꼴 크기';
   @override
+  String get changePhoto => '사진 변경';
+  @override
+  String get avatarUpdated => '아바타가 업데이트되었습니다';
+  @override
+  String get avatarUploadFailed => '아바타를 업로드하지 못했습니다';
+  @override
+  String get invalidNicknameFormat => '닉네임은 3~30자의 영문, 숫자, ., _, -만 사용할 수 있습니다';
+  @override
+  String get deleteAccountPrompt => '프로필이 영구적으로 삭제됩니다. 확인하려면 비밀번호를 입력하세요.';
+  @override
+  String get deleteAccountFailed => '계정을 삭제하지 못했습니다';
+  @override
+  String get chatFontSize => '채팅 글꼴 크기';
+  @override
+  String get chatWallpaper => '채팅 배경';
+  @override
+  String get myMessageColor => '내 메시지 색상';
+  @override
+  String get otherMessageColor => '상대 메시지 색상';
+  @override
+  String get notificationStyle => '알림 스타일';
+  @override
+  String get standardNotificationStyle => '표준';
+  @override
+  String get blackRavenNotificationStyle => '검은 까마귀';
+  @override
+  String get wallpaperUploadFailed => '배경을 업로드하지 못했습니다';
+  @override
   String get showPopups => '팝업 알림 표시';
   @override
   String get sound => '알림 소리';
@@ -2250,22 +2278,26 @@ class AppLocalizationsKo extends AppLocalizations {
   String get authNotificationPasswordLogin => '비밀번호로 로그인';
 
   @override
-  String get authNotificationSendingSubtitle => '코드는 \'Xaneo 알림\' 채팅으로 전송됩니다. 이 화면을 닫지 마세요.';
+  String get authNotificationSendingSubtitle =>
+      '코드는 \'Xaneo 알림\' 채팅으로 전송됩니다. 이 화면을 닫지 마세요.';
 
   @override
   String get authNotificationEnterCodeSubtitle => '메시지에 있는 6자리 코드를 입력하세요.';
 
   @override
-  String get authNotificationConfirmSubtitle => '이미 인증된 기기에서 Xaneo를 열고 요청 세부 정보를 확인하세요.';
+  String get authNotificationConfirmSubtitle =>
+      '이미 인증된 기기에서 Xaneo를 열고 요청 세부 정보를 확인하세요.';
 
   @override
-  String get authNotificationPasswordSubtitle => '이 방법은 대기 시간이 지난 후에만 사용할 수 있습니다. 비밀번호는 저장되지 않습니다.';
+  String get authNotificationPasswordSubtitle =>
+      '이 방법은 대기 시간이 지난 후에만 사용할 수 있습니다. 비밀번호는 저장되지 않습니다.';
 
   @override
   String get authNotificationBotSource => '코드는 \'Xaneo 알림\'에서 전송됩니다.';
 
   @override
-  String authNotificationCodeSentToEmail(String email) => '$email(으)로 코드가 전송되었습니다';
+  String authNotificationCodeSentToEmail(String email) =>
+      '$email(으)로 코드가 전송되었습니다';
 
   @override
   String get authNotificationNoBotAccess => '봇에 접근할 수 없나요?';
@@ -2277,19 +2309,23 @@ class AppLocalizationsKo extends AppLocalizations {
   String get authNotificationResendCodeViaEmail => '이메일로 코드 재전송';
 
   @override
-  String get authNotificationEmailUnavailable => '이메일 코드 사용 불가: 계정에 인증된 이메일이 없습니다.';
+  String get authNotificationEmailUnavailable =>
+      '이메일 코드 사용 불가: 계정에 인증된 이메일이 없습니다.';
 
   @override
-  String authNotificationEmailAvailableIn(int seconds) => '$seconds초 후에 이메일 코드를 사용할 수 있습니다.';
+  String authNotificationEmailAvailableIn(int seconds) =>
+      '$seconds초 후에 이메일 코드를 사용할 수 있습니다.';
 
   @override
   String get authNotificationLoginWithPassword => '비밀번호로 로그인';
 
   @override
-  String authNotificationPasswordAvailableIn(int seconds) => '$seconds초 후에 비밀번호 로그인을 사용할 수 있습니다.';
+  String authNotificationPasswordAvailableIn(int seconds) =>
+      '$seconds초 후에 비밀번호 로그인을 사용할 수 있습니다.';
 
   @override
-  String get authNotificationErrorSendFailed => '코드를 전송하지 못했습니다. 나중에 다시 시도해 주세요.';
+  String get authNotificationErrorSendFailed =>
+      '코드를 전송하지 못했습니다. 나중에 다시 시도해 주세요.';
 
   @override
   String get authNotificationErrorInvalidCode => '잘못되었거나 만료된 코드입니다.';
@@ -2298,10 +2334,12 @@ class AppLocalizationsKo extends AppLocalizations {
   String get authNotificationErrorRequestExpired => '요청이 거부되었거나 만료되었습니다.';
 
   @override
-  String get authNotificationErrorEmailFailed => '이메일로 코드를 전송하지 못했습니다. 나중에 다시 시도해 주세요.';
+  String get authNotificationErrorEmailFailed =>
+      '이메일로 코드를 전송하지 못했습니다. 나중에 다시 시도해 주세요.';
 
   @override
-  String get authNotificationErrorPasswordFailed => '로그인에 실패했습니다. 비밀번호를 확인하거나 처음부터 다시 시도하세요.';
+  String get authNotificationErrorPasswordFailed =>
+      '로그인에 실패했습니다. 비밀번호를 확인하거나 처음부터 다시 시도하세요.';
 
   @override
   String get authNotificationGetCodeBtn => '코드 받기';
@@ -2321,8 +2359,7 @@ class AppLocalizationsKo extends AppLocalizations {
       '코드가 확인되었습니다. 본인이 직접 요청한 경우에만 로그인을 허용하세요.';
 
   @override
-  String get deviceAuthApprovalKeysNotice =>
-      '채팅 키는 암호화된 형태로 새 기기에 전송됩니다.';
+  String get deviceAuthApprovalKeysNotice => '채팅 키는 암호화된 형태로 새 기기에 전송됩니다.';
 
   @override
   String get deviceAuthApprovalAllow => '로그인 허용';
@@ -2341,4 +2378,18 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get importLanguageFromJson => 'JSON에서 언어 가져오기';
+  @override
+  String get customColor => '사용자 지정 색상';
+  @override
+  String get customGradient => '사용자 지정 그라데이션';
+  @override
+  String get colorOne => '색상 1';
+  @override
+  String get colorTwo => '색상 2';
+  @override
+  String get diagonal => '대각선';
+  @override
+  String get vertical => '세로';
+  @override
+  String get horizontal => '가로';
 }

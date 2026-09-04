@@ -54,7 +54,7 @@ dependencies:
 
   # Image picking and cropping
   image_picker: ^1.0.7
-  # Client-side image resize/compression before sending as a chat photo
+  # Image processing for local appearance assets (for example wallpapers)
   image: ^4.3.0
 
   # Permissions
@@ -78,6 +78,7 @@ dependencies:
   drift: ^2.32.1
   sqlcipher_flutter_libs: ^0.7.0+eol
   path_provider: ^2.1.5
+  flutter_cache_manager: ^3.4.1
   path: ^1.9.1
   web_socket_channel: ^3.0.1
   livekit_client: 2.3.1+hotfix.1
@@ -119,6 +120,7 @@ flutter:
     - assets/fonts/
     - assets/animations/
     - assets/sounds/
+    - assets/emoji/
     - assets/manifest.v1.json
 
 

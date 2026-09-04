@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
 /// Кастомный волновой слайдер для голосовых сообщений.
-/// 
+///
 /// Отображает форму волны (waveform) с возможностью перемотки по тапу или драгу.
 /// Прогресс воспроизведения показывается цветом волн.
 class VoiceWaveformSlider extends StatefulWidget {
@@ -72,7 +72,8 @@ class _VoiceWaveformSliderState extends State<VoiceWaveformSlider> {
     }
   }
 
-  void _handleInteraction(Offset localPosition, double width, {required bool isFinal}) {
+  void _handleInteraction(Offset localPosition, double width,
+      {required bool isFinal}) {
     if (!widget.isActive) return;
 
     final progress = (localPosition.dx / width).clamp(0.0, 1.0);
@@ -103,7 +104,8 @@ class _VoiceWaveformSliderState extends State<VoiceWaveformSlider> {
               _isDragging = true;
               setState(() {});
               // Тап — это сразу финальная позиция, не превью
-              _handleInteraction(details.localPosition, constraints.maxWidth, isFinal: true);
+              _handleInteraction(details.localPosition, constraints.maxWidth,
+                  isFinal: true);
             },
             onTapUp: (details) {
               _isDragging = false;
@@ -117,14 +119,17 @@ class _VoiceWaveformSliderState extends State<VoiceWaveformSlider> {
             onHorizontalDragUpdate: (details) {
               _lastDragLocalPosition = details.localPosition;
               // Дешёвое превью на каждое движение пальца — не трогает плеер
-              _handleInteraction(details.localPosition, constraints.maxWidth, isFinal: false);
+              _handleInteraction(details.localPosition, constraints.maxWidth,
+                  isFinal: false);
             },
             onHorizontalDragEnd: (details) {
               _isDragging = false;
               setState(() {});
               // Тяжёлый seek делаем один раз, по факту отпускания пальца
               if (_lastDragLocalPosition != null) {
-                _handleInteraction(_lastDragLocalPosition!, constraints.maxWidth, isFinal: true);
+                _handleInteraction(
+                    _lastDragLocalPosition!, constraints.maxWidth,
+                    isFinal: true);
                 _lastDragLocalPosition = null;
               }
             },
@@ -135,7 +140,8 @@ class _VoiceWaveformSliderState extends State<VoiceWaveformSlider> {
                 painter: _WaveformPainter(
                   bars: _bars,
                   progress: widget.duration.inMilliseconds > 0
-                      ? widget.position.inMilliseconds / widget.duration.inMilliseconds
+                      ? widget.position.inMilliseconds /
+                          widget.duration.inMilliseconds
                       : 0.0,
                   activeColor: widget.activeColor,
                   inactiveColor: widget.inactiveColor,

@@ -2068,6 +2068,36 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get fontSizeText => 'Taille de la police';
   @override
+  String get changePhoto => 'Modifier la photo';
+  @override
+  String get avatarUpdated => 'Avatar mis à jour';
+  @override
+  String get avatarUploadFailed => 'Impossible de téléverser l’avatar';
+  @override
+  String get invalidNicknameFormat =>
+      'Pseudo : 3 à 30 caractères ; lettres, chiffres, ., _ et - uniquement';
+  @override
+  String get deleteAccountPrompt =>
+      'Votre profil sera définitivement supprimé. Saisissez votre mot de passe pour confirmer.';
+  @override
+  String get deleteAccountFailed => 'Impossible de supprimer le compte';
+  @override
+  String get chatFontSize => 'Taille du texte du chat';
+  @override
+  String get chatWallpaper => 'Fond du chat';
+  @override
+  String get myMessageColor => 'Couleur de mes messages';
+  @override
+  String get otherMessageColor => 'Couleur des autres messages';
+  @override
+  String get notificationStyle => 'Style des notifications';
+  @override
+  String get standardNotificationStyle => 'Standard';
+  @override
+  String get blackRavenNotificationStyle => 'Corbeau noir';
+  @override
+  String get wallpaperUploadFailed => 'Impossible de téléverser le fond';
+  @override
   String get showPopups => 'Afficher les notifications surgissantes';
   @override
   String get sound => 'Son';
@@ -2379,22 +2409,28 @@ class AppLocalizationsFr extends AppLocalizations {
   String get authNotificationPasswordLogin => 'Connexion par mot de passe';
 
   @override
-  String get authNotificationSendingSubtitle => 'Le code arrivera dans la discussion « Notifications Xaneo ». Ne fermez pas cet écran.';
+  String get authNotificationSendingSubtitle =>
+      'Le code arrivera dans la discussion « Notifications Xaneo ». Ne fermez pas cet écran.';
 
   @override
-  String get authNotificationEnterCodeSubtitle => 'Entrez le code à 6 chiffres reçu dans le message.';
+  String get authNotificationEnterCodeSubtitle =>
+      'Entrez le code à 6 chiffres reçu dans le message.';
 
   @override
-  String get authNotificationConfirmSubtitle => 'Ouvrez Xaneo sur un appareil déjà autorisé et vérifiez les détails de la demande.';
+  String get authNotificationConfirmSubtitle =>
+      'Ouvrez Xaneo sur un appareil déjà autorisé et vérifiez les détails de la demande.';
 
   @override
-  String get authNotificationPasswordSubtitle => 'Cette méthode est disponible uniquement après un délai d\'attente. Le mot de passe n\'est pas enregistré.';
+  String get authNotificationPasswordSubtitle =>
+      'Cette méthode est disponible uniquement après un délai d\'attente. Le mot de passe n\'est pas enregistré.';
 
   @override
-  String get authNotificationBotSource => 'Le code est envoyé par « Notifications Xaneo ».';
+  String get authNotificationBotSource =>
+      'Le code est envoyé par « Notifications Xaneo ».';
 
   @override
-  String authNotificationCodeSentToEmail(String email) => 'Code envoyé à $email';
+  String authNotificationCodeSentToEmail(String email) =>
+      'Code envoyé à $email';
 
   @override
   String get authNotificationNoBotAccess => 'Pas d\'accès au bot ?';
@@ -2403,34 +2439,43 @@ class AppLocalizationsFr extends AppLocalizations {
   String get authNotificationGetCodeViaEmail => 'Recevoir le code par e-mail';
 
   @override
-  String get authNotificationResendCodeViaEmail => 'Renvoyer le code par e-mail';
+  String get authNotificationResendCodeViaEmail =>
+      'Renvoyer le code par e-mail';
 
   @override
-  String get authNotificationEmailUnavailable => 'Code par e-mail indisponible : aucun e-mail vérifié sur le compte.';
+  String get authNotificationEmailUnavailable =>
+      'Code par e-mail indisponible : aucun e-mail vérifié sur le compte.';
 
   @override
-  String authNotificationEmailAvailableIn(int seconds) => 'Le code par e-mail sera disponible dans $seconds s.';
+  String authNotificationEmailAvailableIn(int seconds) =>
+      'Le code par e-mail sera disponible dans $seconds s.';
 
   @override
-  String get authNotificationLoginWithPassword => 'Se connecter avec le mot de passe';
+  String get authNotificationLoginWithPassword =>
+      'Se connecter avec le mot de passe';
 
   @override
-  String authNotificationPasswordAvailableIn(int seconds) => 'La connexion par mot de passe sera disponible dans $seconds s.';
+  String authNotificationPasswordAvailableIn(int seconds) =>
+      'La connexion par mot de passe sera disponible dans $seconds s.';
 
   @override
-  String get authNotificationErrorSendFailed => 'Échec de l\'envoi du code. Veuillez réessayer plus tard.';
+  String get authNotificationErrorSendFailed =>
+      'Échec de l\'envoi du code. Veuillez réessayer plus tard.';
 
   @override
   String get authNotificationErrorInvalidCode => 'Code invalide ou expiré';
 
   @override
-  String get authNotificationErrorRequestExpired => 'Demande rejetée ou expirée';
+  String get authNotificationErrorRequestExpired =>
+      'Demande rejetée ou expirée';
 
   @override
-  String get authNotificationErrorEmailFailed => 'Échec de l\'envoi du code par e-mail. Veuillez réessayer plus tard.';
+  String get authNotificationErrorEmailFailed =>
+      'Échec de l\'envoi du code par e-mail. Veuillez réessayer plus tard.';
 
   @override
-  String get authNotificationErrorPasswordFailed => 'Échec de la connexion. Vérifiez votre mot de passe ou recommencez.';
+  String get authNotificationErrorPasswordFailed =>
+      'Échec de la connexion. Vérifiez votre mot de passe ou recommencez.';
 
   @override
   String get authNotificationGetCodeBtn => 'Obtenir le code';
@@ -2469,5 +2514,20 @@ class AppLocalizationsFr extends AppLocalizations {
   String get deviceAuthIp => 'Adresse IP';
 
   @override
-  String get importLanguageFromJson => 'Importer une langue depuis un fichier JSON';
+  String get importLanguageFromJson =>
+      'Importer une langue depuis un fichier JSON';
+  @override
+  String get customColor => 'Couleur personnalisée';
+  @override
+  String get customGradient => 'Dégradé personnalisé';
+  @override
+  String get colorOne => 'Couleur 1';
+  @override
+  String get colorTwo => 'Couleur 2';
+  @override
+  String get diagonal => 'Diagonal';
+  @override
+  String get vertical => 'Vertical';
+  @override
+  String get horizontal => 'Horizontal';
 }

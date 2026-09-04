@@ -318,7 +318,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
             focusNode: _focusNode,
             maxLines: 1,
             style: AppStyles.bodyMedium.copyWith(
-              color: Colors.white,
+              color: context.xaneoTextPrimary,
               fontSize: 14,
               height: 1.0,
             ),
@@ -326,12 +326,12 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
             decoration: InputDecoration(
               isDense: true,
               filled: true,
-              fillColor: Colors.white.withOpacity(0.05),
+              fillColor: context.xaneoOverlay(0.05),
               prefixIcon: Padding(
                 padding: const EdgeInsets.only(left: 16, right: 12),
                 child: Icon(
                   Icons.search_rounded,
-                  color: Colors.white.withOpacity(0.35),
+                  color: context.xaneoTextMuted,
                   size: 20,
                 ),
               ),
@@ -359,9 +359,9 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
                       _controller.clear();
                       _onSearchChanged('');
                     },
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close_rounded,
-                      color: Colors.white54,
+                      color: context.xaneoTextMuted,
                       size: 20,
                     ),
                   );
@@ -373,21 +373,21 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
                   (AppLocalizations.of(context)?.poiskLyudeyBotovGrupp_e84e ??
                       'Fallback'),
               hintStyle: AppStyles.bodyMuted.copyWith(
-                color: Colors.white.withOpacity(0.3),
+                color: context.xaneoTextMuted,
                 fontSize: 14,
                 height: 1.0,
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide(
-                  color: Colors.white.withOpacity(0.06),
+                  color: context.xaneoDivider,
                   width: 1.5,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide(
-                  color: Colors.white.withOpacity(0.15),
+                  color: context.xaneoOverlay(0.15),
                   width: 1.5,
                 ),
               ),
@@ -399,9 +399,11 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
         // Результаты поиска
         Expanded(
           child: _isLoading
-              ? const Center(
+              ? Center(
                   child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      context.xaneoTextPrimary,
+                    ),
                   ),
                 )
               : _query.isEmpty
@@ -471,13 +473,13 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
           Icon(
             Icons.search_off_rounded,
             size: 48,
-            color: Colors.white.withOpacity(0.15),
+            color: context.xaneoOverlay(0.15),
           ),
           const SizedBox(height: 12),
           Text(
             text,
             style: AppStyles.bodyMuted.copyWith(
-              color: Colors.white.withOpacity(0.3),
+              color: context.xaneoTextMuted,
             ),
           ),
         ],
@@ -498,7 +500,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
           child: Text(
             title.toUpperCase(),
             style: TextStyle(
-              color: Colors.white.withOpacity(0.4),
+              color: context.xaneoTextMuted,
               fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
@@ -506,11 +508,11 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
           ),
         ),
         Card(
-          color: Colors.white.withOpacity(0.02),
+          color: context.xaneoOverlay(0.02),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: Colors.white.withOpacity(0.04),
+              color: context.xaneoDivider,
               width: 1,
             ),
           ),
@@ -520,7 +522,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
             physics: const NeverScrollableScrollPhysics(),
             itemCount: items.length,
             separatorBuilder: (context, index) => Divider(
-              color: Colors.white.withOpacity(0.04),
+              color: context.xaneoDivider,
               height: 1,
             ),
             itemBuilder: (context, index) {
@@ -596,7 +598,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
       title: Text(
         displayName,
         style: AppStyles.bodyMedium.copyWith(
-          color: Colors.white,
+          color: context.xaneoTextPrimary,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -605,13 +607,13 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
               subtitle,
               style: AppStyles.bodyMuted.copyWith(
                 fontSize: 13,
-                color: Colors.white.withOpacity(0.4),
+                color: context.xaneoTextMuted,
               ),
             )
           : null,
-      trailing: const Icon(
+      trailing: Icon(
         Icons.chevron_right_rounded,
-        color: Colors.white30,
+        color: context.xaneoTextMuted,
       ),
     );
   }

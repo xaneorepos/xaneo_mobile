@@ -1659,16 +1659,668 @@ class MessagesCompanion extends UpdateCompanion<Message> {
   }
 }
 
+class $AudioTracksTable extends AudioTracks
+    with TableInfo<$AudioTracksTable, AudioTrack> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AudioTracksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _sourceUrlMeta =
+      const VerificationMeta('sourceUrl');
+  @override
+  late final GeneratedColumn<String> sourceUrl = GeneratedColumn<String>(
+      'source_url', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+      'title', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
+  static const VerificationMeta _artistMeta = const VerificationMeta('artist');
+  @override
+  late final GeneratedColumn<String> artist = GeneratedColumn<String>(
+      'artist', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
+  static const VerificationMeta _albumMeta = const VerificationMeta('album');
+  @override
+  late final GeneratedColumn<String> album = GeneratedColumn<String>(
+      'album', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
+  static const VerificationMeta _mimeTypeMeta =
+      const VerificationMeta('mimeType');
+  @override
+  late final GeneratedColumn<String> mimeType = GeneratedColumn<String>(
+      'mime_type', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _durationMsMeta =
+      const VerificationMeta('durationMs');
+  @override
+  late final GeneratedColumn<int> durationMs = GeneratedColumn<int>(
+      'duration_ms', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _artworkUriMeta =
+      const VerificationMeta('artworkUri');
+  @override
+  late final GeneratedColumn<String> artworkUri = GeneratedColumn<String>(
+      'artwork_uri', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _audioDataMeta =
+      const VerificationMeta('audioData');
+  @override
+  late final GeneratedColumn<Uint8List> audioData = GeneratedColumn<Uint8List>(
+      'audio_data', aliasedName, true,
+      type: DriftSqlType.blob, requiredDuringInsert: false);
+  static const VerificationMeta _compressionMeta =
+      const VerificationMeta('compression');
+  @override
+  late final GeneratedColumn<String> compression = GeneratedColumn<String>(
+      'compression', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _originalBytesMeta =
+      const VerificationMeta('originalBytes');
+  @override
+  late final GeneratedColumn<int> originalBytes = GeneratedColumn<int>(
+      'original_bytes', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _storedBytesMeta =
+      const VerificationMeta('storedBytes');
+  @override
+  late final GeneratedColumn<int> storedBytes = GeneratedColumn<int>(
+      'stored_bytes', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _lastAccessedAtMeta =
+      const VerificationMeta('lastAccessedAt');
+  @override
+  late final GeneratedColumn<DateTime> lastAccessedAt =
+      GeneratedColumn<DateTime>('last_accessed_at', aliasedName, false,
+          type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        sourceUrl,
+        title,
+        artist,
+        album,
+        mimeType,
+        durationMs,
+        artworkUri,
+        audioData,
+        compression,
+        originalBytes,
+        storedBytes,
+        lastAccessedAt,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'audio_tracks';
+  @override
+  VerificationContext validateIntegrity(Insertable<AudioTrack> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('source_url')) {
+      context.handle(_sourceUrlMeta,
+          sourceUrl.isAcceptableOrUnknown(data['source_url']!, _sourceUrlMeta));
+    } else if (isInserting) {
+      context.missing(_sourceUrlMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+          _titleMeta, title.isAcceptableOrUnknown(data['title']!, _titleMeta));
+    }
+    if (data.containsKey('artist')) {
+      context.handle(_artistMeta,
+          artist.isAcceptableOrUnknown(data['artist']!, _artistMeta));
+    }
+    if (data.containsKey('album')) {
+      context.handle(
+          _albumMeta, album.isAcceptableOrUnknown(data['album']!, _albumMeta));
+    }
+    if (data.containsKey('mime_type')) {
+      context.handle(_mimeTypeMeta,
+          mimeType.isAcceptableOrUnknown(data['mime_type']!, _mimeTypeMeta));
+    }
+    if (data.containsKey('duration_ms')) {
+      context.handle(
+          _durationMsMeta,
+          durationMs.isAcceptableOrUnknown(
+              data['duration_ms']!, _durationMsMeta));
+    }
+    if (data.containsKey('artwork_uri')) {
+      context.handle(
+          _artworkUriMeta,
+          artworkUri.isAcceptableOrUnknown(
+              data['artwork_uri']!, _artworkUriMeta));
+    }
+    if (data.containsKey('audio_data')) {
+      context.handle(_audioDataMeta,
+          audioData.isAcceptableOrUnknown(data['audio_data']!, _audioDataMeta));
+    }
+    if (data.containsKey('compression')) {
+      context.handle(
+          _compressionMeta,
+          compression.isAcceptableOrUnknown(
+              data['compression']!, _compressionMeta));
+    }
+    if (data.containsKey('original_bytes')) {
+      context.handle(
+          _originalBytesMeta,
+          originalBytes.isAcceptableOrUnknown(
+              data['original_bytes']!, _originalBytesMeta));
+    }
+    if (data.containsKey('stored_bytes')) {
+      context.handle(
+          _storedBytesMeta,
+          storedBytes.isAcceptableOrUnknown(
+              data['stored_bytes']!, _storedBytesMeta));
+    }
+    if (data.containsKey('last_accessed_at')) {
+      context.handle(
+          _lastAccessedAtMeta,
+          lastAccessedAt.isAcceptableOrUnknown(
+              data['last_accessed_at']!, _lastAccessedAtMeta));
+    } else if (isInserting) {
+      context.missing(_lastAccessedAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {sourceUrl};
+  @override
+  AudioTrack map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AudioTrack(
+      sourceUrl: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}source_url'])!,
+      title: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}title'])!,
+      artist: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}artist'])!,
+      album: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}album'])!,
+      mimeType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}mime_type']),
+      durationMs: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}duration_ms']),
+      artworkUri: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}artwork_uri']),
+      audioData: attachedDatabase.typeMapping
+          .read(DriftSqlType.blob, data['${effectivePrefix}audio_data']),
+      compression: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}compression']),
+      originalBytes: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}original_bytes'])!,
+      storedBytes: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}stored_bytes'])!,
+      lastAccessedAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}last_accessed_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $AudioTracksTable createAlias(String alias) {
+    return $AudioTracksTable(attachedDatabase, alias);
+  }
+}
+
+class AudioTrack extends DataClass implements Insertable<AudioTrack> {
+  final String sourceUrl;
+  final String title;
+  final String artist;
+  final String album;
+  final String? mimeType;
+  final int? durationMs;
+  final String? artworkUri;
+  final Uint8List? audioData;
+  final String? compression;
+  final int originalBytes;
+  final int storedBytes;
+  final DateTime lastAccessedAt;
+  final DateTime updatedAt;
+  const AudioTrack(
+      {required this.sourceUrl,
+      required this.title,
+      required this.artist,
+      required this.album,
+      this.mimeType,
+      this.durationMs,
+      this.artworkUri,
+      this.audioData,
+      this.compression,
+      required this.originalBytes,
+      required this.storedBytes,
+      required this.lastAccessedAt,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['source_url'] = Variable<String>(sourceUrl);
+    map['title'] = Variable<String>(title);
+    map['artist'] = Variable<String>(artist);
+    map['album'] = Variable<String>(album);
+    if (!nullToAbsent || mimeType != null) {
+      map['mime_type'] = Variable<String>(mimeType);
+    }
+    if (!nullToAbsent || durationMs != null) {
+      map['duration_ms'] = Variable<int>(durationMs);
+    }
+    if (!nullToAbsent || artworkUri != null) {
+      map['artwork_uri'] = Variable<String>(artworkUri);
+    }
+    if (!nullToAbsent || audioData != null) {
+      map['audio_data'] = Variable<Uint8List>(audioData);
+    }
+    if (!nullToAbsent || compression != null) {
+      map['compression'] = Variable<String>(compression);
+    }
+    map['original_bytes'] = Variable<int>(originalBytes);
+    map['stored_bytes'] = Variable<int>(storedBytes);
+    map['last_accessed_at'] = Variable<DateTime>(lastAccessedAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  AudioTracksCompanion toCompanion(bool nullToAbsent) {
+    return AudioTracksCompanion(
+      sourceUrl: Value(sourceUrl),
+      title: Value(title),
+      artist: Value(artist),
+      album: Value(album),
+      mimeType: mimeType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mimeType),
+      durationMs: durationMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(durationMs),
+      artworkUri: artworkUri == null && nullToAbsent
+          ? const Value.absent()
+          : Value(artworkUri),
+      audioData: audioData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(audioData),
+      compression: compression == null && nullToAbsent
+          ? const Value.absent()
+          : Value(compression),
+      originalBytes: Value(originalBytes),
+      storedBytes: Value(storedBytes),
+      lastAccessedAt: Value(lastAccessedAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory AudioTrack.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AudioTrack(
+      sourceUrl: serializer.fromJson<String>(json['sourceUrl']),
+      title: serializer.fromJson<String>(json['title']),
+      artist: serializer.fromJson<String>(json['artist']),
+      album: serializer.fromJson<String>(json['album']),
+      mimeType: serializer.fromJson<String?>(json['mimeType']),
+      durationMs: serializer.fromJson<int?>(json['durationMs']),
+      artworkUri: serializer.fromJson<String?>(json['artworkUri']),
+      audioData: serializer.fromJson<Uint8List?>(json['audioData']),
+      compression: serializer.fromJson<String?>(json['compression']),
+      originalBytes: serializer.fromJson<int>(json['originalBytes']),
+      storedBytes: serializer.fromJson<int>(json['storedBytes']),
+      lastAccessedAt: serializer.fromJson<DateTime>(json['lastAccessedAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'sourceUrl': serializer.toJson<String>(sourceUrl),
+      'title': serializer.toJson<String>(title),
+      'artist': serializer.toJson<String>(artist),
+      'album': serializer.toJson<String>(album),
+      'mimeType': serializer.toJson<String?>(mimeType),
+      'durationMs': serializer.toJson<int?>(durationMs),
+      'artworkUri': serializer.toJson<String?>(artworkUri),
+      'audioData': serializer.toJson<Uint8List?>(audioData),
+      'compression': serializer.toJson<String?>(compression),
+      'originalBytes': serializer.toJson<int>(originalBytes),
+      'storedBytes': serializer.toJson<int>(storedBytes),
+      'lastAccessedAt': serializer.toJson<DateTime>(lastAccessedAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  AudioTrack copyWith(
+          {String? sourceUrl,
+          String? title,
+          String? artist,
+          String? album,
+          Value<String?> mimeType = const Value.absent(),
+          Value<int?> durationMs = const Value.absent(),
+          Value<String?> artworkUri = const Value.absent(),
+          Value<Uint8List?> audioData = const Value.absent(),
+          Value<String?> compression = const Value.absent(),
+          int? originalBytes,
+          int? storedBytes,
+          DateTime? lastAccessedAt,
+          DateTime? updatedAt}) =>
+      AudioTrack(
+        sourceUrl: sourceUrl ?? this.sourceUrl,
+        title: title ?? this.title,
+        artist: artist ?? this.artist,
+        album: album ?? this.album,
+        mimeType: mimeType.present ? mimeType.value : this.mimeType,
+        durationMs: durationMs.present ? durationMs.value : this.durationMs,
+        artworkUri: artworkUri.present ? artworkUri.value : this.artworkUri,
+        audioData: audioData.present ? audioData.value : this.audioData,
+        compression: compression.present ? compression.value : this.compression,
+        originalBytes: originalBytes ?? this.originalBytes,
+        storedBytes: storedBytes ?? this.storedBytes,
+        lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  AudioTrack copyWithCompanion(AudioTracksCompanion data) {
+    return AudioTrack(
+      sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
+      title: data.title.present ? data.title.value : this.title,
+      artist: data.artist.present ? data.artist.value : this.artist,
+      album: data.album.present ? data.album.value : this.album,
+      mimeType: data.mimeType.present ? data.mimeType.value : this.mimeType,
+      durationMs:
+          data.durationMs.present ? data.durationMs.value : this.durationMs,
+      artworkUri:
+          data.artworkUri.present ? data.artworkUri.value : this.artworkUri,
+      audioData: data.audioData.present ? data.audioData.value : this.audioData,
+      compression:
+          data.compression.present ? data.compression.value : this.compression,
+      originalBytes: data.originalBytes.present
+          ? data.originalBytes.value
+          : this.originalBytes,
+      storedBytes:
+          data.storedBytes.present ? data.storedBytes.value : this.storedBytes,
+      lastAccessedAt: data.lastAccessedAt.present
+          ? data.lastAccessedAt.value
+          : this.lastAccessedAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AudioTrack(')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('title: $title, ')
+          ..write('artist: $artist, ')
+          ..write('album: $album, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('durationMs: $durationMs, ')
+          ..write('artworkUri: $artworkUri, ')
+          ..write('audioData: $audioData, ')
+          ..write('compression: $compression, ')
+          ..write('originalBytes: $originalBytes, ')
+          ..write('storedBytes: $storedBytes, ')
+          ..write('lastAccessedAt: $lastAccessedAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      sourceUrl,
+      title,
+      artist,
+      album,
+      mimeType,
+      durationMs,
+      artworkUri,
+      $driftBlobEquality.hash(audioData),
+      compression,
+      originalBytes,
+      storedBytes,
+      lastAccessedAt,
+      updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AudioTrack &&
+          other.sourceUrl == this.sourceUrl &&
+          other.title == this.title &&
+          other.artist == this.artist &&
+          other.album == this.album &&
+          other.mimeType == this.mimeType &&
+          other.durationMs == this.durationMs &&
+          other.artworkUri == this.artworkUri &&
+          $driftBlobEquality.equals(other.audioData, this.audioData) &&
+          other.compression == this.compression &&
+          other.originalBytes == this.originalBytes &&
+          other.storedBytes == this.storedBytes &&
+          other.lastAccessedAt == this.lastAccessedAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class AudioTracksCompanion extends UpdateCompanion<AudioTrack> {
+  final Value<String> sourceUrl;
+  final Value<String> title;
+  final Value<String> artist;
+  final Value<String> album;
+  final Value<String?> mimeType;
+  final Value<int?> durationMs;
+  final Value<String?> artworkUri;
+  final Value<Uint8List?> audioData;
+  final Value<String?> compression;
+  final Value<int> originalBytes;
+  final Value<int> storedBytes;
+  final Value<DateTime> lastAccessedAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const AudioTracksCompanion({
+    this.sourceUrl = const Value.absent(),
+    this.title = const Value.absent(),
+    this.artist = const Value.absent(),
+    this.album = const Value.absent(),
+    this.mimeType = const Value.absent(),
+    this.durationMs = const Value.absent(),
+    this.artworkUri = const Value.absent(),
+    this.audioData = const Value.absent(),
+    this.compression = const Value.absent(),
+    this.originalBytes = const Value.absent(),
+    this.storedBytes = const Value.absent(),
+    this.lastAccessedAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AudioTracksCompanion.insert({
+    required String sourceUrl,
+    this.title = const Value.absent(),
+    this.artist = const Value.absent(),
+    this.album = const Value.absent(),
+    this.mimeType = const Value.absent(),
+    this.durationMs = const Value.absent(),
+    this.artworkUri = const Value.absent(),
+    this.audioData = const Value.absent(),
+    this.compression = const Value.absent(),
+    this.originalBytes = const Value.absent(),
+    this.storedBytes = const Value.absent(),
+    required DateTime lastAccessedAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  })  : sourceUrl = Value(sourceUrl),
+        lastAccessedAt = Value(lastAccessedAt),
+        updatedAt = Value(updatedAt);
+  static Insertable<AudioTrack> custom({
+    Expression<String>? sourceUrl,
+    Expression<String>? title,
+    Expression<String>? artist,
+    Expression<String>? album,
+    Expression<String>? mimeType,
+    Expression<int>? durationMs,
+    Expression<String>? artworkUri,
+    Expression<Uint8List>? audioData,
+    Expression<String>? compression,
+    Expression<int>? originalBytes,
+    Expression<int>? storedBytes,
+    Expression<DateTime>? lastAccessedAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (sourceUrl != null) 'source_url': sourceUrl,
+      if (title != null) 'title': title,
+      if (artist != null) 'artist': artist,
+      if (album != null) 'album': album,
+      if (mimeType != null) 'mime_type': mimeType,
+      if (durationMs != null) 'duration_ms': durationMs,
+      if (artworkUri != null) 'artwork_uri': artworkUri,
+      if (audioData != null) 'audio_data': audioData,
+      if (compression != null) 'compression': compression,
+      if (originalBytes != null) 'original_bytes': originalBytes,
+      if (storedBytes != null) 'stored_bytes': storedBytes,
+      if (lastAccessedAt != null) 'last_accessed_at': lastAccessedAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AudioTracksCompanion copyWith(
+      {Value<String>? sourceUrl,
+      Value<String>? title,
+      Value<String>? artist,
+      Value<String>? album,
+      Value<String?>? mimeType,
+      Value<int?>? durationMs,
+      Value<String?>? artworkUri,
+      Value<Uint8List?>? audioData,
+      Value<String?>? compression,
+      Value<int>? originalBytes,
+      Value<int>? storedBytes,
+      Value<DateTime>? lastAccessedAt,
+      Value<DateTime>? updatedAt,
+      Value<int>? rowid}) {
+    return AudioTracksCompanion(
+      sourceUrl: sourceUrl ?? this.sourceUrl,
+      title: title ?? this.title,
+      artist: artist ?? this.artist,
+      album: album ?? this.album,
+      mimeType: mimeType ?? this.mimeType,
+      durationMs: durationMs ?? this.durationMs,
+      artworkUri: artworkUri ?? this.artworkUri,
+      audioData: audioData ?? this.audioData,
+      compression: compression ?? this.compression,
+      originalBytes: originalBytes ?? this.originalBytes,
+      storedBytes: storedBytes ?? this.storedBytes,
+      lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (sourceUrl.present) {
+      map['source_url'] = Variable<String>(sourceUrl.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (artist.present) {
+      map['artist'] = Variable<String>(artist.value);
+    }
+    if (album.present) {
+      map['album'] = Variable<String>(album.value);
+    }
+    if (mimeType.present) {
+      map['mime_type'] = Variable<String>(mimeType.value);
+    }
+    if (durationMs.present) {
+      map['duration_ms'] = Variable<int>(durationMs.value);
+    }
+    if (artworkUri.present) {
+      map['artwork_uri'] = Variable<String>(artworkUri.value);
+    }
+    if (audioData.present) {
+      map['audio_data'] = Variable<Uint8List>(audioData.value);
+    }
+    if (compression.present) {
+      map['compression'] = Variable<String>(compression.value);
+    }
+    if (originalBytes.present) {
+      map['original_bytes'] = Variable<int>(originalBytes.value);
+    }
+    if (storedBytes.present) {
+      map['stored_bytes'] = Variable<int>(storedBytes.value);
+    }
+    if (lastAccessedAt.present) {
+      map['last_accessed_at'] = Variable<DateTime>(lastAccessedAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AudioTracksCompanion(')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('title: $title, ')
+          ..write('artist: $artist, ')
+          ..write('album: $album, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('durationMs: $durationMs, ')
+          ..write('artworkUri: $artworkUri, ')
+          ..write('audioData: $audioData, ')
+          ..write('compression: $compression, ')
+          ..write('originalBytes: $originalBytes, ')
+          ..write('storedBytes: $storedBytes, ')
+          ..write('lastAccessedAt: $lastAccessedAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $ChatsTable chats = $ChatsTable(this);
   late final $MessagesTable messages = $MessagesTable(this);
+  late final $AudioTracksTable audioTracks = $AudioTracksTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [chats, messages];
+  List<DatabaseSchemaEntity> get allSchemaEntities =>
+      [chats, messages, audioTracks];
 }
 
 typedef $$ChatsTableCreateCompanionBuilder = ChatsCompanion Function({
@@ -2550,6 +3202,296 @@ typedef $$MessagesTableProcessedTableManager = ProcessedTableManager<
     (Message, $$MessagesTableReferences),
     Message,
     PrefetchHooks Function({bool chatId})>;
+typedef $$AudioTracksTableCreateCompanionBuilder = AudioTracksCompanion
+    Function({
+  required String sourceUrl,
+  Value<String> title,
+  Value<String> artist,
+  Value<String> album,
+  Value<String?> mimeType,
+  Value<int?> durationMs,
+  Value<String?> artworkUri,
+  Value<Uint8List?> audioData,
+  Value<String?> compression,
+  Value<int> originalBytes,
+  Value<int> storedBytes,
+  required DateTime lastAccessedAt,
+  required DateTime updatedAt,
+  Value<int> rowid,
+});
+typedef $$AudioTracksTableUpdateCompanionBuilder = AudioTracksCompanion
+    Function({
+  Value<String> sourceUrl,
+  Value<String> title,
+  Value<String> artist,
+  Value<String> album,
+  Value<String?> mimeType,
+  Value<int?> durationMs,
+  Value<String?> artworkUri,
+  Value<Uint8List?> audioData,
+  Value<String?> compression,
+  Value<int> originalBytes,
+  Value<int> storedBytes,
+  Value<DateTime> lastAccessedAt,
+  Value<DateTime> updatedAt,
+  Value<int> rowid,
+});
+
+class $$AudioTracksTableFilterComposer
+    extends Composer<_$AppDatabase, $AudioTracksTable> {
+  $$AudioTracksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get sourceUrl => $composableBuilder(
+      column: $table.sourceUrl, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get artist => $composableBuilder(
+      column: $table.artist, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get album => $composableBuilder(
+      column: $table.album, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get mimeType => $composableBuilder(
+      column: $table.mimeType, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get durationMs => $composableBuilder(
+      column: $table.durationMs, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get artworkUri => $composableBuilder(
+      column: $table.artworkUri, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<Uint8List> get audioData => $composableBuilder(
+      column: $table.audioData, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get compression => $composableBuilder(
+      column: $table.compression, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get originalBytes => $composableBuilder(
+      column: $table.originalBytes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get storedBytes => $composableBuilder(
+      column: $table.storedBytes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get lastAccessedAt => $composableBuilder(
+      column: $table.lastAccessedAt,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$AudioTracksTableOrderingComposer
+    extends Composer<_$AppDatabase, $AudioTracksTable> {
+  $$AudioTracksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get sourceUrl => $composableBuilder(
+      column: $table.sourceUrl, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get artist => $composableBuilder(
+      column: $table.artist, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get album => $composableBuilder(
+      column: $table.album, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get mimeType => $composableBuilder(
+      column: $table.mimeType, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get durationMs => $composableBuilder(
+      column: $table.durationMs, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get artworkUri => $composableBuilder(
+      column: $table.artworkUri, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<Uint8List> get audioData => $composableBuilder(
+      column: $table.audioData, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get compression => $composableBuilder(
+      column: $table.compression, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get originalBytes => $composableBuilder(
+      column: $table.originalBytes,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get storedBytes => $composableBuilder(
+      column: $table.storedBytes, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get lastAccessedAt => $composableBuilder(
+      column: $table.lastAccessedAt,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$AudioTracksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AudioTracksTable> {
+  $$AudioTracksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get sourceUrl =>
+      $composableBuilder(column: $table.sourceUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get artist =>
+      $composableBuilder(column: $table.artist, builder: (column) => column);
+
+  GeneratedColumn<String> get album =>
+      $composableBuilder(column: $table.album, builder: (column) => column);
+
+  GeneratedColumn<String> get mimeType =>
+      $composableBuilder(column: $table.mimeType, builder: (column) => column);
+
+  GeneratedColumn<int> get durationMs => $composableBuilder(
+      column: $table.durationMs, builder: (column) => column);
+
+  GeneratedColumn<String> get artworkUri => $composableBuilder(
+      column: $table.artworkUri, builder: (column) => column);
+
+  GeneratedColumn<Uint8List> get audioData =>
+      $composableBuilder(column: $table.audioData, builder: (column) => column);
+
+  GeneratedColumn<String> get compression => $composableBuilder(
+      column: $table.compression, builder: (column) => column);
+
+  GeneratedColumn<int> get originalBytes => $composableBuilder(
+      column: $table.originalBytes, builder: (column) => column);
+
+  GeneratedColumn<int> get storedBytes => $composableBuilder(
+      column: $table.storedBytes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastAccessedAt => $composableBuilder(
+      column: $table.lastAccessedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$AudioTracksTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $AudioTracksTable,
+    AudioTrack,
+    $$AudioTracksTableFilterComposer,
+    $$AudioTracksTableOrderingComposer,
+    $$AudioTracksTableAnnotationComposer,
+    $$AudioTracksTableCreateCompanionBuilder,
+    $$AudioTracksTableUpdateCompanionBuilder,
+    (AudioTrack, BaseReferences<_$AppDatabase, $AudioTracksTable, AudioTrack>),
+    AudioTrack,
+    PrefetchHooks Function()> {
+  $$AudioTracksTableTableManager(_$AppDatabase db, $AudioTracksTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AudioTracksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AudioTracksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AudioTracksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> sourceUrl = const Value.absent(),
+            Value<String> title = const Value.absent(),
+            Value<String> artist = const Value.absent(),
+            Value<String> album = const Value.absent(),
+            Value<String?> mimeType = const Value.absent(),
+            Value<int?> durationMs = const Value.absent(),
+            Value<String?> artworkUri = const Value.absent(),
+            Value<Uint8List?> audioData = const Value.absent(),
+            Value<String?> compression = const Value.absent(),
+            Value<int> originalBytes = const Value.absent(),
+            Value<int> storedBytes = const Value.absent(),
+            Value<DateTime> lastAccessedAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              AudioTracksCompanion(
+            sourceUrl: sourceUrl,
+            title: title,
+            artist: artist,
+            album: album,
+            mimeType: mimeType,
+            durationMs: durationMs,
+            artworkUri: artworkUri,
+            audioData: audioData,
+            compression: compression,
+            originalBytes: originalBytes,
+            storedBytes: storedBytes,
+            lastAccessedAt: lastAccessedAt,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String sourceUrl,
+            Value<String> title = const Value.absent(),
+            Value<String> artist = const Value.absent(),
+            Value<String> album = const Value.absent(),
+            Value<String?> mimeType = const Value.absent(),
+            Value<int?> durationMs = const Value.absent(),
+            Value<String?> artworkUri = const Value.absent(),
+            Value<Uint8List?> audioData = const Value.absent(),
+            Value<String?> compression = const Value.absent(),
+            Value<int> originalBytes = const Value.absent(),
+            Value<int> storedBytes = const Value.absent(),
+            required DateTime lastAccessedAt,
+            required DateTime updatedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              AudioTracksCompanion.insert(
+            sourceUrl: sourceUrl,
+            title: title,
+            artist: artist,
+            album: album,
+            mimeType: mimeType,
+            durationMs: durationMs,
+            artworkUri: artworkUri,
+            audioData: audioData,
+            compression: compression,
+            originalBytes: originalBytes,
+            storedBytes: storedBytes,
+            lastAccessedAt: lastAccessedAt,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$AudioTracksTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $AudioTracksTable,
+    AudioTrack,
+    $$AudioTracksTableFilterComposer,
+    $$AudioTracksTableOrderingComposer,
+    $$AudioTracksTableAnnotationComposer,
+    $$AudioTracksTableCreateCompanionBuilder,
+    $$AudioTracksTableUpdateCompanionBuilder,
+    (AudioTrack, BaseReferences<_$AppDatabase, $AudioTracksTable, AudioTrack>),
+    AudioTrack,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2558,4 +3500,6 @@ class $AppDatabaseManager {
       $$ChatsTableTableManager(_db, _db.chats);
   $$MessagesTableTableManager get messages =>
       $$MessagesTableTableManager(_db, _db.messages);
+  $$AudioTracksTableTableManager get audioTracks =>
+      $$AudioTracksTableTableManager(_db, _db.audioTracks);
 }

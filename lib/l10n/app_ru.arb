@@ -428,5 +428,26 @@
   "importLanguageFromJson": "Импортировать язык из JSON",
   "@importLanguageFromJson": {
     "description": "Кнопка импорта пользовательского языкового пакета из JSON-файла"
-  }
+  },
+  "changePhoto": "Изменить фото",
+  "avatarUpdated": "Аватар обновлён",
+  "avatarUploadFailed": "Не удалось загрузить аватар",
+  "invalidNicknameFormat": "Никнейм: 3–30 символов, только буквы, цифры, ., _ и -",
+  "deleteAccountPrompt": "Профиль будет удалён без возможности восстановления. Введите пароль для подтверждения.",
+  "deleteAccountFailed": "Не удалось удалить аккаунт",
+  "chatFontSize": "Размер шрифта в чате",
+  "chatWallpaper": "Обои чата",
+  "myMessageColor": "Цвет своих сообщений",
+  "otherMessageColor": "Цвет чужих сообщений",
+  "notificationStyle": "Стиль уведомлений",
+  "standardNotificationStyle": "Стандартный",
+  "blackRavenNotificationStyle": "Чёрная ворона",
+  "wallpaperUploadFailed": "Не удалось загрузить обои",
+  "customColor": "Свой цвет",
+  "customGradient": "Свой градиент",
+  "colorOne": "Цвет 1",
+  "colorTwo": "Цвет 2",
+  "diagonal": "По диагонали",
+  "vertical": "Вертикально",
+  "horizontal": "Горизонтально"
 }

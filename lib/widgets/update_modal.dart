@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'common/base_custom_modal.dart';
 import '../models/update/app_version_info.dart';
 import '../services/update/update_service.dart';
+import '../styles/app_styles.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
 
 /// Мобильное модальное окно деталей и скачивания обновления Xaneo на базе BaseCustomModal
@@ -93,7 +94,8 @@ class _XaneoUpdateModalState extends BaseCustomModalState<XaneoUpdateModal> {
       }
     } catch (e) {
       if (mounted) {
-        final errText = l10n?.oshibkaZagruzkiFayla_86e5 ?? 'Ошибка скачивания файла';
+        final errText =
+            l10n?.oshibkaZagruzkiFayla_86e5 ?? 'Ошибка скачивания файла';
         setState(() {
           _isDownloading = false;
           _downloadError = '$errText: $e';
@@ -135,8 +137,7 @@ class _XaneoUpdateModalState extends BaseCustomModalState<XaneoUpdateModal> {
   }
 
   @override
-  Widget buildContent(
-      BuildContext context, ScrollController scrollController) {
+  Widget buildContent(BuildContext context, ScrollController scrollController) {
     final info = widget.updateInfo;
     final l10n = AppLocalizations.of(context);
 
@@ -178,12 +179,12 @@ class _XaneoUpdateModalState extends BaseCustomModalState<XaneoUpdateModal> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: context.xaneoOverlay(0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.system_update_rounded,
-                    color: Colors.white,
+                    color: context.xaneoTextPrimary,
                     size: 22,
                   ),
                 ),
@@ -194,10 +195,10 @@ class _XaneoUpdateModalState extends BaseCustomModalState<XaneoUpdateModal> {
                     children: [
                       Text(
                         '$titleStr v${info.version}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16.5,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: context.xaneoTextPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -207,7 +208,7 @@ class _XaneoUpdateModalState extends BaseCustomModalState<XaneoUpdateModal> {
                         subtitleStr,
                         style: TextStyle(
                           fontSize: 12.5,
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: context.xaneoTextSecondary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -219,23 +220,23 @@ class _XaneoUpdateModalState extends BaseCustomModalState<XaneoUpdateModal> {
                   onPressed: () => Navigator.pop(context),
                   icon: Icon(
                     Icons.close_rounded,
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: context.xaneoTextMuted,
                     size: 20,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 14),
-            Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+            Divider(color: context.xaneoDivider, height: 1),
             const SizedBox(height: 14),
 
             // Source section title
             Text(
               sourceHeaderStr,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.white70,
+                color: context.xaneoTextSecondary,
               ),
             ),
             const SizedBox(height: 10),
@@ -281,7 +282,7 @@ class _XaneoUpdateModalState extends BaseCustomModalState<XaneoUpdateModal> {
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: _downloadProgress > 0 ? _downloadProgress : null,
-                  backgroundColor: Colors.white.withValues(alpha: 0.1),
+                  backgroundColor: context.xaneoOverlay(0.08),
                   valueColor:
                       const AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
                 ),
@@ -289,7 +290,10 @@ class _XaneoUpdateModalState extends BaseCustomModalState<XaneoUpdateModal> {
               const SizedBox(height: 8),
               Text(
                 _formatProgressStatus(context),
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                style: TextStyle(
+                  color: context.xaneoTextSecondary,
+                  fontSize: 12,
+                ),
               ),
               const SizedBox(height: 14),
             ],
@@ -351,12 +355,11 @@ class _XaneoUpdateModalState extends BaseCustomModalState<XaneoUpdateModal> {
           decoration: BoxDecoration(
             color: isSelected
                 ? const Color(0xFF2563EB).withValues(alpha: 0.15)
-                : Colors.white.withValues(alpha: 0.04),
+                : context.xaneoOverlay(0.04),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected
-                  ? const Color(0xFF2563EB)
-                  : Colors.white.withValues(alpha: 0.08),
+              color:
+                  isSelected ? const Color(0xFF2563EB) : context.xaneoDivider,
               width: 1,
             ),
           ),
@@ -364,7 +367,9 @@ class _XaneoUpdateModalState extends BaseCustomModalState<XaneoUpdateModal> {
             children: [
               IconTheme(
                 data: IconThemeData(
-                  color: isSelected ? const Color(0xFF60A5FA) : Colors.white60,
+                  color: isSelected
+                      ? const Color(0xFF2563EB)
+                      : context.xaneoTextSecondary,
                 ),
                 child: iconWidget,
               ),
@@ -379,9 +384,7 @@ class _XaneoUpdateModalState extends BaseCustomModalState<XaneoUpdateModal> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: isSelected
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.87),
+                        color: context.xaneoTextPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -391,7 +394,7 @@ class _XaneoUpdateModalState extends BaseCustomModalState<XaneoUpdateModal> {
                       subtitle,
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: context.xaneoTextMuted,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,

@@ -6,13 +6,13 @@ class DatabaseKeyService {
   static const String _dbKeyStorageKey = 'local_db_encryption_key';
   final FlutterSecureStorage _secureStorage;
 
-  DatabaseKeyService({FlutterSecureStorage? secureStorage}) 
+  DatabaseKeyService({FlutterSecureStorage? secureStorage})
       : _secureStorage = secureStorage ?? const FlutterSecureStorage();
 
   /// Возвращает ключ шифрования для БД. Если ключа нет, генерирует новый и сохраняет.
   Future<String> getEncryptionKey() async {
     String? existingKey = await _secureStorage.read(key: _dbKeyStorageKey);
-    
+
     if (existingKey != null && existingKey.isNotEmpty) {
       return existingKey;
     }

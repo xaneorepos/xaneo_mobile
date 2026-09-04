@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 import '../../providers/playback_provider.dart';
+import 'track_artwork.dart';
 import 'base_custom_modal.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
 
@@ -41,7 +42,19 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
     _equalizerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _equalizerController
+        ..stop()
+        ..value = 0.5;
+    } else if (!_equalizerController.isAnimating) {
+      _equalizerController.repeat(reverse: true);
+    }
   }
 
   @override
@@ -59,7 +72,7 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
   @override
   Widget build(BuildContext context) {
     final playback = context.watch<PlaybackProvider>();
-    if (playback.currentAudioUrl == null) {
+    if (!playback.showPlayerControls) {
       return const SizedBox.shrink();
     }
 
@@ -73,11 +86,13 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
 
     final double progress = _dragValue ??
         (duration > Duration.zero
-            ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+            ? (position.inMilliseconds / duration.inMilliseconds)
+                .clamp(0.0, 1.0)
             : 0.0);
 
     final displayPos = _dragValue != null && duration > Duration.zero
-        ? Duration(milliseconds: (_dragValue! * duration.inMilliseconds).round())
+        ? Duration(
+            milliseconds: (_dragValue! * duration.inMilliseconds).round())
         : position;
 
     switch (widget.mode) {
@@ -157,7 +172,11 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                 child: Row(
                   children: [
                     // Обложка / иконка с анимированным эквалайзером
-                    _buildAlbumArtBadge(isPlaying, size: 40),
+                    _buildAlbumArtBadge(
+                      isPlaying,
+                      playback.currentArtUri,
+                      size: 40,
+                    ),
                     const SizedBox(width: 12),
 
                     // Название трека и исполнитель
@@ -187,7 +206,8 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.55),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.55),
                                       fontSize: 11.5,
                                       fontFamily: 'Inter',
                                     ),
@@ -220,14 +240,16 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                         IconButton(
                           icon: FaIcon(
                             FontAwesomeIcons.backwardStep,
-                            color: (playback.hasPrevious || playback.position.inSeconds > 3)
+                            color: (playback.hasPrevious ||
+                                    playback.position.inSeconds > 3)
                                 ? Colors.white
                                 : Colors.white24,
                             size: 14,
                           ),
                           onPressed: () => playback.playPrevious(),
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                          constraints: const BoxConstraints.tightFor(
+                              width: 32, height: 32),
                           tooltip: 'Предыдущий трек',
                         ),
 
@@ -254,7 +276,8 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF3B82F6).withValues(alpha: 0.4),
+                                  color: const Color(0xFF3B82F6)
+                                      .withValues(alpha: 0.4),
                                   blurRadius: 10,
                                   offset: const Offset(0, 3),
                                 ),
@@ -262,7 +285,9 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                             ),
                             child: Center(
                               child: FaIcon(
-                                isPlaying ? FontAwesomeIcons.pause : FontAwesomeIcons.play,
+                                isPlaying
+                                    ? FontAwesomeIcons.pause
+                                    : FontAwesomeIcons.play,
                                 color: Colors.white,
                                 size: 14,
                               ),
@@ -276,12 +301,17 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                         IconButton(
                           icon: FaIcon(
                             FontAwesomeIcons.forwardStep,
-                            color: playback.hasNext ? Colors.white : Colors.white24,
+                            color: playback.hasNext
+                                ? Colors.white
+                                : Colors.white24,
                             size: 14,
                           ),
-                          onPressed: playback.hasNext ? () => playback.playNext() : null,
+                          onPressed: playback.hasNext
+                              ? () => playback.playNext()
+                              : null,
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                          constraints: const BoxConstraints.tightFor(
+                              width: 32, height: 32),
                           tooltip: 'Следующий трек',
                         ),
 
@@ -294,9 +324,11 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                             color: Colors.white.withValues(alpha: 0.45),
                             size: 20,
                           ),
-                          onPressed: widget.onClose ?? () => playback.stop(),
+                          onPressed:
+                              widget.onClose ?? playback.dismissPlayerControls,
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+                          constraints: const BoxConstraints.tightFor(
+                              width: 30, height: 30),
                         ),
                       ],
                     ),
@@ -349,18 +381,39 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               child: Row(
                 children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(9),
+                    child: SizedBox(
+                      width: 34,
+                      height: 34,
+                      child: TrackArtwork(
+                        uri: playback.currentArtUri,
+                        fallback: const ColoredBox(
+                          color: Color(0xFF27272A),
+                          child: Icon(
+                            Icons.music_note_rounded,
+                            color: Colors.white70,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   // Кнопка назад
                   IconButton(
                     icon: FaIcon(
                       FontAwesomeIcons.backwardStep,
-                      color: (playback.hasPrevious || playback.position.inSeconds > 3)
+                      color: (playback.hasPrevious ||
+                              playback.position.inSeconds > 3)
                           ? Colors.white
                           : Colors.white24,
                       size: 13,
                     ),
                     onPressed: () => playback.playPrevious(),
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+                    constraints:
+                        const BoxConstraints.tightFor(width: 28, height: 28),
                   ),
 
                   // Play / Pause
@@ -381,7 +434,9 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                       ),
                       child: Center(
                         child: FaIcon(
-                          isPlaying ? FontAwesomeIcons.pause : FontAwesomeIcons.play,
+                          isPlaying
+                              ? FontAwesomeIcons.pause
+                              : FontAwesomeIcons.play,
                           color: Colors.white,
                           size: 13,
                         ),
@@ -396,9 +451,11 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                       color: playback.hasNext ? Colors.white : Colors.white24,
                       size: 13,
                     ),
-                    onPressed: playback.hasNext ? () => playback.playNext() : null,
+                    onPressed:
+                        playback.hasNext ? () => playback.playNext() : null,
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+                    constraints:
+                        const BoxConstraints.tightFor(width: 28, height: 28),
                   ),
 
                   const SizedBox(width: 6),
@@ -407,7 +464,8 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                   Expanded(
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: widget.onTap ?? () => MusicFullPlayerModal.show(context),
+                      onTap: widget.onTap ??
+                          () => MusicFullPlayerModal.show(context),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -459,9 +517,10 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                       color: Colors.white.withValues(alpha: 0.45),
                       size: 18,
                     ),
-                    onPressed: widget.onClose ?? () => playback.stop(),
+                    onPressed: widget.onClose ?? playback.dismissPlayerControls,
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+                    constraints:
+                        const BoxConstraints.tightFor(width: 28, height: 28),
                   ),
                 ],
               ),
@@ -498,7 +557,11 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
         children: [
           Row(
             children: [
-              _buildAlbumArtBadge(isPlaying, size: 50),
+              _buildAlbumArtBadge(
+                isPlaying,
+                playback.currentArtUri,
+                size: 50,
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -550,7 +613,8 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               IconButton(
-                icon: const FaIcon(FontAwesomeIcons.backwardStep, color: Colors.white, size: 18),
+                icon: const FaIcon(FontAwesomeIcons.backwardStep,
+                    color: Colors.white, size: 18),
                 onPressed: () => playback.playPrevious(),
               ),
               const SizedBox(width: 16),
@@ -565,7 +629,9 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                   ),
                   child: Center(
                     child: FaIcon(
-                      isPlaying ? FontAwesomeIcons.pause : FontAwesomeIcons.play,
+                      isPlaying
+                          ? FontAwesomeIcons.pause
+                          : FontAwesomeIcons.play,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -589,7 +655,8 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
   }
 
   /// Интерактивный прогресс-бар перемотки
-  Widget _buildProgressBar(PlaybackProvider playback, Duration duration, double progress) {
+  Widget _buildProgressBar(
+      PlaybackProvider playback, Duration duration, double progress) {
     return SliderTheme(
       data: SliderThemeData(
         trackHeight: 3,
@@ -628,16 +695,28 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
   }
 
   /// Значок трека с анимацией эквалайзера
-  Widget _buildAlbumArtBadge(bool isPlaying, {double size = 40}) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
+  Widget _buildAlbumArtBadge(
+    bool isPlaying,
+    Uri? artUri, {
+    double size = 40,
+  }) {
+    final fallback = Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
           colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+      ),
+      child: const Center(
+        child: Icon(Icons.music_note_rounded, color: Colors.white, size: 20),
+      ),
+    );
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(size * 0.3),
         boxShadow: [
           BoxShadow(
@@ -647,9 +726,15 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
           ),
         ],
       ),
-      child: Center(
-        child: isPlaying
-            ? AnimatedBuilder(
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          TrackArtwork(uri: artUri, fallback: fallback),
+          if (isPlaying)
+            ColoredBox(
+              color: Colors.black.withValues(alpha: 0.28),
+              child: AnimatedBuilder(
                 animation: _equalizerController,
                 builder: (context, child) {
                   final v = _equalizerController.value;
@@ -661,16 +746,14 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                       const SizedBox(width: 2),
                       _buildEqBar(size * 0.35 * (0.9 - 0.5 * v)),
                       const SizedBox(width: 2),
-                      _buildEqBar(size * 0.35 * (0.5 + 0.5 * ((v + 0.5) % 1.0))),
+                      _buildEqBar(
+                          size * 0.35 * (0.5 + 0.5 * ((v + 0.5) % 1.0))),
                     ],
                   );
                 },
-              )
-            : const Icon(
-                Icons.music_note_rounded,
-                color: Colors.white,
-                size: 20,
               ),
+            ),
+        ],
       ),
     );
   }
@@ -744,11 +827,13 @@ class _MusicFullPlayerModalState
 
     final double progress = _dragValue ??
         (duration > Duration.zero
-            ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+            ? (position.inMilliseconds / duration.inMilliseconds)
+                .clamp(0.0, 1.0)
             : 0.0);
 
     final displayPos = _dragValue != null && duration > Duration.zero
-        ? Duration(milliseconds: (_dragValue! * duration.inMilliseconds).round())
+        ? Duration(
+            milliseconds: (_dragValue! * duration.inMilliseconds).round())
         : position;
 
     return SingleChildScrollView(
@@ -773,7 +858,8 @@ class _MusicFullPlayerModalState
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 28),
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                      color: Colors.white, size: 28),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -787,7 +873,11 @@ class _MusicFullPlayerModalState
               height: 180,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6), Color(0xFFEC4899)],
+                  colors: [
+                    Color(0xFF3B82F6),
+                    Color(0xFF8B5CF6),
+                    Color(0xFFEC4899)
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -800,11 +890,15 @@ class _MusicFullPlayerModalState
                   ),
                 ],
               ),
-              child: const Center(
-                child: Icon(
-                  Icons.music_note_rounded,
-                  color: Colors.white,
-                  size: 70,
+              clipBehavior: Clip.antiAlias,
+              child: TrackArtwork(
+                uri: playback.currentArtUri,
+                fallback: const Center(
+                  child: Icon(
+                    Icons.music_note_rounded,
+                    color: Colors.white,
+                    size: 70,
+                  ),
                 ),
               ),
             ),
@@ -909,10 +1003,12 @@ class _MusicFullPlayerModalState
               children: [
                 // Перемотка на -10 сек
                 IconButton(
-                  icon: const Icon(Icons.replay_10_rounded, color: Colors.white70, size: 28),
+                  icon: const Icon(Icons.replay_10_rounded,
+                      color: Colors.white70, size: 28),
                   onPressed: () {
                     final newPos = position - const Duration(seconds: 10);
-                    playback.seek(newPos < Duration.zero ? Duration.zero : newPos);
+                    playback
+                        .seek(newPos < Duration.zero ? Duration.zero : newPos);
                   },
                   tooltip: '-10 сек',
                 ),
@@ -951,7 +1047,8 @@ class _MusicFullPlayerModalState
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF3B82F6).withValues(alpha: 0.45),
+                          color:
+                              const Color(0xFF3B82F6).withValues(alpha: 0.45),
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),
@@ -959,7 +1056,9 @@ class _MusicFullPlayerModalState
                     ),
                     child: Center(
                       child: FaIcon(
-                        isPlaying ? FontAwesomeIcons.pause : FontAwesomeIcons.play,
+                        isPlaying
+                            ? FontAwesomeIcons.pause
+                            : FontAwesomeIcons.play,
                         color: Colors.white,
                         size: 24,
                       ),
@@ -974,13 +1073,15 @@ class _MusicFullPlayerModalState
                     color: playback.hasNext ? Colors.white : Colors.white24,
                     size: 22,
                   ),
-                  onPressed: playback.hasNext ? () => playback.playNext() : null,
+                  onPressed:
+                      playback.hasNext ? () => playback.playNext() : null,
                   tooltip: 'Следующий трек',
                 ),
 
                 // Перемотка на +10 сек
                 IconButton(
-                  icon: const Icon(Icons.forward_10_rounded, color: Colors.white70, size: 28),
+                  icon: const Icon(Icons.forward_10_rounded,
+                      color: Colors.white70, size: 28),
                   onPressed: () {
                     final newPos = position + const Duration(seconds: 10);
                     playback.seek(newPos > duration ? duration : newPos);
@@ -1000,11 +1101,15 @@ class _MusicFullPlayerModalState
                 IconButton(
                   icon: Icon(
                     Icons.shuffle_rounded,
-                    color: playback.isShuffle ? const Color(0xFF3B82F6) : Colors.white38,
+                    color: playback.isShuffle
+                        ? const Color(0xFF3B82F6)
+                        : Colors.white38,
                     size: 22,
                   ),
                   onPressed: () => playback.toggleShuffle(),
-                  tooltip: playback.isShuffle ? 'Случайный порядок включен' : 'Случайный порядок выключен',
+                  tooltip: playback.isShuffle
+                      ? 'Случайный порядок включен'
+                      : 'Случайный порядок выключен',
                 ),
                 const SizedBox(width: 48),
                 // Repeat Mode (Повтор всех / одного / выкл)
@@ -1074,9 +1179,13 @@ class _MusicFullPlayerModalState
                       dense: true,
                       leading: Icon(
                         isCurrent
-                            ? (isItemPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded)
+                            ? (isItemPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded)
                             : Icons.music_note_rounded,
-                        color: isCurrent ? const Color(0xFF60A5FA) : Colors.white54,
+                        color: isCurrent
+                            ? const Color(0xFF60A5FA)
+                            : Colors.white54,
                         size: 20,
                       ),
                       title: Text(
@@ -1084,8 +1193,11 @@ class _MusicFullPlayerModalState
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: isCurrent ? const Color(0xFF60A5FA) : Colors.white,
-                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                          color: isCurrent
+                              ? const Color(0xFF60A5FA)
+                              : Colors.white,
+                          fontWeight:
+                              isCurrent ? FontWeight.bold : FontWeight.normal,
                           fontSize: 13,
                         ),
                       ),

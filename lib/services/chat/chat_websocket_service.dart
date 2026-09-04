@@ -31,23 +31,55 @@ class ChatWebSocketService {
   Timer? _reconnectTimer;
   String? _activeChatId;
   bool _manualDisconnect = false;
+  bool _disposed = false;
   int _reconnectAttempt = 0;
+  Future<void>? _connectFuture;
 
   Future<void> connect(String chatId) async {
-    if (_activeChatId == chatId && _channel != null) return;
+    if (_disposed) return;
+    if (_activeChatId == chatId && _channel != null && isConnected.value) {
+      return;
+    }
 
-    await disconnect();
-    _manualDisconnect = false;
+    final pendingConnection = _connectFuture;
+    if (pendingConnection != null && _activeChatId == chatId) {
+      await pendingConnection;
+      return;
+    }
+
     _activeChatId = chatId;
+    _manualDisconnect = false;
+
+    late final Future<void> attempt;
+    attempt = _connect(chatId).whenComplete(() {
+      if (identical(_connectFuture, attempt)) {
+        _connectFuture = null;
+      }
+    });
+    _connectFuture = attempt;
+    await attempt;
+  }
+
+  Future<void> reconnect(String chatId) async {
+    if (_disposed) return;
+    await _closeTransport();
+    await connect(chatId);
+  }
+
+  Future<void> _connect(String chatId) async {
+    await _closeTransport();
+    if (_disposed || _manualDisconnect || _activeChatId != chatId) return;
 
     var token = await _tokenStorage.getAccessToken();
     bool isExpired = token == null || token.isEmpty || _isTokenExpired(token);
-    
-    debugPrint('WS: token check - isExpired: $isExpired, hasApiClient: ${_apiClient != null}');
-    
+
+    debugPrint(
+        'WS: token check - isExpired: $isExpired, hasApiClient: ${_apiClient != null}');
+
     if (isExpired) {
       if (_apiClient != null) {
-        debugPrint('WS: access token is missing or expired, attempting to refresh...');
+        debugPrint(
+            'WS: access token is missing or expired, attempting to refresh...');
         final newToken = await _apiClient!.refreshToken();
         if (newToken != null && newToken.isNotEmpty) {
           token = newToken;
@@ -58,12 +90,14 @@ class ChatWebSocketService {
           _apiClient!.onSessionExpired?.call();
         }
       } else {
-        debugPrint('WS: token is expired, but ApiClient is null. Cannot refresh.');
+        debugPrint(
+            'WS: token is expired, but ApiClient is null. Cannot refresh.');
       }
     }
 
     if (token == null || token.isEmpty || isExpired) {
-      debugPrint('WS: access token is missing or expired, and could not be refreshed. skip connect');
+      debugPrint(
+          'WS: access token is missing or expired, and could not be refreshed. skip connect');
       return;
     }
 
@@ -76,16 +110,22 @@ class ChatWebSocketService {
 
     try {
       final socket = await _openSocketWithFallback(uri);
-      _channel = IOWebSocketChannel(socket);
-      _subscription = _channel!.stream.listen(
+      if (_disposed || _manualDisconnect || _activeChatId != chatId) {
+        await socket.close(ws_status.goingAway);
+        return;
+      }
+
+      final channel = IOWebSocketChannel(socket);
+      _channel = channel;
+      _subscription = channel.stream.listen(
         _handleRawEvent,
         onError: (error) {
           debugPrint('WS: stream error: $error');
-          _scheduleReconnect();
+          _handleTransportLoss(channel);
         },
         onDone: () {
           debugPrint('WS: stream closed');
-          _scheduleReconnect();
+          _handleTransportLoss(channel);
         },
         cancelOnError: true,
       );
@@ -102,8 +142,7 @@ class ChatWebSocketService {
     final customClient = _buildDebugHttpClientForSelfSigned(uri);
     final token = uri.queryParameters['token'];
     final headers = <String, dynamic>{
-      if (token != null && token.isNotEmpty)
-        'Authorization': 'Bearer $token',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
 
     try {
@@ -117,7 +156,10 @@ class ChatWebSocketService {
       final isTlsCertIssue = e.toString().contains('CERTIFICATE_VERIFY_FAILED');
       final isPrivate = _isPrivateIp(uri.host);
 
-      if ((!kReleaseMode || isPrivate) && isIpHost && uri.scheme == 'wss' && isTlsCertIssue) {
+      if ((!kReleaseMode || isPrivate) &&
+          isIpHost &&
+          uri.scheme == 'wss' &&
+          isTlsCertIssue) {
         final fallbackUri = uri.replace(scheme: 'ws');
         final safeFallbackUri =
             fallbackUri.replace(queryParameters: {'token': '***'});
@@ -135,25 +177,47 @@ class ChatWebSocketService {
 
   Future<void> disconnect() async {
     _manualDisconnect = true;
-    isConnected.value = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _activeChatId = null;
-
-    _subscription?.cancel();
-    _subscription = null;
-
-    _channel?.sink.close(ws_status.normalClosure);
-    _channel = null;
+    await _closeTransport();
   }
 
-  Future<void> send(Map<String, dynamic> payload) async {
+  Future<void> _closeTransport() async {
+    isConnected.value = false;
+
+    final subscription = _subscription;
+    _subscription = null;
+    await subscription?.cancel();
+
     final channel = _channel;
-    if (channel == null) return;
-    channel.sink.add(jsonEncode(payload));
+    _channel = null;
+    await channel?.sink.close(ws_status.normalClosure);
+  }
+
+  Future<bool> send(Map<String, dynamic> payload) async {
+    if (_disposed) return false;
+
+    final chatId = _activeChatId ?? payload['chat_id']?.toString();
+    if ((!isConnected.value || _channel == null) && chatId != null) {
+      await connect(chatId);
+    }
+
+    final channel = _channel;
+    if (!isConnected.value || channel == null) return false;
+
+    try {
+      channel.sink.add(jsonEncode(payload));
+      return true;
+    } catch (e) {
+      debugPrint('WS: send error: $e');
+      _handleTransportLoss(channel);
+      return false;
+    }
   }
 
   Future<void> dispose() async {
+    _disposed = true;
     await disconnect();
     await _eventsController.close();
   }
@@ -193,7 +257,8 @@ class ChatWebSocketService {
       String host,
       int port,
     ) {
-      debugPrint('WS: accepting self-signed cert in debug/profile/local for $host:$port');
+      debugPrint(
+          'WS: accepting self-signed cert in debug/profile/local for $host:$port');
       return true;
     };
     return client;
@@ -209,7 +274,12 @@ class ChatWebSocketService {
       if (parts.length == 4 && parts[0] != null) {
         if (parts[0] == 10) return true;
         if (parts[0] == 192 && parts[1] == 168) return true;
-        if (parts[0] == 172 && parts[1] != null && parts[1]! >= 16 && parts[1]! <= 31) return true;
+        if (parts[0] == 172 &&
+            parts[1] != null &&
+            parts[1]! >= 16 &&
+            parts[1]! <= 31) {
+          return true;
+        }
       }
     }
     return false;
@@ -228,6 +298,14 @@ class ChatWebSocketService {
     }
   }
 
+  void _handleTransportLoss(IOWebSocketChannel channel) {
+    if (!identical(_channel, channel)) return;
+    isConnected.value = false;
+    _subscription = null;
+    _channel = null;
+    _scheduleReconnect();
+  }
+
   void _scheduleReconnect() {
     isConnected.value = false;
     if (_manualDisconnect || _activeChatId == null) return;
@@ -237,9 +315,11 @@ class ChatWebSocketService {
 
     final exponent = _reconnectAttempt > 6 ? 6 : _reconnectAttempt;
     final baseDelaySeconds = 1 << exponent;
-    final jitterMs = Random().nextInt(1000); // random jitter between 0 and 999ms to prevent reconnect storms
+    final jitterMs = Random().nextInt(
+        1000); // random jitter between 0 and 999ms to prevent reconnect storms
     final delay = Duration(milliseconds: baseDelaySeconds * 1000 + jitterMs);
-    debugPrint('WS: reconnect in ${baseDelaySeconds}s + ${jitterMs}ms (attempt $_reconnectAttempt)');
+    debugPrint(
+        'WS: reconnect in ${baseDelaySeconds}s + ${jitterMs}ms (attempt $_reconnectAttempt)');
 
     _reconnectTimer = Timer(delay, () {
       final chatId = _activeChatId;
@@ -252,7 +332,7 @@ class ChatWebSocketService {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return true;
-      
+
       final payload = parts[1];
       var normalized = payload.replaceAll('-', '+').replaceAll('_', '/');
       final pad = normalized.length % 4;
@@ -264,11 +344,14 @@ class ChatWebSocketService {
       final decodedBytes = base64Decode(normalized);
       final decodedString = utf8.decode(decodedBytes);
       final jsonMap = jsonDecode(decodedString) as Map<String, dynamic>;
-      
+
       if (jsonMap.containsKey('exp')) {
         final exp = jsonMap['exp'] as int;
-        final expiry = DateTime.fromMillisecondsSinceEpoch(exp * 1000, isUtc: true);
-        return DateTime.now().toUtc().isAfter(expiry.subtract(AppConfig.tokenRefreshThreshold));
+        final expiry =
+            DateTime.fromMillisecondsSinceEpoch(exp * 1000, isUtc: true);
+        return DateTime.now()
+            .toUtc()
+            .isAfter(expiry.subtract(AppConfig.tokenRefreshThreshold));
       }
       return true;
     } catch (e) {

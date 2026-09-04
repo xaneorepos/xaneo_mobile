@@ -51,7 +51,7 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
     if (callManager.state == CallState.idle) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         final navigator = Navigator.of(context);
-        
+
         // Закрываем ActiveCallScreen, чтобы вернуться на предыдущий экран
         final route = ModalRoute.of(context);
         if (route != null && route.isCurrent) {
@@ -69,7 +69,7 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
             if (otherUserId != null) {
               final sortedIds = [currentUserId, otherUserId]..sort();
               final chatServerId = 'personal_${sortedIds[0]}_${sortedIds[1]}';
-              
+
               // Проверяем, не находимся ли мы уже в нужном чате
               bool isAlreadyInChat = false;
               navigator.popUntil((route) {
@@ -85,7 +85,8 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
                 if (chat == null) {
                   chat = ChatModel(
                     id: chatServerId,
-                    name: _lastTargetName ?? (AppLocalizations.of(context)?.chat_c52b ?? 'Fallback'),
+                    name: _lastTargetName ??
+                        (AppLocalizations.of(context)?.chat_c52b ?? 'Fallback'),
                     avatar: _lastTargetAvatar,
                     avatarGradient: _lastTargetGradient,
                     isPersonal: true,
@@ -134,7 +135,10 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
           ],
 
           // 2. Локальное превью видео (камера)
-          if (callManager.state == CallState.connected && isVideo && callManager.localVideoTrack != null && !callManager.isCameraOff)
+          if (callManager.state == CallState.connected &&
+              isVideo &&
+              callManager.localVideoTrack != null &&
+              !callManager.isCameraOff)
             Positioned(
               top: 48,
               right: 16,
@@ -172,7 +176,9 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  callManager.targetName ?? (AppLocalizations.of(context)?.polzovatel_f154 ?? 'Fallback'),
+                  callManager.targetName ??
+                      (AppLocalizations.of(context)?.polzovatel_f154 ??
+                          'Fallback'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -272,9 +278,11 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
   String _getStatusText(CallState state) {
     switch (state) {
       case CallState.outgoing:
-        return (AppLocalizations.of(context)?.ishodyaschiyVyzov_650b ?? 'Fallback');
+        return (AppLocalizations.of(context)?.ishodyaschiyVyzov_650b ??
+            'Fallback');
       case CallState.incoming:
-        return (AppLocalizations.of(context)?.vhodyaschiyVyzov_19ff ?? 'Fallback');
+        return (AppLocalizations.of(context)?.vhodyaschiyVyzov_19ff ??
+            'Fallback');
       case CallState.connected:
         return (AppLocalizations.of(context)?.podklyucheno_d022 ?? 'Fallback');
       default:
@@ -297,7 +305,8 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
                   height: 140 + (callingAnimationController.value * 60),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF3B82F6).withValues(alpha: 0.1 * (1 - callingAnimationController.value)),
+                    color: const Color(0xFF3B82F6).withValues(
+                        alpha: 0.1 * (1 - callingAnimationController.value)),
                   ),
                 ),
                 child!,
@@ -307,7 +316,8 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
           child: AvatarWidget(
             avatar: callManager.targetAvatar,
             avatarGradient: callManager.targetGradient,
-            hasAvatar: callManager.targetAvatar != null && callManager.targetAvatar!.isNotEmpty,
+            hasAvatar: callManager.targetAvatar != null &&
+                callManager.targetAvatar!.isNotEmpty,
             username: callManager.targetName ?? 'User',
             size: 130,
           ),
@@ -333,13 +343,15 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
           AvatarWidget(
             avatar: callManager.targetAvatar,
             avatarGradient: callManager.targetGradient,
-            hasAvatar: callManager.targetAvatar != null && callManager.targetAvatar!.isNotEmpty,
+            hasAvatar: callManager.targetAvatar != null &&
+                callManager.targetAvatar!.isNotEmpty,
             username: callManager.targetName ?? 'User',
             size: 140,
           ),
           SizedBox(height: 32),
           Text(
-            (AppLocalizations.of(context)?.razgovorPoAudiosvyazi_3ed7 ?? 'Fallback'),
+            (AppLocalizations.of(context)?.razgovorPoAudiosvyazi_3ed7 ??
+                'Fallback'),
             style: TextStyle(
               color: Colors.white70,
               fontSize: 15,

@@ -12,7 +12,6 @@ import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'webrtc_signaling_service.dart';
 import '../runtime_translations.dart';
 
-
 enum CallState {
   idle,
   outgoing,
@@ -186,7 +185,9 @@ class CallManager extends ChangeNotifier {
   void _handleGroupParticipantJoined(Map<String, dynamic> data) {
     final uid = data['user_id']?.toString();
     if (uid != null) {
-      final name = data['first_name']?.toString() ?? data['username']?.toString() ?? 'Участник $uid';
+      final name = data['first_name']?.toString() ??
+          data['username']?.toString() ??
+          'Участник $uid';
       _groupParticipants[uid] = {
         'user_id': uid,
         'name': name.isNotEmpty ? name : 'Участник $uid',
@@ -303,9 +304,11 @@ class CallManager extends ChangeNotifier {
   }
 
   /// Принять звонок по ID (для запуска из фонового режима/убитого состояния)
-  Future<void> acceptCallById(String callId, {String? callerName, String? callerId}) async {
-    debugPrint('CallManager: acceptCallById $callId, callerName=$callerName, callerId=$callerId');
-    
+  Future<void> acceptCallById(String callId,
+      {String? callerName, String? callerId}) async {
+    debugPrint(
+        'CallManager: acceptCallById $callId, callerName=$callerName, callerId=$callerId');
+
     // Синхронно переводим состояние, чтобы UI не закрывал ActiveCallScreen
     _activeCallId = callId;
     _state = CallState.incoming;
@@ -314,7 +317,9 @@ class CallManager extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final storageUserId = await TokenStorage().getUserData().then((data) => data?['id']?.toString());
+      final storageUserId = await TokenStorage()
+          .getUserData()
+          .then((data) => data?['id']?.toString());
       if (storageUserId != null) {
         await _signalingService.connect(storageUserId);
         await acceptIncomingCall();
@@ -333,7 +338,9 @@ class CallManager extends ChangeNotifier {
       return;
     }
     try {
-      final storageUserId = await TokenStorage().getUserData().then((data) => data?['id']?.toString());
+      final storageUserId = await TokenStorage()
+          .getUserData()
+          .then((data) => data?['id']?.toString());
       if (storageUserId != null) {
         final tempSignaling = WebRTCSignalingService(apiClient: _apiClient);
         await tempSignaling.connect(storageUserId);
@@ -417,7 +424,7 @@ class CallManager extends ChangeNotifier {
   void _handleCallOfferSent(Map<String, dynamic> data) {
     if (_state != CallState.outgoing) return;
     _activeCallId = data['call_id']?.toString();
-    
+
     // Подключаемся к LiveKit комнате сразу и ждем собеседника
     if (_activeCallId != null) {
       _connectToLiveKit(_activeCallId!);
@@ -528,9 +535,10 @@ class CallManager extends ChangeNotifier {
       // 5. Публикуем камеру, если видеозвонок
       if (_callType == 'video') {
         await _room!.localParticipant?.setCameraEnabled(true);
-        _localVideoTrack = _room!.localParticipant?.videoTrackPublications.firstOrNull?.track as VideoTrack?;
+        _localVideoTrack = _room!.localParticipant?.videoTrackPublications
+            .firstOrNull?.track as VideoTrack?;
       }
-      
+
       notifyListeners();
     } catch (e) {
       debugPrint('CallManager: LiveKit connection error: $e');

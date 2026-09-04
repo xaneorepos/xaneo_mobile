@@ -49,9 +49,9 @@ class ApiError implements Exception {
     // Обработка ошибок полей напрямую (username: ["error"], email: ["error"])
     final fieldErrors = <String, dynamic>{};
     for (final entry in json.entries) {
-      if (entry.key != 'detail' && 
-          entry.key != 'message' && 
-          entry.key != 'error' && 
+      if (entry.key != 'detail' &&
+          entry.key != 'message' &&
+          entry.key != 'error' &&
           entry.key != 'code' &&
           entry.key != 'errors') {
         fieldErrors[entry.key] = entry.value;
@@ -105,13 +105,13 @@ class ApiError implements Exception {
 
 /// Ошибка сети
 class NetworkError extends ApiError {
-  const NetworkError({String? message}) 
+  const NetworkError({String? message})
       : super(message: message ?? 'Ошибка сети. Проверьте подключение.');
 }
 
 /// Ошибка таймаута
 class TimeoutError extends ApiError {
-  const TimeoutError({String? message}) 
+  const TimeoutError({String? message})
       : super(message: message ?? 'Превышено время ожидания.');
 }
 
@@ -128,7 +128,7 @@ class RateLimitError extends ApiError {
     String? message,
     this.retryAfter,
   }) : super(
-    message: message ?? 'Слишком много попыток. Попробуйте позже.',
-    statusCode: 429,
-  );
+          message: message ?? 'Слишком много попыток. Попробуйте позже.',
+          statusCode: 429,
+        );
 }

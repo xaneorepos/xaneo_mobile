@@ -13,6 +13,7 @@ class TodoListWidget extends StatelessWidget {
   final ChatWebSocketService chatWebSocketService;
   final LocalChatRepository localChatRepo;
   final VoidCallback onStateChanged;
+  final Color? foregroundColor;
 
   const TodoListWidget({
     super.key,
@@ -20,27 +21,34 @@ class TodoListWidget extends StatelessWidget {
     required this.chatWebSocketService,
     required this.localChatRepo,
     required this.onStateChanged,
+    this.foregroundColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    String title = (AppLocalizations.of(context)?.spisokZadach_1852 ?? 'Fallback');
+    final foreground = foregroundColor ?? context.xaneoTextPrimary;
+    final muted = foreground.withValues(alpha: 0.5);
+    String title =
+        (AppLocalizations.of(context)?.spisokZadach_1852 ?? 'Fallback');
     List<dynamic> items = [];
 
     // Parse todo list structure from decrypted textContent
     try {
       final parsed = jsonDecode(message.textContent);
       if (parsed is Map) {
-        title = parsed['title']?.toString() ?? (AppLocalizations.of(context)?.spisokZadach_1852 ?? 'Fallback');
+        title = parsed['title']?.toString() ??
+            (AppLocalizations.of(context)?.spisokZadach_1852 ?? 'Fallback');
         items = parsed['items'] as List<dynamic>? ?? [];
       }
     } catch (_) {}
 
     // Parse completion status
     Map<String, dynamic> completionStatus = {};
-    if (message.completionStatus != null && message.completionStatus!.isNotEmpty) {
+    if (message.completionStatus != null &&
+        message.completionStatus!.isNotEmpty) {
       try {
-        completionStatus = Map<String, dynamic>.from(jsonDecode(message.completionStatus!));
+        completionStatus =
+            Map<String, dynamic>.from(jsonDecode(message.completionStatus!));
       } catch (_) {}
     }
 
@@ -54,17 +62,17 @@ class TodoListWidget extends StatelessWidget {
           // Header
           Row(
             children: [
-              const FaIcon(
+              FaIcon(
                 FontAwesomeIcons.clipboardList,
                 size: 16,
-                color: Colors.white,
+                color: foreground,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: foreground,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     fontFamily: AppStyles.fontFamily,
@@ -79,7 +87,8 @@ class TodoListWidget extends StatelessWidget {
           // Items list
           ...List.generate(items.length, (index) {
             final item = items[index];
-            final itemText = (item is Map ? item['text'] : item.toString()) ?? '';
+            final itemText =
+                (item is Map ? item['text'] : item.toString()) ?? '';
             final isCompleted = completionStatus[index.toString()] == true;
 
             return Padding(
@@ -92,25 +101,29 @@ class TodoListWidget extends StatelessWidget {
                   children: [
                     // Premium Custom Animated Checkbox
                     AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 200),
                       curve: Curves.easeInOut,
                       width: 20,
                       height: 20,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isCompleted ? Colors.white : Colors.transparent,
+                        color: isCompleted ? foreground : Colors.transparent,
                         border: Border.all(
-                          color: isCompleted ? Colors.white : Colors.white54,
+                          color: isCompleted ? foreground : muted,
                           width: 1.5,
                         ),
                       ),
                       child: Center(
                         child: AnimatedScale(
                           scale: isCompleted ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 150),
-                          child: const Icon(
+                          duration: MediaQuery.disableAnimationsOf(context)
+                              ? Duration.zero
+                              : const Duration(milliseconds: 150),
+                          child: Icon(
                             Icons.check,
-                            color: Colors.black,
+                            color: Theme.of(context).scaffoldBackgroundColor,
                             size: 13,
                           ),
                         ),
@@ -122,10 +135,11 @@ class TodoListWidget extends StatelessWidget {
                       child: Text(
                         itemText,
                         style: TextStyle(
-                          color: isCompleted ? Colors.white.withValues(alpha: 0.4) : Colors.white,
+                          color: isCompleted ? muted : foreground,
                           fontSize: 13.5,
-                          decoration: isCompleted ? TextDecoration.lineThrough : null,
-                          decorationColor: Colors.white.withValues(alpha: 0.4),
+                          decoration:
+                              isCompleted ? TextDecoration.lineThrough : null,
+                          decorationColor: muted,
                           fontFamily: AppStyles.fontFamily,
                         ),
                       ),
@@ -145,9 +159,11 @@ class TodoListWidget extends StatelessWidget {
 
     // 1. Optimistic local DB update for zero-latency toggle
     Map<String, dynamic> currentStatus = {};
-    if (message.completionStatus != null && message.completionStatus!.isNotEmpty) {
+    if (message.completionStatus != null &&
+        message.completionStatus!.isNotEmpty) {
       try {
-        currentStatus = Map<String, dynamic>.from(jsonDecode(message.completionStatus!));
+        currentStatus =
+            Map<String, dynamic>.from(jsonDecode(message.completionStatus!));
       } catch (_) {}
     }
 
@@ -178,6 +194,7 @@ class PollWidget extends StatelessWidget {
   final ChatWebSocketService chatWebSocketService;
   final LocalChatRepository localChatRepo;
   final VoidCallback onStateChanged;
+  final Color? foregroundColor;
 
   const PollWidget({
     super.key,
@@ -185,10 +202,13 @@ class PollWidget extends StatelessWidget {
     required this.chatWebSocketService,
     required this.localChatRepo,
     required this.onStateChanged,
+    this.foregroundColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final foreground = foregroundColor ?? context.xaneoTextPrimary;
+    final muted = foreground.withValues(alpha: 0.5);
     String question = (AppLocalizations.of(context)?.opros_9f36 ?? 'Fallback');
     List<dynamic> options = [];
     bool isMultipleChoice = false;
@@ -197,7 +217,8 @@ class PollWidget extends StatelessWidget {
     try {
       final parsed = jsonDecode(message.textContent);
       if (parsed is Map) {
-        question = parsed['question']?.toString() ?? (AppLocalizations.of(context)?.opros_9f36 ?? 'Fallback');
+        question = parsed['question']?.toString() ??
+            (AppLocalizations.of(context)?.opros_9f36 ?? 'Fallback');
         options = parsed['options'] as List<dynamic>? ?? [];
         isMultipleChoice = parsed['is_multiple_choice'] == true;
       }
@@ -207,7 +228,8 @@ class PollWidget extends StatelessWidget {
     Map<String, dynamic> votesByOption = {};
     if (message.votesByOption != null && message.votesByOption!.isNotEmpty) {
       try {
-        votesByOption = Map<String, dynamic>.from(jsonDecode(message.votesByOption!));
+        votesByOption =
+            Map<String, dynamic>.from(jsonDecode(message.votesByOption!));
       } catch (_) {}
     }
 
@@ -242,7 +264,7 @@ class PollWidget extends StatelessWidget {
           Text(
             question,
             style: TextStyle(
-              color: Colors.white,
+              color: foreground,
               fontSize: 15.5,
               fontWeight: FontWeight.w600,
               fontFamily: AppStyles.fontFamily,
@@ -250,9 +272,13 @@ class PollWidget extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            isMultipleChoice ? (AppLocalizations.of(context)?.mnozhestvennyyVybor_9b60 ?? 'Fallback') : (AppLocalizations.of(context)?.odinochnyyVybor_d920 ?? 'Fallback'),
+            isMultipleChoice
+                ? (AppLocalizations.of(context)?.mnozhestvennyyVybor_9b60 ??
+                    'Fallback')
+                : (AppLocalizations.of(context)?.odinochnyyVybor_d920 ??
+                    'Fallback'),
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.4),
+              color: muted,
               fontSize: 10.5,
               fontFamily: AppStyles.fontFamily,
             ),
@@ -266,15 +292,19 @@ class PollWidget extends StatelessWidget {
 
             // Vote statistics
             final rawVotes = votesByOption[optionId];
-            final optionVotes = rawVotes is num ? rawVotes.toInt() : (int.tryParse(rawVotes?.toString() ?? '') ?? 0);
-            final double percent = totalVotes > 0 ? (optionVotes / totalVotes) : 0.0;
+            final optionVotes = rawVotes is num
+                ? rawVotes.toInt()
+                : (int.tryParse(rawVotes?.toString() ?? '') ?? 0);
+            final double percent =
+                totalVotes > 0 ? (optionVotes / totalVotes) : 0.0;
             final percentText = '${(percent * 100).round()}%';
             final isSelected = userVotes.contains(optionId);
 
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 4.0),
               child: GestureDetector(
-                onTap: () => _toggleVote(optionId, isSelected, isMultipleChoice),
+                onTap: () =>
+                    _toggleVote(optionId, isSelected, isMultipleChoice),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Stack(
@@ -284,13 +314,17 @@ class PollWidget extends StatelessWidget {
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: AnimatedFractionallySizedBox(
-                            duration: const Duration(milliseconds: 300),
+                            duration: MediaQuery.disableAnimationsOf(context)
+                                ? Duration.zero
+                                : const Duration(milliseconds: 300),
                             curve: Curves.easeOutCubic,
                             widthFactor: percent,
                             child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 300),
                               curve: Curves.easeOutCubic,
-                              color: Colors.white.withValues(
+                              color: foreground.withValues(
                                 alpha: isSelected ? 0.16 : 0.06,
                               ),
                             ),
@@ -299,15 +333,18 @@ class PollWidget extends StatelessWidget {
                       ),
                       // Option content row
                       AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 300),
                         curve: Curves.easeOutCubic,
-                        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 9, horizontal: 10),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: isSelected
-                                ? Colors.white.withValues(alpha: 0.3)
-                                : Colors.white.withValues(alpha: 0.06),
+                                ? context.xaneoOverlay(0.3)
+                                : context.xaneoOverlay(0.06),
                             width: 1,
                           ),
                         ),
@@ -315,15 +352,17 @@ class PollWidget extends StatelessWidget {
                           children: [
                             // Selection state indicator (check or empty with AnimatedSize)
                             AnimatedSize(
-                              duration: const Duration(milliseconds: 250),
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 250),
                               curve: Curves.easeOutCubic,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   if (isSelected) ...[
-                                    const Icon(
+                                    Icon(
                                       Icons.check_circle_rounded,
-                                      color: Colors.white,
+                                      color: foreground,
                                       size: 14,
                                     ),
                                     const SizedBox(width: 6),
@@ -334,12 +373,17 @@ class PollWidget extends StatelessWidget {
                             // Option text
                             Expanded(
                               child: AnimatedDefaultTextStyle(
-                                duration: const Duration(milliseconds: 250),
+                                duration:
+                                    MediaQuery.disableAnimationsOf(context)
+                                        ? Duration.zero
+                                        : const Duration(milliseconds: 250),
                                 curve: Curves.easeOutCubic,
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: foreground,
                                   fontSize: 13.5,
-                                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w500
+                                      : FontWeight.w400,
                                   fontFamily: AppStyles.fontFamily,
                                 ),
                                 child: Text(optionText),
@@ -348,12 +392,12 @@ class PollWidget extends StatelessWidget {
                             const SizedBox(width: 8),
                             // Percent text on the right
                             AnimatedDefaultTextStyle(
-                              duration: const Duration(milliseconds: 250),
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 250),
                               curve: Curves.easeOutCubic,
                               style: TextStyle(
-                                color: isSelected
-                                    ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.5),
+                                color: isSelected ? foreground : muted,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                                 fontFamily: AppStyles.fontFamily,
@@ -376,7 +420,7 @@ class PollWidget extends StatelessWidget {
                 ? (AppLocalizations.of(context)?.netGolosov_17d0 ?? 'Fallback')
                 : '$totalVotes ${_formatVotesCountText(totalVotes)}',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.4),
+              color: muted,
               fontSize: 11,
               fontFamily: AppStyles.fontFamily,
             ),
@@ -389,14 +433,16 @@ class PollWidget extends StatelessWidget {
   String _formatVotesCountText(int count) {
     if (count % 10 == 1 && count % 100 != 11) {
       return 'Fallback';
-    } else if ((count % 10 >= 2 && count % 10 <= 4) && (count % 100 < 10 || count % 100 >= 20)) {
+    } else if ((count % 10 >= 2 && count % 10 <= 4) &&
+        (count % 100 < 10 || count % 100 >= 20)) {
       return 'Fallback';
     } else {
       return 'Fallback';
     }
   }
 
-  Future<void> _toggleVote(String optionId, bool isSelected, bool isMultipleChoice) async {
+  Future<void> _toggleVote(
+      String optionId, bool isSelected, bool isMultipleChoice) async {
     // 1. Optimistic local updates for zero latency
     List<String> userVotes = [];
     if (message.userVotes != null && message.userVotes!.isNotEmpty) {
@@ -408,7 +454,8 @@ class PollWidget extends StatelessWidget {
     Map<String, dynamic> votesByOption = {};
     if (message.votesByOption != null && message.votesByOption!.isNotEmpty) {
       try {
-        votesByOption = Map<String, dynamic>.from(jsonDecode(message.votesByOption!));
+        votesByOption =
+            Map<String, dynamic>.from(jsonDecode(message.votesByOption!));
       } catch (_) {}
     }
 
@@ -416,20 +463,25 @@ class PollWidget extends StatelessWidget {
       // Unvote option
       userVotes.remove(optionId);
       final c = votesByOption[optionId] ?? 0;
-      votesByOption[optionId] = (c is num ? c.toInt() - 1 : (int.tryParse(c.toString()) ?? 1) - 1).clamp(0, 999999);
+      votesByOption[optionId] =
+          (c is num ? c.toInt() - 1 : (int.tryParse(c.toString()) ?? 1) - 1)
+              .clamp(0, 999999);
     } else {
       // Vote option
       if (!isMultipleChoice) {
         // Clear previous votes in single choice mode
         for (final prevOptionId in userVotes) {
           final c = votesByOption[prevOptionId] ?? 0;
-          votesByOption[prevOptionId] = (c is num ? c.toInt() - 1 : (int.tryParse(c.toString()) ?? 1) - 1).clamp(0, 999999);
+          votesByOption[prevOptionId] =
+              (c is num ? c.toInt() - 1 : (int.tryParse(c.toString()) ?? 1) - 1)
+                  .clamp(0, 999999);
         }
         userVotes.clear();
       }
       userVotes.add(optionId);
       final c = votesByOption[optionId] ?? 0;
-      votesByOption[optionId] = (c is num ? c.toInt() + 1 : (int.tryParse(c.toString()) ?? 0) + 1);
+      votesByOption[optionId] =
+          (c is num ? c.toInt() + 1 : (int.tryParse(c.toString()) ?? 0) + 1);
     }
 
     await localChatRepo.updateMessageCompanion(

@@ -2032,6 +2032,36 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get fontSizeText => 'Font Size';
   @override
+  String get changePhoto => 'Change photo';
+  @override
+  String get avatarUpdated => 'Avatar updated';
+  @override
+  String get avatarUploadFailed => 'Failed to upload avatar';
+  @override
+  String get invalidNicknameFormat =>
+      'Nickname: 3–30 characters; letters, numbers, ., _ and - only';
+  @override
+  String get deleteAccountPrompt =>
+      'Your profile will be permanently deleted. Enter your password to confirm.';
+  @override
+  String get deleteAccountFailed => 'Failed to delete account';
+  @override
+  String get chatFontSize => 'Chat font size';
+  @override
+  String get chatWallpaper => 'Chat wallpaper';
+  @override
+  String get myMessageColor => 'My message color';
+  @override
+  String get otherMessageColor => 'Other message color';
+  @override
+  String get notificationStyle => 'Notification style';
+  @override
+  String get standardNotificationStyle => 'Standard';
+  @override
+  String get blackRavenNotificationStyle => 'Black Raven';
+  @override
+  String get wallpaperUploadFailed => 'Failed to upload wallpaper';
+  @override
   String get showPopups => 'Show popup notifications';
   @override
   String get sound => 'Sound';
@@ -2338,19 +2368,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authNotificationPasswordLogin => 'Password login';
 
   @override
-  String get authNotificationSendingSubtitle => 'The code will be sent to the "Xaneo Notifications" chat. Do not close this screen.';
+  String get authNotificationSendingSubtitle =>
+      'The code will be sent to the "Xaneo Notifications" chat. Do not close this screen.';
 
   @override
-  String get authNotificationEnterCodeSubtitle => 'Enter the 6-digit code from the message.';
+  String get authNotificationEnterCodeSubtitle =>
+      'Enter the 6-digit code from the message.';
 
   @override
-  String get authNotificationConfirmSubtitle => 'Open Xaneo on an already authorized device and check request details.';
+  String get authNotificationConfirmSubtitle =>
+      'Open Xaneo on an already authorized device and check request details.';
 
   @override
-  String get authNotificationPasswordSubtitle => 'This method is only available after a waiting period. Password is not saved.';
+  String get authNotificationPasswordSubtitle =>
+      'This method is only available after a waiting period. Password is not saved.';
 
   @override
-  String get authNotificationBotSource => 'The code is sent from "Xaneo Notifications".';
+  String get authNotificationBotSource =>
+      'The code is sent from "Xaneo Notifications".';
 
   @override
   String authNotificationCodeSentToEmail(String email) => 'Code sent to $email';
@@ -2365,31 +2400,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authNotificationResendCodeViaEmail => 'Resend code to email';
 
   @override
-  String get authNotificationEmailUnavailable => 'Email code unavailable: no verified email on this account.';
+  String get authNotificationEmailUnavailable =>
+      'Email code unavailable: no verified email on this account.';
 
   @override
-  String authNotificationEmailAvailableIn(int seconds) => 'Email code will be available in $seconds sec.';
+  String authNotificationEmailAvailableIn(int seconds) =>
+      'Email code will be available in $seconds sec.';
 
   @override
   String get authNotificationLoginWithPassword => 'Log in with password';
 
   @override
-  String authNotificationPasswordAvailableIn(int seconds) => 'Password login will be available in $seconds sec.';
+  String authNotificationPasswordAvailableIn(int seconds) =>
+      'Password login will be available in $seconds sec.';
 
   @override
-  String get authNotificationErrorSendFailed => 'Failed to send code. Please try again later.';
+  String get authNotificationErrorSendFailed =>
+      'Failed to send code. Please try again later.';
 
   @override
   String get authNotificationErrorInvalidCode => 'Invalid or expired code';
 
   @override
-  String get authNotificationErrorRequestExpired => 'Request rejected or expired';
+  String get authNotificationErrorRequestExpired =>
+      'Request rejected or expired';
 
   @override
-  String get authNotificationErrorEmailFailed => 'Failed to send code to email. Please try again later.';
+  String get authNotificationErrorEmailFailed =>
+      'Failed to send code to email. Please try again later.';
 
   @override
-  String get authNotificationErrorPasswordFailed => 'Failed to log in. Check your password or start over.';
+  String get authNotificationErrorPasswordFailed =>
+      'Failed to log in. Check your password or start over.';
 
   @override
   String get authNotificationGetCodeBtn => 'Get code';
@@ -2429,4 +2471,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get importLanguageFromJson => 'Import language from JSON';
+  @override
+  String get customColor => 'Custom color';
+  @override
+  String get customGradient => 'Custom gradient';
+  @override
+  String get colorOne => 'Color 1';
+  @override
+  String get colorTwo => 'Color 2';
+  @override
+  String get diagonal => 'Diagonal';
+  @override
+  String get vertical => 'Vertical';
+  @override
+  String get horizontal => 'Horizontal';
 }

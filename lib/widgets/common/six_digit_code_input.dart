@@ -85,16 +85,19 @@ class _SixDigitCodeInputState extends State<SixDigitCodeInput> {
                           right: index == codeLength - 1 ? 0 : spacing,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white10,
+                          color: context.xaneoOverlay(0.06),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white24),
+                          border: Border.all(color: context.xaneoDivider),
                         ),
                         alignment: Alignment.center,
                         child: Text(
                           widget.controller.text.length > index
                               ? widget.controller.text[index]
                               : '',
-                          style: AppStyles.titleLarge.copyWith(fontSize: 24),
+                          style: AppStyles.titleLarge.copyWith(
+                            color: context.xaneoTextPrimary,
+                            fontSize: 24,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       );

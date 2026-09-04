@@ -2060,6 +2060,36 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get fontSizeText => 'Tamaño de fuente';
   @override
+  String get changePhoto => 'Cambiar foto';
+  @override
+  String get avatarUpdated => 'Avatar actualizado';
+  @override
+  String get avatarUploadFailed => 'No se pudo subir el avatar';
+  @override
+  String get invalidNicknameFormat =>
+      'Apodo: 3–30 caracteres; solo letras, números, ., _ y -';
+  @override
+  String get deleteAccountPrompt =>
+      'Tu perfil se eliminará permanentemente. Introduce tu contraseña para confirmar.';
+  @override
+  String get deleteAccountFailed => 'No se pudo eliminar la cuenta';
+  @override
+  String get chatFontSize => 'Tamaño de fuente del chat';
+  @override
+  String get chatWallpaper => 'Fondo del chat';
+  @override
+  String get myMessageColor => 'Color de mis mensajes';
+  @override
+  String get otherMessageColor => 'Color de otros mensajes';
+  @override
+  String get notificationStyle => 'Estilo de notificaciones';
+  @override
+  String get standardNotificationStyle => 'Estándar';
+  @override
+  String get blackRavenNotificationStyle => 'Cuervo negro';
+  @override
+  String get wallpaperUploadFailed => 'No se pudo subir el fondo';
+  @override
   String get showPopups => 'Mostrar notificaciones emergentes';
   @override
   String get sound => 'Sonido';
@@ -2369,22 +2399,28 @@ class AppLocalizationsEs extends AppLocalizations {
   String get authNotificationPasswordLogin => 'Iniciar sesión con contraseña';
 
   @override
-  String get authNotificationSendingSubtitle => 'El código llegará al chat «Notificaciones Xaneo». No cierres esta pantalla.';
+  String get authNotificationSendingSubtitle =>
+      'El código llegará al chat «Notificaciones Xaneo». No cierres esta pantalla.';
 
   @override
-  String get authNotificationEnterCodeSubtitle => 'Introduce el código de 6 dígitos del mensaje.';
+  String get authNotificationEnterCodeSubtitle =>
+      'Introduce el código de 6 dígitos del mensaje.';
 
   @override
-  String get authNotificationConfirmSubtitle => 'Abre Xaneo en un dispositivo ya autorizado y revisa los detalles de la solicitud.';
+  String get authNotificationConfirmSubtitle =>
+      'Abre Xaneo en un dispositivo ya autorizado y revisa los detalles de la solicitud.';
 
   @override
-  String get authNotificationPasswordSubtitle => 'Este método solo está disponible tras el tiempo de espera. La contraseña no se guarda.';
+  String get authNotificationPasswordSubtitle =>
+      'Este método solo está disponible tras el tiempo de espera. La contraseña no se guarda.';
 
   @override
-  String get authNotificationBotSource => 'El código se envía desde «Notificaciones Xaneo».';
+  String get authNotificationBotSource =>
+      'El código se envía desde «Notificaciones Xaneo».';
 
   @override
-  String authNotificationCodeSentToEmail(String email) => 'Código enviado a $email';
+  String authNotificationCodeSentToEmail(String email) =>
+      'Código enviado a $email';
 
   @override
   String get authNotificationNoBotAccess => '¿No tienes acceso al bot?';
@@ -2396,31 +2432,39 @@ class AppLocalizationsEs extends AppLocalizations {
   String get authNotificationResendCodeViaEmail => 'Reenviar código al correo';
 
   @override
-  String get authNotificationEmailUnavailable => 'Código por correo no disponible: no hay un email verificado en la cuenta.';
+  String get authNotificationEmailUnavailable =>
+      'Código por correo no disponible: no hay un email verificado en la cuenta.';
 
   @override
-  String authNotificationEmailAvailableIn(int seconds) => 'El código por correo estará disponible en $seconds s.';
+  String authNotificationEmailAvailableIn(int seconds) =>
+      'El código por correo estará disponible en $seconds s.';
 
   @override
-  String get authNotificationLoginWithPassword => 'Iniciar sesión con contraseña';
+  String get authNotificationLoginWithPassword =>
+      'Iniciar sesión con contraseña';
 
   @override
-  String authNotificationPasswordAvailableIn(int seconds) => 'El inicio con contraseña estará disponible en $seconds s.';
+  String authNotificationPasswordAvailableIn(int seconds) =>
+      'El inicio con contraseña estará disponible en $seconds s.';
 
   @override
-  String get authNotificationErrorSendFailed => 'No se pudo enviar el código. Inténtalo más tarde.';
+  String get authNotificationErrorSendFailed =>
+      'No se pudo enviar el código. Inténtalo más tarde.';
 
   @override
   String get authNotificationErrorInvalidCode => 'Código no válido o caducado';
 
   @override
-  String get authNotificationErrorRequestExpired => 'Solicitud rechazada o caducada';
+  String get authNotificationErrorRequestExpired =>
+      'Solicitud rechazada o caducada';
 
   @override
-  String get authNotificationErrorEmailFailed => 'No se pudo enviar el código al correo. Inténtalo más tarde.';
+  String get authNotificationErrorEmailFailed =>
+      'No se pudo enviar el código al correo. Inténtalo más tarde.';
 
   @override
-  String get authNotificationErrorPasswordFailed => 'Error al iniciar sesión. Comprueba la contraseña o empieza de nuevo.';
+  String get authNotificationErrorPasswordFailed =>
+      'Error al iniciar sesión. Comprueba la contraseña o empieza de nuevo.';
 
   @override
   String get authNotificationGetCodeBtn => 'Obtener código';
@@ -2460,4 +2504,18 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get importLanguageFromJson => 'Importar idioma desde JSON';
+  @override
+  String get customColor => 'Color personalizado';
+  @override
+  String get customGradient => 'Degradado personalizado';
+  @override
+  String get colorOne => 'Color 1';
+  @override
+  String get colorTwo => 'Color 2';
+  @override
+  String get diagonal => 'Diagonal';
+  @override
+  String get vertical => 'Vertical';
+  @override
+  String get horizontal => 'Horizontal';
 }

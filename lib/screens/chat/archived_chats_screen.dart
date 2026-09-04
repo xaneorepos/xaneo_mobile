@@ -210,7 +210,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppStyles.backgroundColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           // 1. Список чатов (в фоне, скроллится под хедер)
@@ -238,10 +238,12 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
     if (_isTransitioning) {
       return Container(
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.85),
+          color: context.isDarkTheme
+              ? Colors.black.withOpacity(0.85)
+              : Colors.white.withOpacity(0.92),
           border: Border(
             bottom: BorderSide(
-              color: Colors.white.withOpacity(0.06),
+              color: context.xaneoDivider,
               width: 1,
             ),
           ),
@@ -265,10 +267,12 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.75),
+            color: context.isDarkTheme
+                ? Colors.black.withOpacity(0.75)
+                : Colors.white.withOpacity(0.82),
             border: Border(
               bottom: BorderSide(
-                color: Colors.white.withOpacity(0.06),
+                color: context.xaneoDivider,
                 width: 1,
               ),
             ),
@@ -296,16 +300,18 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
         // Обычный заголовок с кнопкой назад
         AnimatedOpacity(
           opacity: _isSearching ? 0.0 : 1.0,
-          duration: Duration(milliseconds: 200),
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           child: IgnorePointer(
             ignoring: _isSearching,
             child: Row(
               children: [
                 _buildHeaderButton(
-                  child: const Icon(
+                  child: Icon(
                     Icons.arrow_back_ios_new_rounded,
-                    color: AppStyles.textPrimaryColor,
+                    color: context.xaneoTextPrimary,
                     size: 16,
                   ),
                   onTap: () => Navigator.of(context).pop(),
@@ -316,16 +322,16 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: AppStyles.textPrimaryColor,
+                    color: context.xaneoTextPrimary,
                     fontFamily: AppStyles.fontFamily,
                     letterSpacing: -0.5,
                   ),
                 ),
                 const Spacer(),
                 _buildHeaderButton(
-                  child: const FaIcon(
+                  child: FaIcon(
                     FontAwesomeIcons.magnifyingGlass,
-                    color: AppStyles.textPrimaryColor,
+                    color: context.xaneoTextPrimary,
                     size: 14,
                   ),
                   onTap: () {
@@ -342,7 +348,9 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
 
         // Поисковая строка
         AnimatedPositioned(
-          duration: Duration(milliseconds: 250),
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
           left: _isSearching ? 0 : MediaQuery.of(context).size.width - 40,
           right: 0,
@@ -350,7 +358,9 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
           bottom: 0,
           child: AnimatedOpacity(
             opacity: _isSearching ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 150),
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 150),
             child: IgnorePointer(
               ignoring: !_isSearching,
               child: Row(
@@ -359,20 +369,20 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                     child: Container(
                       height: 44,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.06),
+                        color: context.xaneoOverlay(0.06),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.12),
+                          color: context.xaneoDivider,
                           width: 1,
                         ),
                       ),
                       child: Row(
                         children: [
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: FaIcon(
                               FontAwesomeIcons.magnifyingGlass,
-                              color: AppStyles.textMutedColor,
+                              color: context.xaneoTextMuted,
                               size: 14,
                             ),
                           ),
@@ -391,7 +401,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                                         ?.poiskVArhive_c5d8 ??
                                     'Fallback'),
                                 hintStyle: TextStyle(
-                                  color: AppStyles.textMutedColor,
+                                  color: context.xaneoTextMuted,
                                   fontSize: 15,
                                 ),
                                 border: InputBorder.none,
@@ -409,8 +419,8 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                           ),
                           if (_searchQuery.isNotEmpty)
                             IconButton(
-                              icon: const Icon(Icons.clear_rounded,
-                                  color: AppStyles.textMutedColor, size: 18),
+                              icon: Icon(Icons.clear_rounded,
+                                  color: context.xaneoTextMuted, size: 18),
                               onPressed: () {
                                 _searchController.clear();
                                 setState(() {
@@ -456,9 +466,9 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
       height: 40,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withOpacity(0.05),
+        color: context.xaneoOverlay(0.05),
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+          color: context.xaneoDivider,
           width: 1,
         ),
       ),
@@ -467,8 +477,8 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
         child: InkWell(
           onTap: onTap,
           customBorder: const CircleBorder(),
-          splashColor: Colors.white.withOpacity(0.08),
-          highlightColor: Colors.white.withOpacity(0.04),
+          splashColor: context.xaneoOverlay(0.08),
+          highlightColor: context.xaneoOverlay(0.04),
           child: Center(child: child),
         ),
       ),
@@ -484,9 +494,9 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
         if (!snapshot.hasData) {
           return Padding(
             padding: EdgeInsets.only(top: topOffset),
-            child: const Center(
+            child: Center(
               child: CircularProgressIndicator(
-                color: AppStyles.textPrimaryColor,
+                color: context.xaneoTextPrimary,
               ),
             ),
           );
@@ -515,7 +525,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                   FaIcon(
                     FontAwesomeIcons.boxArchive,
                     size: 50,
-                    color: AppStyles.textMutedColor,
+                    color: context.xaneoTextMuted,
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -526,7 +536,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                         : (AppLocalizations.of(context)?.arhivPust_3e22 ??
                             'Fallback'),
                     style: AppStyles.titleLarge.copyWith(
-                      color: AppStyles.textMutedColor,
+                      color: context.xaneoTextMuted,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -539,7 +549,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                                 ?.zdesBudutNahoditsyaVashiArhivirovannye_7359 ??
                             'Fallback'),
                     style: AppStyles.bodyMedium.copyWith(
-                      color: AppStyles.textMutedColor,
+                      color: context.xaneoTextMuted,
                       fontSize: 14,
                     ),
                     textAlign: TextAlign.center,
@@ -592,7 +602,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                 children: [
                   _buildChatItemContent(chat),
                   Divider(
-                    color: Colors.white.withOpacity(0.04),
+                    color: context.xaneoOverlay(0.04),
                     height: 1,
                     indent: 84,
                   ),
@@ -619,8 +629,8 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
           );
         },
         onLongPress: () => _showChatContextMenu(chat),
-        splashColor: Colors.white.withOpacity(0.03),
-        highlightColor: Colors.white.withOpacity(0.01),
+        splashColor: context.xaneoOverlay(0.03),
+        highlightColor: context.xaneoOverlay(0.01),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: IgnorePointer(
@@ -638,28 +648,28 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                             FaIcon(
                               FontAwesomeIcons.solidBookmark,
                               size: 11,
-                              color: Colors.white.withOpacity(0.5),
+                              color: context.xaneoTextMuted,
                             ),
                             const SizedBox(width: 5),
                           ] else if (chat.isGroup) ...[
                             FaIcon(
                               FontAwesomeIcons.users,
                               size: 11,
-                              color: Colors.white.withOpacity(0.5),
+                              color: context.xaneoTextMuted,
                             ),
                             const SizedBox(width: 5),
                           ] else if (chat.isChannel) ...[
                             FaIcon(
                               FontAwesomeIcons.bullhorn,
                               size: 11,
-                              color: Colors.white.withOpacity(0.5),
+                              color: context.xaneoTextMuted,
                             ),
                             const SizedBox(width: 5),
                           ] else if (chat.isPersonal) ...[
                             FaIcon(
                               FontAwesomeIcons.shieldHalved,
                               size: 11,
-                              color: Colors.white.withOpacity(0.4),
+                              color: context.xaneoTextMuted,
                             ),
                             const SizedBox(width: 5),
                           ],
@@ -671,7 +681,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                                 fontWeight: chat.unreadCount > 0
                                     ? FontWeight.w600
                                     : FontWeight.w500,
-                                color: AppStyles.textPrimaryColor,
+                                color: context.xaneoTextPrimary,
                                 letterSpacing: -0.2,
                               ),
                               maxLines: 1,
@@ -700,7 +710,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                               : FontWeight.w400,
                           color: chat.unreadCount > 0
                               ? Colors.white
-                              : AppStyles.textMutedColor,
+                              : context.xaneoTextMuted,
                         ),
                       ),
                     if (chat.unreadCount > 0) ...[
@@ -713,7 +723,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                           minHeight: 20,
                         ),
                         decoration: BoxDecoration(
-                          color: AppStyles.textPrimaryColor,
+                          color: context.xaneoTextPrimary,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         alignment: Alignment.center,
@@ -721,10 +731,10 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                           chat.unreadCount > 99
                               ? '99+'
                               : chat.unreadCount.toString(),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
-                            color: AppStyles.backgroundColor,
+                            color: Theme.of(context).scaffoldBackgroundColor,
                           ),
                         ),
                       ),
@@ -772,9 +782,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
           FaIcon(
             FontAwesomeIcons.lock,
             size: 10,
-            color: chat.unreadCount > 0
-                ? Colors.white.withOpacity(0.5)
-                : AppStyles.textMutedColor,
+            color: context.xaneoTextMuted,
           ),
           const SizedBox(width: 5),
         ],
@@ -786,8 +794,8 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
               fontWeight:
                   chat.unreadCount > 0 ? FontWeight.w500 : FontWeight.w400,
               color: chat.unreadCount > 0
-                  ? Colors.white.withOpacity(0.7)
-                  : AppStyles.textMutedColor,
+                  ? context.xaneoTextSecondary
+                  : context.xaneoTextMuted,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

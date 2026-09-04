@@ -11,6 +11,8 @@ class LocalChatRepository {
 
   LocalChatRepository(this._db, {this.userId, this.storageScope});
 
+  AppDatabase get database => _db;
+
   /// Освобождает ресурсы базы данных
   Future<void> dispose() async {
     await _db.close();
@@ -197,9 +199,10 @@ class LocalChatRepository {
         .go();
   }
 
-  /// Обновление serverMessageId существующего (pending) сообщения в локальной БД без пересоздания
+  /// Обновление существующего pending-сообщения данными сервера
+  /// без пересоздания локальной записи.
   Future<int> updateMessageServerId(String tempServerId, String newServerId,
-      {String? fileUrl, String? messageType}) {
+      {String? fileUrl, String? messageType, DateTime? timestamp}) {
     return (_db.update(_db.messages)
           ..where((m) => m.serverMessageId.equals(tempServerId)))
         .write(MessagesCompanion(
@@ -207,6 +210,7 @@ class LocalChatRepository {
       fileUrl: fileUrl != null ? Value(fileUrl) : const Value.absent(),
       messageType:
           messageType != null ? Value(messageType) : const Value.absent(),
+      timestamp: timestamp != null ? Value(timestamp) : const Value.absent(),
     ));
   }
 
@@ -295,13 +299,68 @@ class LocalChatRepository {
     });
   }
 
-  /// Очистка невалидных cached fileUrl для предотвращения эксплуатации E2EE JSON в тексте
+  /// Очищает только действительно невалидные fileUrl, совпавшие с текстом.
+  ///
+  /// Валидное E2EE-вложение тоже может хранить один и тот же JSON в textContent
+  /// и fileUrl. Массовый UPDATE здесь удалял настоящие фото при каждом входе в
+  /// чат, после чего фоновая синхронизация добавляла их обратно.
   Future<void> cleanupFakeFileMessages(int chatId) async {
-    await (_db.update(_db.messages)
+    final candidates = await (_db.select(_db.messages)
           ..where((tbl) => tbl.chatId.equals(chatId))
           ..where((tbl) => tbl.fileUrl.isNotNull())
           ..where((tbl) => tbl.fileUrl.equalsExp(tbl.textContent)))
-        .write(const MessagesCompanion(fileUrl: Value(null)));
+        .get();
+
+    for (final message in candidates) {
+      if (_isValidCachedAttachment(message.fileUrl, message.messageType)) {
+        continue;
+      }
+      await (_db.update(_db.messages)
+            ..where((tbl) => tbl.id.equals(message.id)))
+          .write(const MessagesCompanion(fileUrl: Value(null)));
+    }
+
+    // Восстанавливаем вложения, которые старая версия этой очистки уже успела
+    // занулить. Это выполняется до показа локальной истории, поэтому фото не
+    // появляется отдельным вторым кадром после сетевой синхронизации.
+    final missingAttachments = await (_db.select(_db.messages)
+          ..where((tbl) => tbl.chatId.equals(chatId))
+          ..where((tbl) => tbl.fileUrl.isNull()))
+        .get();
+    for (final message in missingAttachments) {
+      if (!_isValidCachedAttachment(message.textContent, message.messageType)) {
+        continue;
+      }
+      await (_db.update(_db.messages)
+            ..where((tbl) => tbl.id.equals(message.id)))
+          .write(MessagesCompanion(fileUrl: Value(message.textContent)));
+    }
+  }
+
+  bool _isValidCachedAttachment(String? raw, String? messageType) {
+    if (raw == null || raw.isEmpty) return false;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return false;
+
+      final fileId = decoded['file_id']?.toString() ?? '';
+      if (fileId.isNotEmpty) return true;
+
+      final files = decoded['files'];
+      if (files is List &&
+          files.any((file) =>
+              file is Map &&
+              (file['file_id']?.toString().isNotEmpty ?? false))) {
+        return true;
+      }
+
+      final type = decoded['type']?.toString();
+      return type != null &&
+          type == messageType &&
+          const {'poll', 'todo_list', 'call'}.contains(type);
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Получение количества сообщений в чате по его локальному числовому ID

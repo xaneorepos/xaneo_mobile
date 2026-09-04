@@ -11,6 +11,7 @@ import '../services/api/api_client.dart';
 import '../services/crypto/crypto_service.dart';
 import '../services/crypto/xsec2_service.dart';
 import '../services/notifications/notification_service.dart';
+import '../services/avatar_cache_service.dart';
 
 /// Состояние авторизации
 enum AuthStatus {
@@ -409,6 +410,32 @@ class AuthProvider extends ChangeNotifier {
     _statusBeforePendingAuth = null;
     _userBeforePendingAuth = null;
     _error = null;
+    notifyListeners();
+  }
+
+  /// Applies profile fields returned by authenticated profile endpoints and
+  /// persists them in the active account bundle. This keeps the settings
+  /// screen, account switcher and the rest of the app in sync immediately.
+  Future<void> updateCurrentUser(Map<String, dynamic> changes) async {
+    final current = _user;
+    if (current == null) return;
+
+    final merged = <String, dynamic>{...current.toJson(), ...changes};
+    final avatarWasUpdated = changes.containsKey('avatar_url') ||
+        changes.containsKey('custom_avatar') ||
+        changes.containsKey('avatar');
+    final avatar =
+        changes['avatar_url'] ?? changes['custom_avatar'] ?? changes['avatar'];
+    if (avatarWasUpdated) {
+      merged['avatar'] = avatar;
+      await AvatarCacheService.instance.invalidate(current.avatar);
+      if (avatar?.toString() != current.avatar) {
+        await AvatarCacheService.instance.invalidate(avatar?.toString());
+      }
+    }
+
+    _user = UserModel.fromJson(merged);
+    await _authService.tokenStorage.saveUserData(_user!.toJson());
     notifyListeners();
   }
 

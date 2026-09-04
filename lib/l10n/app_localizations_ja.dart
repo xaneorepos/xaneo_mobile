@@ -1950,6 +1950,34 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get fontSizeText => 'フォントサイズ';
   @override
+  String get changePhoto => '写真を変更';
+  @override
+  String get avatarUpdated => 'アバターを更新しました';
+  @override
+  String get avatarUploadFailed => 'アバターをアップロードできませんでした';
+  @override
+  String get invalidNicknameFormat => 'ニックネームは3～30文字で、英数字、.、_、- のみ使用できます';
+  @override
+  String get deleteAccountPrompt => 'プロフィールは完全に削除されます。確認のためパスワードを入力してください。';
+  @override
+  String get deleteAccountFailed => 'アカウントを削除できませんでした';
+  @override
+  String get chatFontSize => 'チャットの文字サイズ';
+  @override
+  String get chatWallpaper => 'チャットの背景';
+  @override
+  String get myMessageColor => '自分のメッセージの色';
+  @override
+  String get otherMessageColor => '相手のメッセージの色';
+  @override
+  String get notificationStyle => '通知スタイル';
+  @override
+  String get standardNotificationStyle => '標準';
+  @override
+  String get blackRavenNotificationStyle => '黒いワタリガラス';
+  @override
+  String get wallpaperUploadFailed => '背景をアップロードできませんでした';
+  @override
   String get showPopups => 'ポップアップ通知を表示';
   @override
   String get sound => '通知音';
@@ -2249,16 +2277,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authNotificationPasswordLogin => 'パスワードでログイン';
 
   @override
-  String get authNotificationSendingSubtitle => 'コードは「Xaneo通知」チャットに送信されます。この画面を閉じないでください。';
+  String get authNotificationSendingSubtitle =>
+      'コードは「Xaneo通知」チャットに送信されます。この画面を閉じないでください。';
 
   @override
   String get authNotificationEnterCodeSubtitle => 'メッセージに記載された6桁のコードを入力してください。';
 
   @override
-  String get authNotificationConfirmSubtitle => 'すでに認証済みの端末でXaneoを開き、リクエスト詳細を確認してください。';
+  String get authNotificationConfirmSubtitle =>
+      'すでに認証済みの端末でXaneoを開き、リクエスト詳細を確認してください。';
 
   @override
-  String get authNotificationPasswordSubtitle => 'この方法は待機時間経過後のみ利用可能です。パスワードは保存されません。';
+  String get authNotificationPasswordSubtitle =>
+      'この方法は待機時間経過後のみ利用可能です。パスワードは保存されません。';
 
   @override
   String get authNotificationBotSource => 'コードは「Xaneo通知」から送信されます。';
@@ -2276,16 +2307,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authNotificationResendCodeViaEmail => 'メールにコードを再送信';
 
   @override
-  String get authNotificationEmailUnavailable => 'メール認証コードは利用できません：認証済みメールアドレスがありません。';
+  String get authNotificationEmailUnavailable =>
+      'メール認証コードは利用できません：認証済みメールアドレスがありません。';
 
   @override
-  String authNotificationEmailAvailableIn(int seconds) => 'メール認証コードはあと $seconds 秒で利用可能になります';
+  String authNotificationEmailAvailableIn(int seconds) =>
+      'メール認証コードはあと $seconds 秒で利用可能になります';
 
   @override
   String get authNotificationLoginWithPassword => 'パスワードでログイン';
 
   @override
-  String authNotificationPasswordAvailableIn(int seconds) => 'パスワードログインはあと $seconds 秒で利用可能になります';
+  String authNotificationPasswordAvailableIn(int seconds) =>
+      'パスワードログインはあと $seconds 秒で利用可能になります';
 
   @override
   String get authNotificationErrorSendFailed => 'コードを送信できませんでした。後でもう一度お試しください。';
@@ -2297,10 +2331,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authNotificationErrorRequestExpired => 'リクエストが拒否されたか期限切れです';
 
   @override
-  String get authNotificationErrorEmailFailed => 'メールにコードを送信できませんでした。後でもう一度お試しください。';
+  String get authNotificationErrorEmailFailed =>
+      'メールにコードを送信できませんでした。後でもう一度お試しください。';
 
   @override
-  String get authNotificationErrorPasswordFailed => 'ログインに失敗しました。パスワードを確認するか、最初からやり直してください。';
+  String get authNotificationErrorPasswordFailed =>
+      'ログインに失敗しました。パスワードを確認するか、最初からやり直してください。';
 
   @override
   String get authNotificationGetCodeBtn => 'コードを取得';
@@ -2320,8 +2356,7 @@ class AppLocalizationsJa extends AppLocalizations {
       'コードを確認しました。ご自身でリクエストした場合のみログインを許可してください。';
 
   @override
-  String get deviceAuthApprovalKeysNotice =>
-      'チャットキーは暗号化された状態で新しい端末に転送されます。';
+  String get deviceAuthApprovalKeysNotice => 'チャットキーは暗号化された状態で新しい端末に転送されます。';
 
   @override
   String get deviceAuthApprovalAllow => 'ログインを許可';
@@ -2340,4 +2375,18 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get importLanguageFromJson => 'JSONから言語をインポート';
+  @override
+  String get customColor => 'カスタムカラー';
+  @override
+  String get customGradient => 'カスタムグラデーション';
+  @override
+  String get colorOne => '色 1';
+  @override
+  String get colorTwo => '色 2';
+  @override
+  String get diagonal => '斜め';
+  @override
+  String get vertical => '垂直';
+  @override
+  String get horizontal => '水平';
 }

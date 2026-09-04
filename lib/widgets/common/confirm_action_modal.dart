@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
+import '../../styles/app_styles.dart';
 
 import 'base_custom_modal.dart';
 
@@ -39,7 +40,8 @@ class ConfirmActionModal extends BaseCustomModal {
   State<ConfirmActionModal> createState() => _ConfirmActionModalState();
 }
 
-class _ConfirmActionModalState extends BaseCustomModalState<ConfirmActionModal> {
+class _ConfirmActionModalState
+    extends BaseCustomModalState<ConfirmActionModal> {
   @override
   bool get fitContent => true;
 
@@ -53,8 +55,8 @@ class _ConfirmActionModalState extends BaseCustomModalState<ConfirmActionModal> 
       children: [
         Text(
           widget.title,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: context.xaneoTextPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
@@ -62,7 +64,7 @@ class _ConfirmActionModalState extends BaseCustomModalState<ConfirmActionModal> 
         const SizedBox(height: 10),
         Text(
           widget.message,
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14),
+          style: TextStyle(color: context.xaneoTextSecondary, fontSize: 14),
         ),
         const SizedBox(height: 20),
         Row(

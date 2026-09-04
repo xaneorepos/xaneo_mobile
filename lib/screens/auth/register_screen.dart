@@ -12,6 +12,7 @@ import '../../config/app_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../styles/app_styles.dart';
 import '../../widgets/common/auth_settings_modal.dart';
+import '../../widgets/common/auth_theme_toggle_button.dart';
 import '../../widgets/common/avatar_cropper.dart';
 import '../../widgets/common/six_digit_code_input.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
@@ -404,7 +405,8 @@ class _RegisterScreenState extends State<RegisterScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(auth.error!.message,
-              style: AppStyles.bodyMedium.copyWith(color: Colors.white)),
+              style: AppStyles.bodyMedium
+                  .copyWith(color: context.xaneoTextPrimary)),
           backgroundColor: AppStyles.errorColor,
           behavior: SnackBarBehavior.floating,
         ),
@@ -498,9 +500,9 @@ class _RegisterScreenState extends State<RegisterScreen>
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF161616),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: context.xaneoSurface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.all(24),
         child: SafeArea(
@@ -513,7 +515,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white24,
+                    color: context.xaneoDivider,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -522,13 +524,15 @@ class _RegisterScreenState extends State<RegisterScreen>
               Text(
                   (AppLocalizations.of(context)?.oVyboreEmail_2609 ??
                       'Fallback'),
-                  style: AppStyles.titleLarge),
+                  style: AppStyles.titleLarge
+                      .copyWith(color: context.xaneoTextPrimary)),
               const SizedBox(height: 24),
 
               // Simple text with clickable link
               RichText(
                 text: TextSpan(
-                  style: AppStyles.bodyMedium.copyWith(color: Colors.white70),
+                  style: AppStyles.bodyMedium
+                      .copyWith(color: context.xaneoTextSecondary),
                   children: [
                     TextSpan(
                         text: (AppLocalizations.of(context)
@@ -569,9 +573,9 @@ class _RegisterScreenState extends State<RegisterScreen>
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF161616),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: context.xaneoSurface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.all(24),
         child: SafeArea(
@@ -584,7 +588,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white24,
+                    color: context.xaneoDivider,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -593,13 +597,15 @@ class _RegisterScreenState extends State<RegisterScreen>
               Text(
                   (AppLocalizations.of(context)?.obIspolzovaniiParolya_9739 ??
                       'Fallback'),
-                  style: AppStyles.titleLarge),
+                  style: AppStyles.titleLarge
+                      .copyWith(color: context.xaneoTextPrimary)),
               const SizedBox(height: 24),
               Text(
                 (AppLocalizations.of(context)
                         ?.parolTolkoDlyaAvariynogoVhoda_b142 ??
                     'Fallback'),
-                style: AppStyles.bodyMedium.copyWith(color: Colors.white70),
+                style: AppStyles.bodyMedium
+                    .copyWith(color: context.xaneoTextSecondary),
               ),
               const SizedBox(height: 24),
             ],
@@ -614,19 +620,20 @@ class _RegisterScreenState extends State<RegisterScreen>
     final isLoading = context.watch<AuthProvider>().isLoading;
 
     return Scaffold(
-      backgroundColor: AppStyles.backgroundColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const FaIcon(FontAwesomeIcons.chevronLeft,
-              color: Colors.white, size: 18),
+          icon: FaIcon(FontAwesomeIcons.chevronLeft,
+              color: context.xaneoTextPrimary, size: 18),
           onPressed: isLoading ? null : _goBack,
         ),
         actions: [
+          const AuthThemeToggleButton(),
           IconButton(
-            icon: const FaIcon(FontAwesomeIcons.gear,
-                color: Colors.white70, size: 18),
+            icon: FaIcon(FontAwesomeIcons.gear,
+                color: context.xaneoTextSecondary, size: 18),
             onPressed: () => AuthSettingsModal.show(context),
           ),
         ],
@@ -643,14 +650,18 @@ class _RegisterScreenState extends State<RegisterScreen>
                   'assets/images/logo.png',
                   height: 48,
                   width: 48,
-                  errorBuilder: (context, error, stackTrace) => const Center(
+                  color: context.xaneoTextPrimary,
+                  colorBlendMode: BlendMode.srcIn,
+                  errorBuilder: (context, error, stackTrace) => Center(
                       child: FaIcon(FontAwesomeIcons.comments,
-                          color: Colors.white, size: 40)),
+                          color: context.xaneoTextPrimary, size: 40)),
                 ),
               ),
               const Spacer(flex: 1),
               AnimatedSwitcher(
-                duration: AppStyles.animationMedium,
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : AppStyles.animationMedium,
                 switchInCurve: AppStyles.curveEaseOut,
                 switchOutCurve: AppStyles.curveEaseIn,
                 transitionBuilder: (Widget child, Animation<double> animation) {
@@ -677,9 +688,9 @@ class _RegisterScreenState extends State<RegisterScreen>
                   onPressed:
                       isLoading || !_isStepValid() ? null : _goToNextStep,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppStyles.buttonBackgroundColor,
-                    disabledBackgroundColor: Colors.white24,
-                    foregroundColor: AppStyles.buttonTextColor,
+                    backgroundColor: context.xaneoTextPrimary,
+                    disabledBackgroundColor: context.xaneoOverlay(0.24),
+                    foregroundColor: Theme.of(context).scaffoldBackgroundColor,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16)),
                     elevation: 0,
@@ -689,11 +700,12 @@ class _RegisterScreenState extends State<RegisterScreen>
                           _isCheckingEmail ||
                           _isSendingCode ||
                           _isVerifyingCode
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 24,
                           width: 24,
                           child: CircularProgressIndicator(
-                              color: Colors.black, strokeWidth: 2))
+                              color: Theme.of(context).scaffoldBackgroundColor,
+                              strokeWidth: 2))
                       : Text(
                           _currentStep < 8
                               ? (AppLocalizations.of(context)?.dalee_c453 ??
@@ -701,7 +713,9 @@ class _RegisterScreenState extends State<RegisterScreen>
                               : (AppLocalizations.of(context)
                                       ?.sozdatAkkaunt_19ed ??
                                   'Fallback'),
-                          style: AppStyles.buttonText),
+                          style: AppStyles.buttonText.copyWith(
+                            color: Theme.of(context).scaffoldBackgroundColor,
+                          )),
                 ),
               ),
               const SizedBox(height: 32),
@@ -771,7 +785,7 @@ class _RegisterScreenState extends State<RegisterScreen>
               _obscurePassword
                   ? FontAwesomeIcons.eyeSlash
                   : FontAwesomeIcons.eye,
-              color: Colors.white70,
+              color: context.xaneoTextSecondary,
               size: 16,
             ),
             onPressed: () {
@@ -809,35 +823,45 @@ class _RegisterScreenState extends State<RegisterScreen>
         if (isPassword)
           Row(
             children: [
-              Expanded(child: Text(title, style: AppStyles.titleGiant)),
+              Expanded(
+                  child: Text(title,
+                      style: AppStyles.titleGiant.copyWith(
+                        color: context.xaneoTextPrimary,
+                      ))),
               IconButton(
-                icon: const FaIcon(FontAwesomeIcons.circleInfo,
-                    color: Colors.white54, size: 18),
+                icon: FaIcon(FontAwesomeIcons.circleInfo,
+                    color: context.xaneoTextMuted, size: 18),
                 onPressed: _showPasswordInfoModal,
               ),
             ],
           )
         else
-          Text(title, style: AppStyles.titleGiant),
+          Text(title,
+              style: AppStyles.titleGiant.copyWith(
+                color: context.xaneoTextPrimary,
+              )),
         const SizedBox(height: 8),
-        Text(hint, style: AppStyles.bodyMuted),
+        Text(hint,
+            style: AppStyles.bodyMuted.copyWith(color: context.xaneoTextMuted)),
         const SizedBox(height: 32),
         TextField(
           controller: controller,
           focusNode: focusNode,
-          style: AppStyles.inputText,
-          cursorColor: Colors.white,
+          style: AppStyles.inputText.copyWith(color: context.xaneoTextPrimary),
+          cursorColor: context.xaneoTextPrimary,
           obscureText: isPassword ? _obscurePassword : obscureText,
           keyboardType: keyboardType,
           decoration: InputDecoration(
+            filled: false,
             hintText: label,
-            hintStyle: AppStyles.inputHint,
-            border: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24)),
-            enabledBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24)),
-            focusedBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white)),
+            hintStyle:
+                AppStyles.inputHint.copyWith(color: context.xaneoTextMuted),
+            border: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoDivider)),
+            enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoDivider)),
+            focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoTextPrimary)),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             suffixIconConstraints:
                 const BoxConstraints(minWidth: 24, minHeight: 24),
@@ -868,12 +892,12 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     Widget? suffix;
     if (_isCheckingUsername) {
-      suffix = const SizedBox(
+      suffix = SizedBox(
         width: 16,
         height: 16,
         child: CircularProgressIndicator(
           strokeWidth: 2,
-          color: Colors.white54,
+          color: context.xaneoTextMuted,
         ),
       );
     } else if (hasText) {
@@ -898,29 +922,31 @@ class _RegisterScreenState extends State<RegisterScreen>
       children: [
         Text(
           l10n?.pridumayteNikneym_221b ?? 'Choose a nickname',
-          style: AppStyles.titleGiant,
+          style: AppStyles.titleGiant.copyWith(color: context.xaneoTextPrimary),
         ),
         const SizedBox(height: 8),
         Text(
           l10n?.unikalnoeImyaDlyaVashegoProfilya_a0ea ??
               'A unique name for your profile',
-          style: AppStyles.bodyMuted,
+          style: AppStyles.bodyMuted.copyWith(color: context.xaneoTextMuted),
         ),
         const SizedBox(height: 32),
         TextField(
           controller: _usernameController,
           focusNode: _usernameFocusNode,
-          style: AppStyles.inputText,
-          cursorColor: Colors.white,
+          style: AppStyles.inputText.copyWith(color: context.xaneoTextPrimary),
+          cursorColor: context.xaneoTextPrimary,
           decoration: InputDecoration(
+            filled: false,
             hintText: l10n?.nikneym_3fea ?? 'Nickname',
-            hintStyle: AppStyles.inputHint,
-            border: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24)),
-            enabledBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24)),
-            focusedBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white)),
+            hintStyle:
+                AppStyles.inputHint.copyWith(color: context.xaneoTextMuted),
+            border: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoDivider)),
+            enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoDivider)),
+            focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoTextPrimary)),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             suffixIconConstraints:
                 const BoxConstraints(minWidth: 24, minHeight: 24),
@@ -962,12 +988,12 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     Widget? suffix;
     if (_isCheckingEmail) {
-      suffix = const SizedBox(
+      suffix = SizedBox(
         width: 16,
         height: 16,
         child: CircularProgressIndicator(
           strokeWidth: 2,
-          color: Colors.white54,
+          color: context.xaneoTextMuted,
         ),
       );
     } else if (hasText) {
@@ -995,12 +1021,13 @@ class _RegisterScreenState extends State<RegisterScreen>
             Expanded(
               child: Text(
                 l10n?.vashEmail_879d ?? 'Your email',
-                style: AppStyles.titleGiant,
+                style: AppStyles.titleGiant
+                    .copyWith(color: context.xaneoTextPrimary),
               ),
             ),
             IconButton(
-              icon: const FaIcon(FontAwesomeIcons.circleInfo,
-                  color: Colors.white54, size: 18),
+              icon: FaIcon(FontAwesomeIcons.circleInfo,
+                  color: context.xaneoTextMuted, size: 18),
               onPressed: _showEmailInfoModal,
             ),
           ],
@@ -1009,24 +1036,26 @@ class _RegisterScreenState extends State<RegisterScreen>
         Text(
           l10n?.dlyaSvyaziIVosstanovleniyaDostupa_c770 ??
               'For contact and account recovery',
-          style: AppStyles.bodyMuted,
+          style: AppStyles.bodyMuted.copyWith(color: context.xaneoTextMuted),
         ),
         const SizedBox(height: 32),
         TextField(
           controller: _emailController,
           focusNode: _emailFocusNode,
-          style: AppStyles.inputText,
-          cursorColor: Colors.white,
+          style: AppStyles.inputText.copyWith(color: context.xaneoTextPrimary),
+          cursorColor: context.xaneoTextPrimary,
           keyboardType: TextInputType.emailAddress,
           decoration: InputDecoration(
+            filled: false,
             hintText: l10n?.emailAdres_9130 ?? 'Email address',
-            hintStyle: AppStyles.inputHint,
-            border: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24)),
-            enabledBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24)),
-            focusedBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white)),
+            hintStyle:
+                AppStyles.inputHint.copyWith(color: context.xaneoTextMuted),
+            border: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoDivider)),
+            enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoDivider)),
+            focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoTextPrimary)),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             suffixIconConstraints:
                 const BoxConstraints(minWidth: 24, minHeight: 24),
@@ -1068,14 +1097,14 @@ class _RegisterScreenState extends State<RegisterScreen>
       children: [
         Text(
           l10n?.podtverzhdenieEmail_281f ?? 'Email confirmation',
-          style: AppStyles.titleGiant,
+          style: AppStyles.titleGiant.copyWith(color: context.xaneoTextPrimary),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
         Text(
           l10n?.codeSentToEmail(_emailController.text) ??
               'Code sent to ${_emailController.text}',
-          style: AppStyles.bodyMuted,
+          style: AppStyles.bodyMuted.copyWith(color: context.xaneoTextMuted),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 32),
@@ -1102,7 +1131,9 @@ class _RegisterScreenState extends State<RegisterScreen>
           child: Text(
             l10n?.otpravitKodPovtorno_7703 ?? 'Resend code',
             style: TextStyle(
-              color: _isSendingCode ? Colors.white38 : Colors.white,
+              color: _isSendingCode
+                  ? context.xaneoTextMuted
+                  : context.xaneoTextPrimary,
             ),
           ),
         ),
@@ -1120,29 +1151,31 @@ class _RegisterScreenState extends State<RegisterScreen>
       children: [
         Text(
           l10n?.podtverditeParol_e3e3 ?? 'Confirm password',
-          style: AppStyles.titleGiant,
+          style: AppStyles.titleGiant.copyWith(color: context.xaneoTextPrimary),
         ),
         const SizedBox(height: 8),
         Text(
           l10n?.vvediteParolEscheRaz_7383 ?? 'Enter the password again',
-          style: AppStyles.bodyMuted,
+          style: AppStyles.bodyMuted.copyWith(color: context.xaneoTextMuted),
         ),
         const SizedBox(height: 32),
         TextField(
           controller: _passwordConfirmController,
           focusNode: _passwordConfirmFocusNode,
-          style: AppStyles.inputText,
-          cursorColor: Colors.white,
+          style: AppStyles.inputText.copyWith(color: context.xaneoTextPrimary),
+          cursorColor: context.xaneoTextPrimary,
           obscureText: _obscureConfirmPassword,
           decoration: InputDecoration(
+            filled: false,
             hintText: l10n?.parolEscheRaz_6daf ?? 'Password again',
-            hintStyle: AppStyles.inputHint,
-            border: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24)),
-            enabledBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24)),
-            focusedBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white)),
+            hintStyle:
+                AppStyles.inputHint.copyWith(color: context.xaneoTextMuted),
+            border: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoDivider)),
+            enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoDivider)),
+            focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoTextPrimary)),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             suffixIconConstraints:
                 const BoxConstraints(minWidth: 24, minHeight: 24),
@@ -1157,7 +1190,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     _obscureConfirmPassword
                         ? FontAwesomeIcons.eyeSlash
                         : FontAwesomeIcons.eye,
-                    color: Colors.white70,
+                    color: context.xaneoTextSecondary,
                     size: 16,
                   ),
                   onPressed: () {
@@ -1220,16 +1253,14 @@ class _RegisterScreenState extends State<RegisterScreen>
                 children: [
                   CupertinoButton(
                     child: Text(
-                        (AppLocalizations.of(context)?.otmena_987b ??
-                            'Cancel'),
-                        style: const TextStyle(color: Colors.white54)),
+                        (AppLocalizations.of(context)?.otmena_987b ?? 'Cancel'),
+                        style: TextStyle(color: context.xaneoTextMuted)),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   CupertinoButton(
                     child: Text(
-                        (AppLocalizations.of(context)?.gotovo_34e1 ??
-                            'Done'),
-                        style: const TextStyle(color: Colors.white)),
+                        (AppLocalizations.of(context)?.gotovo_34e1 ?? 'Done'),
+                        style: TextStyle(color: context.xaneoTextPrimary)),
                     onPressed: () {
                       setState(() {
                         _selectedBirthdate ??= DateTime(2000, 1, 1);
@@ -1243,10 +1274,10 @@ class _RegisterScreenState extends State<RegisterScreen>
             ),
             Expanded(
               child: CupertinoTheme(
-                data: const CupertinoThemeData(
+                data: CupertinoThemeData(
                   textTheme: CupertinoTextThemeData(
-                    dateTimePickerTextStyle:
-                        TextStyle(color: Colors.white, fontSize: 22),
+                    dateTimePickerTextStyle: TextStyle(
+                        color: context.xaneoTextPrimary, fontSize: 22),
                   ),
                 ),
                 child: CupertinoDatePicker(
@@ -1277,13 +1308,13 @@ class _RegisterScreenState extends State<RegisterScreen>
       children: [
         Text(
           l10n?.dataRozhdeniya_505e ?? 'Date of birth',
-          style: AppStyles.titleGiant,
+          style: AppStyles.titleGiant.copyWith(color: context.xaneoTextPrimary),
         ),
         const SizedBox(height: 8),
         Text(
           l10n?.ukazhiteVashuRealnuyuDatuRozhdeniya_d9ed ??
               'Enter your real date of birth',
-          style: AppStyles.bodyMuted,
+          style: AppStyles.bodyMuted.copyWith(color: context.xaneoTextMuted),
         ),
         const SizedBox(height: 32),
         GestureDetector(
@@ -1294,8 +1325,8 @@ class _RegisterScreenState extends State<RegisterScreen>
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 16),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.white24)),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: context.xaneoDivider)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1306,10 +1337,12 @@ class _RegisterScreenState extends State<RegisterScreen>
                       : (l10n?.ddmmgggg_3524 ?? 'DD.MM.YYYY'),
                   style: _selectedBirthdate != null
                       ? AppStyles.inputText
-                      : AppStyles.inputHint,
+                          .copyWith(color: context.xaneoTextPrimary)
+                      : AppStyles.inputHint
+                          .copyWith(color: context.xaneoTextMuted),
                 ),
-                const Icon(CupertinoIcons.calendar,
-                    color: Colors.white54, size: 20),
+                Icon(CupertinoIcons.calendar,
+                    color: context.xaneoTextMuted, size: 20),
               ],
             ),
           ),
@@ -1328,14 +1361,15 @@ class _RegisterScreenState extends State<RegisterScreen>
         children: [
           Text(
             l10n?.dobavteFoto_25eb ?? 'Add a photo',
-            style: AppStyles.titleGiant,
+            style:
+                AppStyles.titleGiant.copyWith(color: context.xaneoTextPrimary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
             l10n?.sdelayteProfilUznavaemym_f2c5 ??
                 'Make your profile recognizable',
-            style: AppStyles.bodyMuted,
+            style: AppStyles.bodyMuted.copyWith(color: context.xaneoTextMuted),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 48),
@@ -1347,9 +1381,9 @@ class _RegisterScreenState extends State<RegisterScreen>
               decoration: BoxDecoration(
                 color: _selectedAvatarImage != null
                     ? Colors.transparent
-                    : Colors.white10,
+                    : context.xaneoOverlay(0.10),
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white24, width: 2),
+                border: Border.all(color: context.xaneoDivider, width: 2),
                 image: _selectedAvatarImage != null
                     ? DecorationImage(
                         image: FileImage(_selectedAvatarImage!),
@@ -1358,10 +1392,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                     : null,
               ),
               child: _selectedAvatarImage == null
-                  ? const Center(
+                  ? Center(
                       child: FaIcon(
                         FontAwesomeIcons.camera,
-                        color: Colors.white70,
+                        color: context.xaneoTextSecondary,
                         size: 34,
                       ),
                     )
@@ -1381,13 +1415,13 @@ class _RegisterScreenState extends State<RegisterScreen>
       children: [
         Text(
           l10n?.profilGotov_b57d ?? 'Profile ready',
-          style: AppStyles.titleGiant,
+          style: AppStyles.titleGiant.copyWith(color: context.xaneoTextPrimary),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
         Text(
           l10n?.ostalosVsegoParaShagov_37e3 ?? 'Just a couple of steps left',
-          style: AppStyles.bodyMuted,
+          style: AppStyles.bodyMuted.copyWith(color: context.xaneoTextMuted),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 32),
@@ -1395,7 +1429,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           width: double.infinity,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white10,
+            color: context.xaneoOverlay(0.10),
             borderRadius: BorderRadius.circular(24),
           ),
           child: Column(
@@ -1406,20 +1440,20 @@ class _RegisterScreenState extends State<RegisterScreen>
                 decoration: BoxDecoration(
                   color: _selectedAvatarImage != null
                       ? Colors.transparent
-                      : Colors.white24,
+                      : context.xaneoDivider,
                   shape: BoxShape.circle,
                   image: _selectedAvatarImage != null
                       ? DecorationImage(
                           image: FileImage(_selectedAvatarImage!),
                           fit: BoxFit.cover,
                         )
-                    : null,
+                      : null,
                 ),
                 child: _selectedAvatarImage == null
-                    ? const Center(
+                    ? Center(
                         child: FaIcon(
                           FontAwesomeIcons.user,
-                          color: Colors.white,
+                          color: context.xaneoTextPrimary,
                           size: 34,
                         ),
                       )
@@ -1428,13 +1462,16 @@ class _RegisterScreenState extends State<RegisterScreen>
               const SizedBox(height: 16),
               Text(
                 _nameController.text,
-                style: AppStyles.titleLarge,
+                style: AppStyles.titleLarge.copyWith(
+                  color: context.xaneoTextPrimary,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 4),
               Text(
                 '@${_usernameController.text}',
-                style: AppStyles.bodyMuted,
+                style:
+                    AppStyles.bodyMuted.copyWith(color: context.xaneoTextMuted),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -1485,11 +1522,13 @@ class _RegisterScreenState extends State<RegisterScreen>
               onChanged: onChanged,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               fillColor: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.selected)) return Colors.white;
+                if (states.contains(WidgetState.selected)) {
+                  return context.xaneoTextPrimary;
+                }
                 return Colors.transparent;
               }),
-              checkColor: Colors.black,
-              side: const BorderSide(color: Colors.white54, width: 1.5),
+              checkColor: Theme.of(context).scaffoldBackgroundColor,
+              side: BorderSide(color: context.xaneoTextMuted, width: 1.5),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(5)),
             ),
@@ -1498,8 +1537,8 @@ class _RegisterScreenState extends State<RegisterScreen>
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
-                  color: Colors.white70, fontSize: 13, height: 1.4),
+              style: TextStyle(
+                  color: context.xaneoTextSecondary, fontSize: 13, height: 1.4),
             ),
           ),
         ],
@@ -1512,11 +1551,15 @@ class _RegisterScreenState extends State<RegisterScreen>
       children: List.generate(9, (index) {
         return Expanded(
           child: AnimatedContainer(
-            duration: AppStyles.animationFast,
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : AppStyles.animationFast,
             margin: const EdgeInsets.symmetric(horizontal: 2),
             height: 4,
             decoration: BoxDecoration(
-              color: _currentStep >= index ? Colors.white : Colors.white24,
+              color: _currentStep >= index
+                  ? context.xaneoTextPrimary
+                  : context.xaneoDivider,
               borderRadius: BorderRadius.circular(2),
             ),
           ),

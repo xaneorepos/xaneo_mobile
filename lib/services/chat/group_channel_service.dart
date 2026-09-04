@@ -22,7 +22,8 @@ class GroupChannelService {
       final Map<String, dynamic> mapData = {
         'name': name,
         'privacy': privacy,
-        if (description != null && description.isNotEmpty) 'description': description,
+        if (description != null && description.isNotEmpty)
+          'description': description,
         if (!isPrivate && username != null && username.isNotEmpty)
           'username': username.replaceAll('@', '').trim(),
       };
@@ -70,7 +71,8 @@ class GroupChannelService {
       final Map<String, dynamic> mapData = {
         'name': name,
         'privacy': privacy,
-        if (description != null && description.isNotEmpty) 'description': description,
+        if (description != null && description.isNotEmpty)
+          'description': description,
         if (!isPrivate && username != null && username.isNotEmpty)
           'username': username.replaceAll('@', '').trim(),
       };
@@ -140,7 +142,8 @@ class GroupChannelService {
   }
 
   /// Подписаться или отписаться от канала (POST /api/channels/subscribe/)
-  Future<bool> toggleChannelSubscription(int channelId, {required bool subscribe}) async {
+  Future<bool> toggleChannelSubscription(int channelId,
+      {required bool subscribe}) async {
     try {
       final response = await _apiClient.post(
         '/channels/subscribe/',
@@ -153,7 +156,9 @@ class GroupChannelService {
       if (response.statusCode == 200 && response.data != null) {
         if (response.data is Map) {
           final map = response.data as Map;
-          return map['success'] == true || map['status'] == 'subscribed' || map['status'] == 'unsubscribed';
+          return map['success'] == true ||
+              map['status'] == 'subscribed' ||
+              map['status'] == 'unsubscribed';
         }
       }
       return false;

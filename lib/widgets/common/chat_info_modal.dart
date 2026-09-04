@@ -24,7 +24,7 @@ import 'avatar_widget.dart';
 import 'base_custom_modal.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
 import '../../services/runtime_translations.dart';
-
+import '../../styles/app_styles.dart';
 
 /// Модалка информации о чате (собеседник, группа, канал, бот, избранное).
 class ChatInfoModal extends BaseCustomModal {
@@ -305,9 +305,9 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
       decoration: BoxDecoration(
         shape: isCircle ? BoxShape.circle : BoxShape.rectangle,
         borderRadius: borderRadius,
-        color: Colors.white.withOpacity(0.08),
+        color: context.xaneoOverlay(0.08),
         border: Border.all(
-          color: Colors.white.withOpacity(0.12),
+          color: context.xaneoOverlay(0.12),
           width: 1,
         ),
       ),
@@ -322,6 +322,62 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                 ? EdgeInsets.zero
                 : const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: isCircle ? Center(child: child) : child,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showMediaActions(
+    BuildContext context, {
+    required String url,
+    required String fileName,
+  }) async {
+    final l10n = AppLocalizations.of(context)!;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: sheetContext.xaneoSurface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: sheetContext.xaneoDivider),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(
+                  Icons.download_rounded,
+                  color: sheetContext.xaneoTextSecondary,
+                ),
+                title: Text(
+                  l10n.downloadVersion,
+                  style: TextStyle(color: sheetContext.xaneoTextPrimary),
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _downloadFile(context, url, fileName);
+                },
+              ),
+              Divider(height: 1, color: sheetContext.xaneoDivider),
+              ListTile(
+                leading: Icon(
+                  Icons.link_rounded,
+                  color: sheetContext.xaneoTextSecondary,
+                ),
+                title: Text(
+                  l10n.copy,
+                  style: TextStyle(color: sheetContext.xaneoTextPrimary),
+                ),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: url));
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+            ],
           ),
         ),
       ),
@@ -453,11 +509,13 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                       right: 16,
                       child: _buildDroplet(
                         isCircle: true,
-                        onTap: () {
-                          if (item != null) {
-                            _downloadFile(context, url, item.fileName);
-                          }
-                        },
+                        onTap: item == null
+                            ? null
+                            : () => _showMediaActions(
+                                  context,
+                                  url: url,
+                                  fileName: item.fileName,
+                                ),
                         child: const Icon(Icons.more_vert,
                             color: Colors.white, size: 22),
                       ),
@@ -475,8 +533,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                               children: [
                                 Text(
                                   senderName,
-                                  style: const TextStyle(
-                                      color: Colors.white,
+                                  style: TextStyle(
+                                      color: context.xaneoTextPrimary,
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold),
                                 ),
@@ -679,8 +737,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     final primaryGlowColor = colors.first;
 
     if (_loadingChatId) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
+      return Center(
+        child: CircularProgressIndicator(color: context.xaneoTextPrimary),
       );
     }
 
@@ -691,8 +749,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
 
     // Ждём первую порцию данных из подписки (см. _subscribeToMessages).
     if (!_sharedItemsReady) {
-      return const Center(
-          child: CircularProgressIndicator(color: Colors.white));
+      return Center(
+          child: CircularProgressIndicator(color: context.xaneoTextPrimary));
     }
 
     final tabs = [
@@ -842,10 +900,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
             child: Text(
               localizedChatName(context, chat),
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
-                color: Colors.white,
+                color: context.xaneoTextPrimary,
                 letterSpacing: -0.5,
               ),
             ),
@@ -868,7 +926,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
           child: Text(
             (AppLocalizations.of(context)?.obschieMaterialy_11e4 ?? 'Fallback'),
             style: TextStyle(
-              color: Colors.white70,
+              color: context.xaneoTextSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
@@ -879,10 +937,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
           height: 44,
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.02),
+            color: context.xaneoOverlay(0.02),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: Colors.white.withOpacity(0.04),
+              color: context.xaneoOverlay(0.04),
               width: 1,
             ),
           ),
@@ -902,7 +960,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                     curve: Curves.easeOutCubic,
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? Colors.white.withOpacity(0.06)
+                          ? context.xaneoOverlay(0.06)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -914,8 +972,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                           tab['title'].toString(),
                           style: TextStyle(
                             color: isSelected
-                                ? Colors.white
-                                : Colors.white.withOpacity(0.4),
+                                ? context.xaneoTextPrimary
+                                : context.xaneoTextMuted,
                             fontSize: 11,
                             fontWeight:
                                 isSelected ? FontWeight.w600 : FontWeight.w500,
@@ -927,16 +985,16 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                               horizontal: 5, vertical: 1.5),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? Colors.white.withOpacity(0.12)
-                                : Colors.white.withOpacity(0.04),
+                                ? context.xaneoOverlay(0.12)
+                                : context.xaneoOverlay(0.04),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             tab['count'].toString(),
                             style: TextStyle(
                               color: isSelected
-                                  ? Colors.white70
-                                  : Colors.white.withOpacity(0.3),
+                                  ? context.xaneoTextSecondary
+                                  : context.xaneoTextMuted,
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1063,15 +1121,15 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Container(
-              color: Colors.white.withOpacity(0.04),
+              color: context.xaneoOverlay(0.04),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
                   if (isVideo)
-                    const Center(
+                    Center(
                       child: Icon(
                         Icons.videocam_rounded,
-                        color: Colors.white24,
+                        color: context.xaneoDivider,
                         size: 28,
                       ),
                     )
@@ -1085,10 +1143,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                       cacheWidth: 320,
                       filterQuality: FilterQuality.low,
                       errorBuilder: (context, error, stackTrace) {
-                        return const Center(
+                        return Center(
                           child: Icon(
                             Icons.image_rounded,
-                            color: Colors.white24,
+                            color: context.xaneoDivider,
                             size: 28,
                           ),
                         );
@@ -1097,10 +1155,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                   if (isVideo)
                     Container(
                       color: Colors.black26,
-                      child: const Center(
+                      child: Center(
                         child: Icon(
                           Icons.play_circle_fill_rounded,
-                          color: Colors.white,
+                          color: context.xaneoTextPrimary,
                           size: 28,
                         ),
                       ),
@@ -1138,10 +1196,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
 
         return Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.02),
+            color: context.xaneoOverlay(0.02),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.white.withOpacity(0.04),
+              color: context.xaneoOverlay(0.04),
               width: 1,
             ),
           ),
@@ -1149,12 +1207,12 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: context.xaneoOverlay(0.05),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.insert_drive_file_rounded,
-                color: Colors.white70,
+                color: context.xaneoTextSecondary,
                 size: 20,
               ),
             ),
@@ -1162,8 +1220,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
               item.fileName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: context.xaneoTextPrimary,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -1171,7 +1229,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
             subtitle: Text(
               '$sizeStr • $dateStr',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
+                color: context.xaneoTextMuted,
                 fontSize: 11,
               ),
             ),
@@ -1217,10 +1275,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
 
         return Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.02),
+            color: context.xaneoOverlay(0.02),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.white.withOpacity(0.04),
+              color: context.xaneoOverlay(0.04),
               width: 1,
             ),
           ),
@@ -1287,8 +1345,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                               : (AppLocalizations.of(context)
                                       ?.golosovoeSoobschenie_33d5 ??
                                   'Fallback'),
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: context.xaneoTextPrimary,
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
@@ -1297,7 +1355,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                         Text(
                           '$sizeStr • $dateStr',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.4),
+                            color: context.xaneoTextMuted,
                             fontSize: 11,
                           ),
                         ),
@@ -1316,7 +1374,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                     child: Icon(
                       Icons.arrow_forward_ios_rounded,
                       size: 14,
-                      color: Colors.white.withOpacity(0.3),
+                      color: context.xaneoOverlay(0.3),
                     ),
                   ),
                 ),
@@ -1350,10 +1408,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
 
         return Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.02),
+            color: context.xaneoOverlay(0.02),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.white.withOpacity(0.04),
+              color: context.xaneoOverlay(0.04),
               width: 1,
             ),
           ),
@@ -1361,7 +1419,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: context.xaneoOverlay(0.05),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
@@ -1374,7 +1432,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
               item.url,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Color(0xFF60A5FA),
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -1392,7 +1450,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
+                      color: context.xaneoTextSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -1401,7 +1459,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                 Text(
                   dateStr,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.4),
+                    color: context.xaneoTextMuted,
                     fontSize: 11,
                   ),
                 ),
@@ -1457,10 +1515,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
 
         return Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.02),
+            color: context.xaneoOverlay(0.02),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.white.withOpacity(0.04),
+              color: context.xaneoOverlay(0.04),
               width: 1,
             ),
           ),
@@ -1498,8 +1556,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
               item.fileName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: context.xaneoTextPrimary,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -1507,7 +1565,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
             subtitle: Text(
               '$sizeStr • $dateStr',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
+                color: context.xaneoTextMuted,
                 fontSize: 11,
               ),
             ),
@@ -1525,7 +1583,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
         color: Colors.white.withOpacity(0.01),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withOpacity(0.02),
+          color: context.xaneoOverlay(0.02),
           width: 1.5,
         ),
       ),
@@ -1535,12 +1593,12 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.03),
+              color: context.xaneoOverlay(0.03),
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              color: Colors.white.withOpacity(0.18),
+              color: context.xaneoOverlay(0.18),
               size: 24,
             ),
           ),
@@ -1548,7 +1606,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
           Text(
             title,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: context.xaneoTextSecondary,
               fontSize: 13.5,
               fontWeight: FontWeight.w600,
             ),
@@ -1558,7 +1616,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
             subtitle,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.35),
+              color: context.xaneoOverlay(0.35),
               fontSize: 11.5,
             ),
           ),
@@ -1712,7 +1770,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
   Widget _buildStatusWidget() {
     final chat = widget.chat;
     String text = '';
-    Color textColor = Colors.white70;
+    Color textColor = context.xaneoTextSecondary;
     IconData? icon;
 
     if (chat.isFavorites) {
@@ -1720,7 +1778,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     } else if (_isDeleted()) {
       text =
           (AppLocalizations.of(context)?.udalennyyAkkaunt_ce47 ?? 'Fallback');
-      textColor = Colors.white38;
+      textColor = context.xaneoTextMuted;
     } else if (chat.isPersonal) {
       if (_isBot()) {
         text = (AppLocalizations.of(context)?.bot_2712 ?? 'Fallback');
@@ -1750,7 +1808,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
         text +=
             ' • $onlineCount ${AppLocalizations.of(context)?.online ?? 'online'}';
       }
-      textColor = Colors.white54;
+      textColor = context.xaneoTextMuted;
       icon = Icons.people_alt_rounded;
     } else if (chat.isChannel) {
       final rawSub = chat.otherUser?['subscribers_count'];
@@ -1760,7 +1818,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
               ? rawSub.toInt()
               : int.tryParse(rawSub?.toString() ?? '') ?? 0);
       text = _formatSubscribers(subscribersCount);
-      textColor = Colors.white54;
+      textColor = context.xaneoTextMuted;
       icon = Icons.campaign_rounded;
     }
 
@@ -1826,10 +1884,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.02),
+        color: context.xaneoOverlay(0.02),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.white.withOpacity(0.03),
+          color: context.xaneoOverlay(0.03),
           width: 1.5,
         ),
       ),
@@ -1870,7 +1928,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
 
   Widget _buildDivider() {
     return Divider(
-      color: Colors.white.withOpacity(0.04),
+      color: context.xaneoOverlay(0.04),
       height: 1,
       indent: 52,
     );
@@ -1891,7 +1949,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
               content: Text(
                   '${AppLocalizations.of(context)?.copied ?? 'Copied'}: "$value"'),
               duration: const Duration(seconds: 1),
-              backgroundColor: const Color(0xFF1E1E22),
+              backgroundColor: context.xaneoSurfaceElevated,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
@@ -1907,10 +1965,10 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.04),
+                  color: context.xaneoOverlay(0.04),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: Colors.white70, size: 18),
+                child: Icon(icon, color: context.xaneoTextSecondary, size: 18),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1919,8 +1977,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                   children: [
                     Text(
                       value,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: context.xaneoTextPrimary,
                         fontSize: 14.5,
                         fontWeight: FontWeight.w500,
                         height: 1.35,
@@ -1930,7 +1988,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                     Text(
                       label,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.4),
+                        color: context.xaneoTextMuted,
                         fontSize: 11,
                       ),
                     ),
@@ -1942,7 +2000,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Icon(
                   Icons.copy_rounded,
-                  color: Colors.white.withOpacity(0.2),
+                  color: context.xaneoOverlay(0.2),
                   size: 16,
                 ),
               ),

@@ -1920,6 +1920,34 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get fontSizeText => '字体大小';
   @override
+  String get changePhoto => '更换照片';
+  @override
+  String get avatarUpdated => '头像已更新';
+  @override
+  String get avatarUploadFailed => '头像上传失败';
+  @override
+  String get invalidNicknameFormat => '昵称须为 3–30 个字符，只能包含字母、数字、.、_ 和 -';
+  @override
+  String get deleteAccountPrompt => '个人资料将被永久删除。请输入密码进行确认。';
+  @override
+  String get deleteAccountFailed => '账号删除失败';
+  @override
+  String get chatFontSize => '聊天字体大小';
+  @override
+  String get chatWallpaper => '聊天背景';
+  @override
+  String get myMessageColor => '我的消息颜色';
+  @override
+  String get otherMessageColor => '对方消息颜色';
+  @override
+  String get notificationStyle => '通知样式';
+  @override
+  String get standardNotificationStyle => '标准';
+  @override
+  String get blackRavenNotificationStyle => '黑色渡鸦';
+  @override
+  String get wallpaperUploadFailed => '聊天背景上传失败';
+  @override
   String get showPopups => '显示弹窗通知';
   @override
   String get sound => '提示音';
@@ -2247,13 +2275,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get authNotificationEmailUnavailable => '邮箱验证码不可用：账户未绑定已验证邮箱。';
 
   @override
-  String authNotificationEmailAvailableIn(int seconds) => '可在 $seconds 秒后通过邮箱获取验证码';
+  String authNotificationEmailAvailableIn(int seconds) =>
+      '可在 $seconds 秒后通过邮箱获取验证码';
 
   @override
   String get authNotificationLoginWithPassword => '使用密码登录';
 
   @override
-  String authNotificationPasswordAvailableIn(int seconds) => '可在 $seconds 秒后使用密码登录';
+  String authNotificationPasswordAvailableIn(int seconds) =>
+      '可在 $seconds 秒后使用密码登录';
 
   @override
   String get authNotificationErrorSendFailed => '发送验证码失败，请稍后重试。';
@@ -2277,19 +2307,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get authRejectedTitle => '登录已被拒绝';
 
   @override
-  String get authRejectedDesc =>
-      '登录请求已在其他设备上被拒绝。如果这不是您的操作，建议检查您的账户安全。';
+  String get authRejectedDesc => '登录请求已在其他设备上被拒绝。如果这不是您的操作，建议检查您的账户安全。';
 
   @override
   String get authRejectedButton => '知道了';
 
   @override
-  String get deviceAuthApprovalSubtitle =>
-      '验证码正确。仅当这是您本人的操作时才允许登录。';
+  String get deviceAuthApprovalSubtitle => '验证码正确。仅当这是您本人的操作时才允许登录。';
 
   @override
-  String get deviceAuthApprovalKeysNotice =>
-      '聊天密钥将以加密形式传输到新设备。';
+  String get deviceAuthApprovalKeysNotice => '聊天密钥将以加密形式传输到新设备。';
 
   @override
   String get deviceAuthApprovalAllow => '允许登录';
@@ -2308,4 +2335,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get importLanguageFromJson => '从 JSON 导入语言';
+  @override
+  String get customColor => '自定义颜色';
+  @override
+  String get customGradient => '自定义渐变';
+  @override
+  String get colorOne => '颜色 1';
+  @override
+  String get colorTwo => '颜色 2';
+  @override
+  String get diagonal => '对角线';
+  @override
+  String get vertical => '垂直';
+  @override
+  String get horizontal => '水平';
 }

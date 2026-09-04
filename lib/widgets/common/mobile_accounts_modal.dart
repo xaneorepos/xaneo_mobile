@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../l10n/account_localizations.dart';
 import '../../models/auth/recent_account.dart';
 import '../../providers/auth_provider.dart';
+import '../../styles/app_styles.dart';
 import '../../screens/auth/login_screen.dart';
 import 'avatar_widget.dart';
 import 'base_custom_modal.dart';
@@ -149,7 +150,7 @@ class _MobileAccountsModalState
               strings.text('empty'),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.4),
+                color: context.xaneoTextMuted,
                 fontSize: 14,
               ),
             ),
@@ -185,7 +186,7 @@ class _MobileAccountsModalState
         separatorBuilder: (_, __) => Divider(
           height: 1,
           indent: 56,
-          color: Colors.white.withValues(alpha: 0.07),
+          color: context.xaneoOverlay(0.07),
         ),
         itemBuilder: (_, index) {
           final account = _accounts[index];
@@ -220,7 +221,7 @@ class _MobileAccountsModalState
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: account.isAvailable
-                    ? Colors.white.withValues(alpha: 0.38)
+                    ? context.xaneoTextMuted
                     : const Color(0xFFE0A76B),
               ),
             ),
@@ -232,10 +233,10 @@ class _MobileAccountsModalState
                 : active
                     ? Semantics(
                         label: strings.text('current'),
-                        child: const FaIcon(
+                        child: FaIcon(
                           FontAwesomeIcons.circleCheck,
                           size: 18,
-                          color: Colors.white70,
+                          color: context.xaneoTextSecondary,
                         ),
                       )
                     : IconButton(
@@ -269,7 +270,7 @@ class _AccountsHeader extends StatelessWidget {
           strings.text('subtitle'),
           style: TextStyle(
             fontSize: 12,
-            color: Colors.white.withValues(alpha: 0.38),
+            color: context.xaneoTextMuted,
           ),
         ),
       ],
@@ -289,7 +290,7 @@ class _OfflineNotice extends StatelessWidget {
         FaIcon(
           FontAwesomeIcons.wifi,
           size: 12,
-          color: Colors.white.withValues(alpha: 0.38),
+          color: context.xaneoTextMuted,
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -297,7 +298,7 @@ class _OfflineNotice extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.54),
+              color: context.xaneoTextMuted,
             ),
           ),
         ),
@@ -319,7 +320,7 @@ class _AccountSkeleton extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundColor: Colors.white.withValues(alpha: 0.08),
+              backgroundColor: context.xaneoOverlay(0.08),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -330,7 +331,7 @@ class _AccountSkeleton extends StatelessWidget {
                     height: 13,
                     width: 132,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: context.xaneoDivider,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -339,7 +340,7 @@ class _AccountSkeleton extends StatelessWidget {
                     height: 10,
                     width: 84,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.055),
+                      color: context.xaneoOverlay(0.055),
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),

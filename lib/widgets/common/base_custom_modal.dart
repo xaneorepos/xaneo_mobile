@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../providers/appearance_provider.dart';
+import '../../styles/app_styles.dart';
 
 /// Общая оболочка мобильных bottom sheet без лишних слоёв и ручного кеша.
 abstract class BaseCustomModal extends StatefulWidget {
@@ -17,6 +21,8 @@ abstract class BaseCustomModal extends StatefulWidget {
     bool isDismissible = true,
     bool requestFocus = false,
   }) {
+    final animationsEnabled =
+        context.read<AppearanceProvider>().animationsEnabled;
     return showModalBottomSheet<R>(
       context: context,
       isScrollControlled: true,
@@ -27,12 +33,17 @@ abstract class BaseCustomModal extends StatefulWidget {
       elevation: 0,
       backgroundColor: Colors.transparent,
       clipBehavior: Clip.none,
-      sheetAnimationStyle: const AnimationStyle(
-        duration: Duration(milliseconds: 180),
-        reverseDuration: Duration(milliseconds: 140),
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic,
-      ),
+      sheetAnimationStyle: animationsEnabled
+          ? const AnimationStyle(
+              duration: Duration(milliseconds: 180),
+              reverseDuration: Duration(milliseconds: 140),
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            )
+          : const AnimationStyle(
+              duration: Duration.zero,
+              reverseDuration: Duration.zero,
+            ),
       builder: (_) => child,
     );
   }
@@ -47,7 +58,7 @@ abstract class BaseCustomModalState<T extends BaseCustomModal>
   double get initialExtent => 0.65;
   double get minExtent => 0.35;
   double get maxExtent => 0.95;
-  Color get backgroundColor => const Color(0xFF141416);
+  Color backgroundColor(BuildContext context) => context.xaneoSurface;
 
   Widget buildContent(BuildContext context, ScrollController scrollController);
 
@@ -63,22 +74,33 @@ abstract class BaseCustomModalState<T extends BaseCustomModal>
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     if (fitContent) {
+      final availableHeight = screenSize.height - bottomInset;
+      final fitContentMaxHeight =
+          (availableHeight > 0 ? availableHeight : screenSize.height) *
+              maxExtent;
+
       return Padding(
         padding: EdgeInsets.only(bottom: bottomInset),
-        child: _buildSurface(
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 12),
-                  _buildHandle(),
-                  const SizedBox(height: 16),
-                  buildContent(context, _internalScrollController),
-                  const SizedBox(height: 16),
-                ],
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: fitContentMaxHeight),
+          child: _buildSurface(
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 12),
+                    _buildHandle(context),
+                    const SizedBox(height: 16),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: buildContent(context, _internalScrollController),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
               ),
             ),
           ),
@@ -122,7 +144,7 @@ abstract class BaseCustomModalState<T extends BaseCustomModal>
       child: Column(
         children: [
           const SizedBox(height: 12),
-          _buildHandle(),
+          _buildHandle(context),
           const SizedBox(height: 16),
           Expanded(child: buildContent(context, scrollController)),
         ],
@@ -134,11 +156,11 @@ abstract class BaseCustomModalState<T extends BaseCustomModal>
     return RepaintBoundary(
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: backgroundColor,
+          color: backgroundColor(context),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           border: Border(
             top: BorderSide(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: context.xaneoDivider,
               width: 1.5,
             ),
           ),
@@ -148,13 +170,13 @@ abstract class BaseCustomModalState<T extends BaseCustomModal>
     );
   }
 
-  Widget _buildHandle() {
+  Widget _buildHandle(BuildContext context) {
     return Center(
       child: Container(
         width: 36,
         height: 4,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.18),
+          color: context.xaneoOverlay(0.18),
           borderRadius: BorderRadius.circular(2),
         ),
       ),

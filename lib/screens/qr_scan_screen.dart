@@ -359,7 +359,9 @@ class _QrScanScreenState extends State<QrScanScreen>
                           child: FilledButton.icon(
                             onPressed: _startCamera,
                             icon: const Icon(Icons.refresh_rounded),
-                            label: Text(AppLocalizations.of(context)?.povtorit_b914 ?? 'Повторить'),
+                            label: Text(
+                                AppLocalizations.of(context)?.povtorit_b914 ??
+                                    'Повторить'),
                           ),
                         ),
 

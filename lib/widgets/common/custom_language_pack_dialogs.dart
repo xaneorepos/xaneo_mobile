@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../providers/locale_provider.dart';
 import '../../services/language_pack_validator.dart';
 import '../../services/runtime_translations.dart';
+import '../../styles/app_styles.dart';
 
 /// Helper dialogs and functions for Custom Language Pack import and management in mobile
 class CustomLanguagePackDialogs {
@@ -35,7 +36,8 @@ class CustomLanguagePackDialogs {
       final fileSize = await file.length();
       if (fileSize > LanguagePackValidator.maxPackSizeBytes) {
         if (context.mounted) {
-          _showErrorDialog(context, rt.resolveByText('Размер файла превышает лимит 2 МБ'));
+          _showErrorDialog(
+              context, rt.resolveByText('Размер файла превышает лимит 2 МБ'));
         }
         return;
       }
@@ -58,7 +60,8 @@ class CustomLanguagePackDialogs {
       }
     } catch (e) {
       if (context.mounted) {
-        _showErrorDialog(context, '${rt.resolveByText("Ошибка при чтении файла")}: $e');
+        _showErrorDialog(
+            context, '${rt.resolveByText("Ошибка при чтении файла")}: $e');
       }
     }
   }
@@ -68,10 +71,16 @@ class CustomLanguagePackDialogs {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161618),
+        backgroundColor: ctx.xaneoSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(rt.resolveByText('Ошибка импорта'), style: const TextStyle(color: Colors.white)),
-        content: Text(message, style: const TextStyle(color: Colors.white70)),
+        title: Text(
+          rt.resolveByText('Ошибка импорта'),
+          style: TextStyle(color: ctx.xaneoTextPrimary),
+        ),
+        content: Text(
+          message,
+          style: TextStyle(color: ctx.xaneoTextSecondary),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -82,14 +91,18 @@ class CustomLanguagePackDialogs {
     );
   }
 
-  static void _showValidationErrorsDialog(BuildContext context, List<ValidationIssue> errors) {
+  static void _showValidationErrorsDialog(
+      BuildContext context, List<ValidationIssue> errors) {
     final rt = RuntimeTranslations.instance;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161618),
+        backgroundColor: ctx.xaneoSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(rt.resolveByText('Языковой пакет не прошёл валидацию'), style: const TextStyle(color: Colors.white, fontSize: 16)),
+        title: Text(
+          rt.resolveByText('Языковой пакет не прошёл валидацию'),
+          style: TextStyle(color: ctx.xaneoTextPrimary, fontSize: 16),
+        ),
         content: SizedBox(
           width: double.maxFinite,
           child: Column(
@@ -97,8 +110,12 @@ class CustomLanguagePackDialogs {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                rt.resolveByText('Обнаружены следующие ошибки в структуре JSON:'),
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                rt.resolveByText(
+                    'Обнаружены следующие ошибки в структуре JSON:'),
+                style: TextStyle(
+                  color: ctx.xaneoTextSecondary,
+                  fontSize: 13,
+                ),
               ),
               const SizedBox(height: 12),
               Flexible(
@@ -111,7 +128,8 @@ class CustomLanguagePackDialogs {
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Text(
                         '• ${err.code}: ${err.message}${err.key != null ? ' (${err.key})' : ''}',
-                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                        style: const TextStyle(
+                            color: Colors.redAccent, fontSize: 12),
                       ),
                     );
                   },
@@ -123,7 +141,8 @@ class CustomLanguagePackDialogs {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(rt.resolveByText('Закрыть'), style: const TextStyle(color: Color(0xFF6366F1))),
+            child: Text(rt.resolveByText('Закрыть'),
+                style: const TextStyle(color: Color(0xFF6366F1))),
           ),
         ],
       ),
@@ -146,11 +165,15 @@ class CustomLanguagePackDialogs {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161618),
+        backgroundColor: ctx.xaneoSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           rt.resolveByText('Импорт пользовательского языка'),
-          style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: ctx.xaneoTextPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         content: SizedBox(
           width: double.maxFinite,
@@ -158,52 +181,66 @@ class CustomLanguagePackDialogs {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _infoRow(rt.resolveByText('Название'), '$name ($nativeName)'),
+              _infoRow(
+                  ctx, rt.resolveByText('Название'), '$name ($nativeName)'),
               const SizedBox(height: 6),
-              _infoRow(rt.resolveByText('Код локали'), locale.toString()),
+              _infoRow(ctx, rt.resolveByText('Код локали'), locale.toString()),
               const SizedBox(height: 6),
-              _infoRow(rt.resolveByText('Направление письма'), direction.toString().toUpperCase()),
+              _infoRow(ctx, rt.resolveByText('Направление письма'),
+                  direction.toString().toUpperCase()),
               const SizedBox(height: 6),
-              _infoRow(rt.resolveByText('Базовый язык (fallback)'), fallback.toString()),
+              _infoRow(ctx, rt.resolveByText('Базовый язык (fallback)'),
+                  fallback.toString()),
               const SizedBox(height: 6),
-              _infoRow(rt.resolveByText('Переведено строк'), '${strings.length}'),
+              _infoRow(ctx, rt.resolveByText('Переведено строк'),
+                  '${strings.length}'),
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.amber.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                  border:
+                      Border.all(color: Colors.amber.withValues(alpha: 0.3)),
                 ),
                 child: Text(
-                  rt.resolveByText('⚠️ Файл создан третьей стороной. Перевод может быть неточным или вводить в заблуждение. Системные сообщения безопасности не заменяются.'),
-                  style: const TextStyle(color: Colors.amberAccent, fontSize: 12, height: 1.3),
+                  rt.resolveByText(
+                      '⚠️ Файл создан третьей стороной. Перевод может быть неточным или вводить в заблуждение. Системные сообщения безопасности не заменяются.'),
+                  style: const TextStyle(
+                      color: Colors.amberAccent, fontSize: 12, height: 1.3),
                 ),
               ),
               if (warnings.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Text(
                   '${rt.resolveByText("Предупреждения")} (${warnings.length}): ${warnings.first.message}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                  style: TextStyle(color: ctx.xaneoTextMuted, fontSize: 11),
                 ),
               ],
             ],
           ),
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(rt.resolveByText('Отмена'), style: const TextStyle(color: Colors.white54)),
+            child: Text(rt.resolveByText('Отмена')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF6366F1),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () async {
               Navigator.of(ctx).pop();
-              final localeProvider = Provider.of<LocaleProvider>(context, listen: false);
+              final localeProvider =
+                  Provider.of<LocaleProvider>(context, listen: false);
               await localeProvider.installAndActivatePack(pack);
             },
             child: Text(rt.resolveByText('Установить и включить')),
@@ -213,12 +250,17 @@ class CustomLanguagePackDialogs {
     );
   }
 
-  static Widget _infoRow(String label, String value) {
+  static Widget _infoRow(BuildContext context, String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 13)),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+        Text(label,
+            style: TextStyle(color: context.xaneoTextSecondary, fontSize: 13)),
+        Text(value,
+            style: TextStyle(
+                color: context.xaneoTextPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600)),
       ],
     );
   }

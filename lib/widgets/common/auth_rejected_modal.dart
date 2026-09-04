@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../styles/app_styles.dart';
 import 'base_custom_modal.dart';
 
 /// Модальное окно отказа в авторизации
@@ -34,7 +35,7 @@ class _AuthRejectedModalState extends BaseCustomModalState<AuthRejectedModal> {
   @override
   Widget buildContent(BuildContext context, ScrollController scrollController) {
     final l10n = AppLocalizations.of(context);
-    final muted = Colors.white.withValues(alpha: 0.65);
+    final muted = context.xaneoTextSecondary;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -47,8 +48,8 @@ class _AuthRejectedModalState extends BaseCustomModalState<AuthRejectedModal> {
         const SizedBox(height: 18),
         Text(
           l10n?.authRejectedTitle ?? 'Login Rejected',
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: context.xaneoTextPrimary,
             fontSize: 21,
             fontWeight: FontWeight.w700,
             height: 1.15,
@@ -66,9 +67,9 @@ class _AuthRejectedModalState extends BaseCustomModalState<AuthRejectedModal> {
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(54),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-            backgroundColor: const Color(0xFFFAFAFA),
-            foregroundColor: const Color(0xFF18181B),
-            overlayColor: const Color(0xFFE4E4E7),
+            backgroundColor: context.xaneoTextPrimary,
+            foregroundColor: context.xaneoSurface,
+            overlayColor: context.xaneoTextMuted,
             elevation: 0,
             shadowColor: Colors.transparent,
             shape: RoundedRectangleBorder(

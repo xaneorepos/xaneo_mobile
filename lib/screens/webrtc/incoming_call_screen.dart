@@ -14,7 +14,8 @@ class IncomingCallScreen extends StatefulWidget {
   State<IncomingCallScreen> createState() => _IncomingCallScreenState();
 }
 
-class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTickerProviderStateMixin {
+class _IncomingCallScreenState extends State<IncomingCallScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
 
   @override
@@ -23,7 +24,19 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pulseController
+        ..stop()
+        ..value = 0;
+    } else if (!_pulseController.isAnimating) {
+      _pulseController.repeat();
+    }
   }
 
   @override
@@ -63,7 +76,8 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
                     height: 140 + (_pulseController.value * 60),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF3B82F6).withValues(alpha: 0.15 * (1 - _pulseController.value)),
+                      color: const Color(0xFF3B82F6).withValues(
+                          alpha: 0.15 * (1 - _pulseController.value)),
                     ),
                   ),
                   Container(
@@ -71,7 +85,9 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
                     height: 140 + ((_pulseController.value + 0.5) % 1 * 60),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF3B82F6).withValues(alpha: 0.1 * (1 - ((_pulseController.value + 0.5) % 1))),
+                      color: const Color(0xFF3B82F6).withValues(
+                          alpha:
+                              0.1 * (1 - ((_pulseController.value + 0.5) % 1))),
                     ),
                   ),
                 ],
@@ -89,7 +105,8 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
               AvatarWidget(
                 avatar: callManager.targetAvatar,
                 avatarGradient: callManager.targetGradient,
-                hasAvatar: callManager.targetAvatar != null && callManager.targetAvatar!.isNotEmpty,
+                hasAvatar: callManager.targetAvatar != null &&
+                    callManager.targetAvatar!.isNotEmpty,
                 username: callManager.targetName ?? 'User',
                 size: 130,
               ),
@@ -98,7 +115,12 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
 
               // Текст статуса звонка
               Text(
-                isVideo ? (AppLocalizations.of(context)?.vhodyaschiyVideozvonok_14d4 ?? 'Fallback') : (AppLocalizations.of(context)?.vhodyaschiyZvonok_5ce9 ?? 'Fallback'),
+                isVideo
+                    ? (AppLocalizations.of(context)
+                            ?.vhodyaschiyVideozvonok_14d4 ??
+                        'Fallback')
+                    : (AppLocalizations.of(context)?.vhodyaschiyZvonok_5ce9 ??
+                        'Fallback'),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 24,
@@ -110,7 +132,9 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
 
               // Имя звонящего
               Text(
-                callManager.targetName ?? (AppLocalizations.of(context)?.neizvestnyy_be89 ?? 'Fallback'),
+                callManager.targetName ??
+                    (AppLocalizations.of(context)?.neizvestnyy_be89 ??
+                        'Fallback'),
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 16,
@@ -141,7 +165,8 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
                               color: Color(0xFFEF4444),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFFEF4444).withValues(alpha: 0.3),
+                                  color: const Color(0xFFEF4444)
+                                      .withValues(alpha: 0.3),
                                   blurRadius: 16,
                                   spreadRadius: 4,
                                 ),
@@ -157,7 +182,8 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            (AppLocalizations.of(context)?.otklonit_8b0d ?? 'Fallback'),
+                            (AppLocalizations.of(context)?.otklonit_8b0d ??
+                                'Fallback'),
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 13,
@@ -192,7 +218,8 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
                               color: Color(0xFF10B981),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                                  color: const Color(0xFF10B981)
+                                      .withValues(alpha: 0.3),
                                   blurRadius: 16,
                                   spreadRadius: 4,
                                 ),
@@ -200,7 +227,9 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
                             ),
                             child: Center(
                               child: FaIcon(
-                                isVideo ? FontAwesomeIcons.video : FontAwesomeIcons.phone,
+                                isVideo
+                                    ? FontAwesomeIcons.video
+                                    : FontAwesomeIcons.phone,
                                 color: Colors.white,
                                 size: 24,
                               ),
@@ -208,7 +237,8 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> with SingleTick
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            (AppLocalizations.of(context)?.prinyat_5dc5 ?? 'Fallback'),
+                            (AppLocalizations.of(context)?.prinyat_5dc5 ??
+                                'Fallback'),
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 13,

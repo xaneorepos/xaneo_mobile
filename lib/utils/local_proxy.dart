@@ -22,16 +22,18 @@ class LocalProxy {
         try {
           final client = HttpClient();
           // Explicitly ignore SSL certificate validation for local development
-          client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
-          
+          client.badCertificateCallback =
+              (X509Certificate cert, String host, int port) => true;
+
           Uri targetUri = Uri.parse(targetUrl!);
-          
+
           // Get fresh token from storage and inject it into the request URL
           final freshToken = await TokenStorage().getAccessToken();
           if (freshToken != null && freshToken.isNotEmpty) {
-             final newParams = Map<String, String>.from(targetUri.queryParameters);
-             newParams['token'] = freshToken;
-             targetUri = targetUri.replace(queryParameters: newParams);
+            final newParams =
+                Map<String, String>.from(targetUri.queryParameters);
+            newParams['token'] = freshToken;
+            targetUri = targetUri.replace(queryParameters: newParams);
           }
 
           final clientRequest = await client.getUrl(targetUri);
@@ -67,15 +69,18 @@ class LocalProxy {
 
   static String getProxyUrl(String targetUrl, {String? jwtToken, String? ext}) {
     if (_server == null) return targetUrl;
-    
+
     String path = '/media';
     if (ext != null) {
       path = '/media$ext';
     } else {
       final lower = targetUrl.toLowerCase();
-      if (lower.contains('.m4a')) path = '/audio.m4a';
-      else if (lower.contains('.mp3')) path = '/audio.mp3';
-      else if (lower.contains('.mp4')) path = '/video.mp4';
+      if (lower.contains('.m4a'))
+        path = '/audio.m4a';
+      else if (lower.contains('.mp3'))
+        path = '/audio.mp3';
+      else if (lower.contains('.mp4'))
+        path = '/video.mp4';
       else if (lower.contains('.m3u8')) path = '/video.m3u8';
     }
 

@@ -182,14 +182,17 @@ class UpdateService {
       await sink.close();
 
       final fileSize = await apkFile.length();
-      print('UpdateService: APK downloaded successfully to path="${apkFile.path}", size=$fileSize bytes');
+      print(
+          'UpdateService: APK downloaded successfully to path="${apkFile.path}", size=$fileSize bytes');
 
       onProgress(1.0, '');
 
       if (Platform.isAndroid) {
         try {
-          print('UpdateService: Invoking native app_installer MethodChannel for path="${apkFile.path}"');
-          final bool? success = await _installerChannel.invokeMethod<bool>('installApk', {'filePath': apkFile.path});
+          print(
+              'UpdateService: Invoking native app_installer MethodChannel for path="${apkFile.path}"');
+          final bool? success = await _installerChannel
+              .invokeMethod<bool>('installApk', {'filePath': apkFile.path});
           print('UpdateService: Native installApk result = $success');
           if (success == true) return;
         } catch (e, stack) {
@@ -197,14 +200,17 @@ class UpdateService {
         }
       }
 
-      print('UpdateService: Launching installer via FileProvider content URI...');
-      
+      print(
+          'UpdateService: Launching installer via FileProvider content URI...');
+
       // На Android 7.0+ (API 24+) использование file:// вызывает FileUriExposedException.
       // Используем валидный Content URI через зарегистрированный FileProvider (net.xaneo.fileprovider).
-      final contentUri = Uri.parse('content://net.xaneo.fileprovider/external/Download/Xaneo/xaneo_update.apk');
-      
+      final contentUri = Uri.parse(
+          'content://net.xaneo.fileprovider/external/Download/Xaneo/xaneo_update.apk');
+
       try {
-        final launched = await launchUrl(contentUri, mode: LaunchMode.externalApplication);
+        final launched =
+            await launchUrl(contentUri, mode: LaunchMode.externalApplication);
         print('UpdateService: launchUrl(contentUri) result = $launched');
         if (launched) return;
       } catch (e) {
@@ -213,14 +219,18 @@ class UpdateService {
 
       // Запасная попытка через URI кэша
       try {
-        final cacheContentUri = Uri.parse('content://net.xaneo.fileprovider/cache/xaneo_update.apk');
-        final launchedCache = await launchUrl(cacheContentUri, mode: LaunchMode.externalApplication);
-        print('UpdateService: launchUrl(cacheContentUri) result = $launchedCache');
+        final cacheContentUri = Uri.parse(
+            'content://net.xaneo.fileprovider/cache/xaneo_update.apk');
+        final launchedCache = await launchUrl(cacheContentUri,
+            mode: LaunchMode.externalApplication);
+        print(
+            'UpdateService: launchUrl(cacheContentUri) result = $launchedCache');
       } catch (e) {
         print('UpdateService: cacheContentUri launch exception: $e');
       }
 
-      print('UpdateService: APK file is downloaded and saved at "${apkFile.path}"');
+      print(
+          'UpdateService: APK file is downloaded and saved at "${apkFile.path}"');
     } finally {
       client.close();
     }

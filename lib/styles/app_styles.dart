@@ -1,5 +1,25 @@
 import 'package:flutter/material.dart';
 
+extension XaneoThemeColors on BuildContext {
+  bool get isDarkTheme => Theme.of(this).brightness == Brightness.dark;
+
+  Color get xaneoSurface =>
+      isDarkTheme ? const Color(0xFF141416) : Colors.white;
+  Color get xaneoSurfaceElevated =>
+      isDarkTheme ? const Color(0xFF1B1B1F) : const Color(0xFFF1F1F4);
+  Color get xaneoTextPrimary =>
+      isDarkTheme ? Colors.white : const Color(0xFF18181B);
+  Color get xaneoTextSecondary =>
+      isDarkTheme ? Colors.white70 : const Color(0xFF52525B);
+  Color get xaneoTextMuted =>
+      isDarkTheme ? Colors.white38 : const Color(0xFF71717A);
+  Color get xaneoDivider => isDarkTheme
+      ? Colors.white.withValues(alpha: 0.08)
+      : Colors.black.withValues(alpha: 0.08);
+  Color xaneoOverlay(double opacity) =>
+      (isDarkTheme ? Colors.white : Colors.black).withValues(alpha: opacity);
+}
+
 class AppStyles {
   AppStyles._();
 
@@ -27,7 +47,6 @@ class AppStyles {
   static const TextStyle titleGiant = TextStyle(
     fontSize: fontSizeGiant,
     fontWeight: FontWeight.w700,
-    color: textPrimaryColor,
     fontFamily: fontFamily,
     height: 1.2,
     letterSpacing: -1.2,
@@ -36,7 +55,6 @@ class AppStyles {
   static const TextStyle titleLarge = TextStyle(
     fontSize: fontSizeTitle,
     fontWeight: FontWeight.w600,
-    color: textPrimaryColor,
     fontFamily: fontFamily,
     height: 1.2,
     letterSpacing: -0.8,
@@ -45,7 +63,6 @@ class AppStyles {
   static const TextStyle bodyMedium = TextStyle(
     fontSize: fontSizeMedium,
     fontWeight: FontWeight.w400,
-    color: textSecondaryColor,
     fontFamily: fontFamily,
     height: 1.35,
     letterSpacing: -0.3,
@@ -54,7 +71,6 @@ class AppStyles {
   static const TextStyle bodyMuted = TextStyle(
     fontSize: fontSizeMedium,
     fontWeight: FontWeight.w400,
-    color: textMutedColor,
     fontFamily: fontFamily,
     letterSpacing: -0.3,
   );
@@ -70,7 +86,6 @@ class AppStyles {
   static const TextStyle inputText = TextStyle(
     fontSize: fontSizeLarge,
     fontWeight: FontWeight.w500,
-    color: textPrimaryColor,
     fontFamily: fontFamily,
     letterSpacing: -0.6,
   );
@@ -78,7 +93,6 @@ class AppStyles {
   static const TextStyle inputHint = TextStyle(
     fontSize: fontSizeLarge,
     fontWeight: FontWeight.w400,
-    color: textMutedColor,
     fontFamily: fontFamily,
     letterSpacing: -0.6,
   );
@@ -102,6 +116,18 @@ class AppStyles {
   );
 
   static final ButtonStyle primaryButton = ElevatedButton.styleFrom(
+    backgroundColor: buttonBackgroundColor,
+    foregroundColor: buttonTextColor,
+    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    elevation: 0,
+    textStyle: buttonText,
+  );
+
+  /// FilledButton uses a StadiumBorder by default in Material 3. Keep it
+  /// geometrically identical to the primary/secondary buttons so action rows
+  /// do not mix pill-shaped and rounded-rectangle controls.
+  static final ButtonStyle filledButton = FilledButton.styleFrom(
     backgroundColor: buttonBackgroundColor,
     foregroundColor: buttonTextColor,
     padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),

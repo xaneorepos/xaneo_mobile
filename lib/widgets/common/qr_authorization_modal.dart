@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../styles/app_styles.dart';
 import 'base_custom_modal.dart';
 
 class QrAuthorizationConfirmationModal extends BaseCustomModal {
@@ -41,8 +42,8 @@ class _QrAuthorizationConfirmationModalState
         const SizedBox(height: 18),
         Text(
           l10n.qrScanTitle,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: context.xaneoTextPrimary,
             fontSize: 21,
             fontWeight: FontWeight.w700,
             height: 1.15,
@@ -52,7 +53,7 @@ class _QrAuthorizationConfirmationModalState
         Text(
           l10n.qrScanConfirmDesc,
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.65),
+            color: context.xaneoTextSecondary,
             fontSize: 14,
             height: 1.45,
           ),
@@ -61,23 +62,23 @@ class _QrAuthorizationConfirmationModalState
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.055),
+            color: context.xaneoOverlay(0.055),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            border: Border.all(color: context.xaneoDivider),
           ),
           child: Row(
             children: [
               Icon(
                 Icons.devices_rounded,
                 size: 19,
-                color: Colors.white.withValues(alpha: 0.72),
+                color: context.xaneoTextSecondary,
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   widget.deviceCode,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: context.xaneoTextPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.8,
@@ -94,14 +95,14 @@ class _QrAuthorizationConfirmationModalState
             Icon(
               Icons.shield_outlined,
               size: 17,
-              color: Colors.white.withValues(alpha: 0.48),
+              color: context.xaneoTextMuted,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 l10n.qrScanSecurityNote,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.48),
+                  color: context.xaneoTextMuted,
                   fontSize: 12.5,
                   height: 1.4,
                 ),
@@ -114,9 +115,9 @@ class _QrAuthorizationConfirmationModalState
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(54),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-            backgroundColor: const Color(0xFFFAFAFA),
-            foregroundColor: const Color(0xFF18181B),
-            overlayColor: const Color(0xFFE4E4E7),
+            backgroundColor: context.xaneoTextPrimary,
+            foregroundColor: context.xaneoSurface,
+            overlayColor: context.xaneoTextMuted,
             elevation: 0,
             shadowColor: Colors.transparent,
             shape: RoundedRectangleBorder(
@@ -135,17 +136,18 @@ class _QrAuthorizationConfirmationModalState
           ),
         ),
         const SizedBox(height: 4),
-        TextButton(
-          style: TextButton.styleFrom(
-            minimumSize: const Size.fromHeight(44),
-            foregroundColor: Colors.white.withValues(alpha: 0.58),
-            overlayColor: Colors.white.withValues(alpha: 0.06),
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(54),
+            foregroundColor: context.xaneoTextMuted,
+            overlayColor: context.xaneoOverlay(0.06),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
+            side: BorderSide(color: context.xaneoDivider),
             textStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
             ),
           ),
           onPressed: () => Navigator.of(context).pop(false),
@@ -188,8 +190,8 @@ class _QrAuthorizationSuccessModalState
         const SizedBox(height: 18),
         Text(
           l10n.qrScanSuccessTitle,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: context.xaneoTextPrimary,
             fontSize: 21,
             fontWeight: FontWeight.w700,
             height: 1.15,
@@ -199,7 +201,7 @@ class _QrAuthorizationSuccessModalState
         Text(
           l10n.qrScanSuccessDesc,
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.65),
+            color: context.xaneoTextSecondary,
             fontSize: 14,
             height: 1.45,
           ),
@@ -207,8 +209,8 @@ class _QrAuthorizationSuccessModalState
         const SizedBox(height: 22),
         FilledButton(
           style: FilledButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: const Color(0xFF141416),
+            backgroundColor: context.xaneoTextPrimary,
+            foregroundColor: Theme.of(context).scaffoldBackgroundColor,
           ),
           onPressed: () => Navigator.of(context).pop(),
           child: Text(l10n.qrScanDoneButton),
@@ -231,11 +233,11 @@ class _QrModalIcon extends StatelessWidget {
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.07),
+          color: context.xaneoOverlay(0.07),
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          border: Border.all(color: context.xaneoDivider),
         ),
-        child: Icon(icon, color: Colors.white, size: 24),
+        child: Icon(icon, color: context.xaneoTextPrimary, size: 24),
       ),
     );
   }

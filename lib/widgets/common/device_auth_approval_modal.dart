@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../styles/app_styles.dart';
 import 'base_custom_modal.dart';
 
 class DeviceAuthApprovalModal extends BaseCustomModal {
@@ -46,7 +47,7 @@ class _DeviceAuthApprovalModalState
   @override
   Widget buildContent(BuildContext context, ScrollController scrollController) {
     final l10n = AppLocalizations.of(context);
-    final muted = Colors.white.withValues(alpha: 0.62);
+    final muted = context.xaneoTextSecondary;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -58,8 +59,8 @@ class _DeviceAuthApprovalModalState
         const SizedBox(height: 18),
         Text(
           l10n?.authNotificationConfirmLogin ?? 'Confirm login',
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: context.xaneoTextPrimary,
             fontSize: 21,
             fontWeight: FontWeight.w700,
             height: 1.15,
@@ -84,7 +85,7 @@ class _DeviceAuthApprovalModalState
             Icon(
               Icons.key_outlined,
               size: 17,
-              color: Colors.white.withValues(alpha: 0.46),
+              color: context.xaneoTextMuted,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -92,7 +93,7 @@ class _DeviceAuthApprovalModalState
                 l10n?.deviceAuthApprovalKeysNotice ??
                     'Chat keys will be transferred to the new device in encrypted form.',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.46),
+                  color: context.xaneoTextMuted,
                   fontSize: 12.5,
                   height: 1.4,
                 ),
@@ -104,9 +105,9 @@ class _DeviceAuthApprovalModalState
         FilledButton(
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(54),
-            backgroundColor: const Color(0xFFFAFAFA),
-            foregroundColor: const Color(0xFF18181B),
-            overlayColor: const Color(0xFFE4E4E7),
+            backgroundColor: context.xaneoTextPrimary,
+            foregroundColor: context.xaneoSurface,
+            overlayColor: context.xaneoTextMuted,
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
@@ -120,17 +121,18 @@ class _DeviceAuthApprovalModalState
           child: Text(l10n?.deviceAuthApprovalAllow ?? 'Allow Login'),
         ),
         const SizedBox(height: 4),
-        TextButton(
-          style: TextButton.styleFrom(
-            minimumSize: const Size.fromHeight(44),
-            foregroundColor: Colors.white.withValues(alpha: 0.58),
-            overlayColor: Colors.white.withValues(alpha: 0.06),
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(54),
+            foregroundColor: context.xaneoTextMuted,
+            overlayColor: context.xaneoOverlay(0.06),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
+            side: BorderSide(color: context.xaneoDivider),
             textStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
             ),
           ),
           onPressed: () => Navigator.of(context).pop(false),
@@ -150,13 +152,13 @@ class _SecurityIcon extends StatelessWidget {
       width: 48,
       height: 48,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.07),
+        color: context.xaneoOverlay(0.07),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        border: Border.all(color: context.xaneoDivider),
       ),
-      child: const Icon(
+      child: Icon(
         Icons.verified_user_outlined,
-        color: Colors.white,
+        color: context.xaneoTextPrimary,
         size: 24,
       ),
     );
@@ -179,9 +181,9 @@ class _AuthFacts extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.055),
+        color: context.xaneoOverlay(0.055),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: context.xaneoDivider),
       ),
       child: Column(
         children: [
@@ -191,8 +193,7 @@ class _AuthFacts extends StatelessWidget {
           _FactRow(
               label: l10n?.deviceAuthApp ?? 'Application', value: clientName),
           const Divider(height: 1, indent: 14, endIndent: 14),
-          _FactRow(
-              label: l10n?.deviceAuthIp ?? 'IP address', value: ipAddress),
+          _FactRow(label: l10n?.deviceAuthIp ?? 'IP address', value: ipAddress),
         ],
       ),
     );
@@ -217,7 +218,7 @@ class _FactRow extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.45),
+                color: context.xaneoTextMuted,
                 fontSize: 13,
               ),
             ),
@@ -226,8 +227,8 @@ class _FactRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: context.xaneoTextPrimary,
                 fontSize: 13.5,
                 fontWeight: FontWeight.w600,
               ),

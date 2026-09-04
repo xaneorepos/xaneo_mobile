@@ -730,7 +730,7 @@ class _ChatListScreenState extends State<ChatListScreen>
         final topOffset = MediaQuery.of(context).padding.top + 122.0;
 
         return Container(
-          color: AppStyles.backgroundColor,
+          color: Theme.of(context).scaffoldBackgroundColor,
           child: Stack(
             children: [
               // 1. Список чатов (в фоне, скроллится под хедер)
@@ -753,7 +753,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                     right: 0,
                     height: 78.0,
                     child: Container(
-                      color: AppStyles.backgroundColor,
+                      color: Theme.of(context).scaffoldBackgroundColor,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -762,7 +762,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                             child: _buildArchiveRow(archivedChats),
                           ),
                           Divider(
-                            color: Colors.white.withOpacity(0.04),
+                            color: context.xaneoOverlay(0.04),
                             height: 1,
                             indent: 84,
                           ),
@@ -792,10 +792,12 @@ class _ChatListScreenState extends State<ChatListScreen>
     return RepaintBoundary(
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xF2121218),
+          color: context.isDarkTheme
+              ? const Color(0xF2121218)
+              : const Color(0xF2F7F7F8),
           border: Border(
             bottom: BorderSide(
-              color: Colors.white.withOpacity(0.06),
+              color: context.xaneoDivider,
               width: 1,
             ),
           ),
@@ -840,9 +842,9 @@ class _ChatListScreenState extends State<ChatListScreen>
                 _buildTitleText(),
                 const Spacer(),
                 _buildHeaderButton(
-                  child: const FaIcon(
+                  child: FaIcon(
                     FontAwesomeIcons.magnifyingGlass,
-                    color: AppStyles.textPrimaryColor,
+                    color: context.xaneoTextPrimary,
                     size: 14,
                   ),
                   onTap: () {
@@ -856,9 +858,9 @@ class _ChatListScreenState extends State<ChatListScreen>
                 ),
                 const SizedBox(width: 8),
                 _buildHeaderButton(
-                  child: const FaIcon(
+                  child: FaIcon(
                     FontAwesomeIcons.plus,
-                    color: AppStyles.textPrimaryColor,
+                    color: context.xaneoTextPrimary,
                     size: 15,
                   ),
                   onTap: () {
@@ -894,20 +896,20 @@ class _ChatListScreenState extends State<ChatListScreen>
                     child: Container(
                       height: 44,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.06),
+                        color: context.xaneoOverlay(0.06),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.12),
+                          color: context.xaneoDivider,
                           width: 1,
                         ),
                       ),
                       child: Row(
                         children: [
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: FaIcon(
                               FontAwesomeIcons.magnifyingGlass,
-                              color: AppStyles.textMutedColor,
+                              color: context.xaneoTextMuted,
                               size: 14,
                             ),
                           ),
@@ -915,18 +917,18 @@ class _ChatListScreenState extends State<ChatListScreen>
                             child: TextField(
                               controller: _searchController,
                               focusNode: _searchFocusNode,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: context.xaneoTextPrimary,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,
                               ),
-                              cursorColor: Colors.white,
+                              cursorColor: context.xaneoTextPrimary,
                               decoration: InputDecoration(
                                 hintText: (AppLocalizations.of(context)
                                         ?.poiskChatov_779c ??
                                     'Fallback'),
                                 hintStyle: TextStyle(
-                                  color: AppStyles.textMutedColor,
+                                  color: context.xaneoTextMuted,
                                   fontSize: 15,
                                 ),
                                 border: InputBorder.none,
@@ -944,8 +946,8 @@ class _ChatListScreenState extends State<ChatListScreen>
                           ),
                           if (_searchQuery.isNotEmpty)
                             IconButton(
-                              icon: const Icon(Icons.clear_rounded,
-                                  color: AppStyles.textMutedColor, size: 18),
+                              icon: Icon(Icons.clear_rounded,
+                                  color: context.xaneoTextMuted, size: 18),
                               onPressed: () {
                                 _searchController.clear();
                                 setState(() {
@@ -962,8 +964,8 @@ class _ChatListScreenState extends State<ChatListScreen>
                   ),
                   const SizedBox(width: 8),
                   _buildHeaderButton(
-                    child: const Icon(Icons.close_rounded,
-                        color: Colors.white, size: 20),
+                    child: Icon(Icons.close_rounded,
+                        color: context.xaneoTextPrimary, size: 20),
                     onTap: () {
                       _searchController.clear();
                       _searchFocusNode.unfocus();
@@ -991,9 +993,9 @@ class _ChatListScreenState extends State<ChatListScreen>
       height: 40,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withOpacity(0.05),
+        color: context.xaneoOverlay(0.05),
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+          color: context.xaneoDivider,
           width: 1,
         ),
       ),
@@ -1002,8 +1004,8 @@ class _ChatListScreenState extends State<ChatListScreen>
         child: InkWell(
           onTap: onTap,
           customBorder: const CircleBorder(),
-          splashColor: Colors.white.withOpacity(0.08),
-          highlightColor: Colors.white.withOpacity(0.04),
+          splashColor: context.xaneoOverlay(0.08),
+          highlightColor: context.xaneoOverlay(0.04),
           child: Center(child: child),
         ),
       ),
@@ -1012,18 +1014,20 @@ class _ChatListScreenState extends State<ChatListScreen>
 
   Widget _buildTitleText() {
     String title = (AppLocalizations.of(context)?.chaty_19ad ?? 'Fallback');
-    Color textColor = AppStyles.textPrimaryColor;
+    Color textColor = context.xaneoTextPrimary;
 
     if (_isSyncInProgress) {
       title = (AppLocalizations.of(context)?.obnovlenie_53e2 ?? 'Fallback');
-      textColor = AppStyles.textSecondaryColor;
+      textColor = context.xaneoTextSecondary;
     } else if (!_presenceService.isConnected.value) {
       title = (AppLocalizations.of(context)?.soedinenie_5a58 ?? 'Fallback');
-      textColor = AppStyles.textSecondaryColor;
+      textColor = context.xaneoTextSecondary;
     }
 
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 200),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 200),
       layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
         return Stack(
           alignment: Alignment.centerLeft,
@@ -1087,18 +1091,21 @@ class _ChatListScreenState extends State<ChatListScreen>
               });
             },
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 200),
               curve: Curves.easeInOut,
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color:
-                    isSelected ? Colors.white : Colors.white.withOpacity(0.04),
+                color: isSelected
+                    ? context.xaneoTextPrimary
+                    : context.xaneoOverlay(0.04),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isSelected
-                      ? Colors.white
-                      : Colors.white.withOpacity(0.08),
+                      ? context.xaneoTextPrimary
+                      : context.xaneoDivider,
                   width: 1,
                 ),
               ),
@@ -1109,8 +1116,8 @@ class _ChatListScreenState extends State<ChatListScreen>
                     fontSize: 13,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                     color: isSelected
-                        ? Colors.black
-                        : AppStyles.textSecondaryColor,
+                        ? Theme.of(context).scaffoldBackgroundColor
+                        : context.xaneoTextSecondary,
                   ),
                 ),
               ),
@@ -1137,10 +1144,10 @@ class _ChatListScreenState extends State<ChatListScreen>
               '${AppLocalizations.of(context)?.toArchive ?? 'Archive'}: "${chat.name}"'),
           duration: Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF1E1E2E),
+          backgroundColor: context.xaneoSurfaceElevated,
           action: SnackBarAction(
             label: (AppLocalizations.of(context)?.otmena_987b ?? 'Fallback'),
-            textColor: Colors.white,
+            textColor: context.xaneoTextPrimary,
             onPressed: () async {
               await _localChatRepo.updateArchiveStatus(chat.id, false);
               await _chatService.archiveChat(chat.id, false);
@@ -1300,8 +1307,8 @@ class _ChatListScreenState extends State<ChatListScreen>
             ),
           );
         },
-        splashColor: Colors.white.withOpacity(0.03),
-        highlightColor: Colors.white.withOpacity(0.01),
+        splashColor: context.xaneoOverlay(0.03),
+        highlightColor: context.xaneoOverlay(0.01),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: IgnorePointer(
@@ -1331,7 +1338,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                         style: TextStyle(
                           fontSize: 15.5,
                           fontWeight: FontWeight.w600,
-                          color: AppStyles.textPrimaryColor,
+                          color: context.xaneoTextPrimary,
                           letterSpacing: -0.2,
                         ),
                       ),
@@ -1341,10 +1348,10 @@ class _ChatListScreenState extends State<ChatListScreen>
                             ? previewText
                             : (AppLocalizations.of(context)?.arhiv_56aa ??
                                 'Fallback'),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w400,
-                          color: AppStyles.textMutedColor,
+                          color: context.xaneoTextMuted,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1379,9 +1386,9 @@ class _ChatListScreenState extends State<ChatListScreen>
                     ),
                   )
                 else
-                  const Icon(
+                  Icon(
                     Icons.arrow_forward_ios_rounded,
-                    color: AppStyles.textMutedColor,
+                    color: context.xaneoTextMuted,
                     size: 14,
                   ),
               ],
@@ -1401,9 +1408,9 @@ class _ChatListScreenState extends State<ChatListScreen>
           if (!snapshot.hasData && _isLoadingSync) {
             return Padding(
               padding: EdgeInsets.only(top: topOffset),
-              child: const Center(
+              child: Center(
                 child: CircularProgressIndicator(
-                  color: AppStyles.textPrimaryColor,
+                  color: context.xaneoTextPrimary,
                 ),
               ),
             );
@@ -1429,7 +1436,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                               ?.oshibkaZagruzkiChatov_902f ??
                           'Fallback'),
                       style: AppStyles.titleLarge.copyWith(
-                        color: AppStyles.textMutedColor,
+                        color: context.xaneoTextMuted,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1486,7 +1493,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                     FaIcon(
                       FontAwesomeIcons.message,
                       size: 50,
-                      color: AppStyles.textMutedColor,
+                      color: context.xaneoTextMuted,
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -1497,7 +1504,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                           : (AppLocalizations.of(context)?.netChatov_85e3 ??
                               'Fallback'),
                       style: AppStyles.titleLarge.copyWith(
-                        color: AppStyles.textMutedColor,
+                        color: context.xaneoTextMuted,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1510,7 +1517,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                                   ?.nachniteNovyyRazgovor_8290 ??
                               'Fallback'),
                       style: AppStyles.bodyMedium.copyWith(
-                        color: AppStyles.textMutedColor,
+                        color: context.xaneoTextMuted,
                       ),
                     ),
                   ],
@@ -1545,7 +1552,7 @@ class _ChatListScreenState extends State<ChatListScreen>
           return RefreshIndicator(
             onRefresh: _syncChats,
             edgeOffset: topOffset - 24.0,
-            color: AppStyles.textPrimaryColor,
+            color: context.xaneoTextPrimary,
             backgroundColor: AppStyles.inputBackgroundColor,
             notificationPredicate: (notification) {
               final hasArchivedChats = archivedChats.isNotEmpty;
@@ -1597,7 +1604,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                                 child: _buildArchiveRow(archivedChats),
                               ),
                               Divider(
-                                color: Colors.white.withOpacity(0.04),
+                                color: context.xaneoOverlay(0.04),
                                 height: 1,
                                 indent: 84,
                               ),
@@ -1628,7 +1635,7 @@ class _ChatListScreenState extends State<ChatListScreen>
       children: [
         _buildChatItemContent(chat),
         Divider(
-          color: Colors.white.withOpacity(0.04),
+          color: context.xaneoOverlay(0.04),
           height: 1,
           indent: 84,
         ),
@@ -1703,8 +1710,8 @@ class _ChatListScreenState extends State<ChatListScreen>
           }
         },
         onLongPress: () => _showChatContextMenu(chat),
-        splashColor: Colors.white.withOpacity(0.03),
-        highlightColor: Colors.white.withOpacity(0.01),
+        splashColor: context.xaneoOverlay(0.03),
+        highlightColor: context.xaneoOverlay(0.01),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: IgnorePointer(
@@ -1726,28 +1733,28 @@ class _ChatListScreenState extends State<ChatListScreen>
                             FaIcon(
                               FontAwesomeIcons.solidBookmark,
                               size: 11,
-                              color: Colors.white.withOpacity(0.5),
+                              color: context.xaneoTextMuted,
                             ),
                             const SizedBox(width: 5),
                           ] else if (chat.isGroup) ...[
                             FaIcon(
                               FontAwesomeIcons.users,
                               size: 11,
-                              color: Colors.white.withOpacity(0.5),
+                              color: context.xaneoTextMuted,
                             ),
                             const SizedBox(width: 5),
                           ] else if (chat.isChannel) ...[
                             FaIcon(
                               FontAwesomeIcons.bullhorn,
                               size: 11,
-                              color: Colors.white.withOpacity(0.5),
+                              color: context.xaneoTextMuted,
                             ),
                             const SizedBox(width: 5),
                           ] else if (chat.isPersonal) ...[
                             FaIcon(
                               FontAwesomeIcons.shieldHalved,
                               size: 11,
-                              color: Colors.white.withOpacity(0.4),
+                              color: context.xaneoTextMuted,
                             ),
                             const SizedBox(width: 5),
                           ],
@@ -1759,7 +1766,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                                 fontWeight: chat.unreadCount > 0
                                     ? FontWeight.w600
                                     : FontWeight.w500,
-                                color: AppStyles.textPrimaryColor,
+                                color: context.xaneoTextPrimary,
                                 letterSpacing: -0.2,
                               ),
                               maxLines: 1,
@@ -1771,7 +1778,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                             FaIcon(
                               FontAwesomeIcons.thumbtack,
                               size: 10,
-                              color: Colors.white.withValues(alpha: 0.45),
+                              color: context.xaneoTextMuted,
                             ),
                           ],
                           if (chat.isMuted) ...[
@@ -1779,7 +1786,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                             FaIcon(
                               FontAwesomeIcons.bellSlash,
                               size: 10,
-                              color: Colors.white.withValues(alpha: 0.45),
+                              color: context.xaneoTextMuted,
                             ),
                           ],
                         ],
@@ -1805,8 +1812,8 @@ class _ChatListScreenState extends State<ChatListScreen>
                               ? FontWeight.w500
                               : FontWeight.w400,
                           color: chat.unreadCount > 0
-                              ? Colors.white
-                              : AppStyles.textMutedColor,
+                              ? context.xaneoTextPrimary
+                              : context.xaneoTextMuted,
                         ),
                       ),
                     if (chat.unreadCount > 0) ...[
@@ -1819,7 +1826,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                           minHeight: 20,
                         ),
                         decoration: BoxDecoration(
-                          color: AppStyles.textPrimaryColor,
+                          color: context.xaneoTextPrimary,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         alignment: Alignment.center,
@@ -1827,10 +1834,10 @@ class _ChatListScreenState extends State<ChatListScreen>
                           chat.unreadCount > 99
                               ? '99+'
                               : chat.unreadCount.toString(),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
-                            color: AppStyles.backgroundColor,
+                            color: Theme.of(context).scaffoldBackgroundColor,
                           ),
                         ),
                       ),
@@ -1913,9 +1920,7 @@ class _ChatListScreenState extends State<ChatListScreen>
           FaIcon(
             FontAwesomeIcons.lock,
             size: 10,
-            color: chat.unreadCount > 0
-                ? Colors.white.withOpacity(0.5)
-                : AppStyles.textMutedColor,
+            color: context.xaneoTextMuted,
           ),
           const SizedBox(width: 5),
         ],
@@ -1927,8 +1932,8 @@ class _ChatListScreenState extends State<ChatListScreen>
               fontWeight:
                   chat.unreadCount > 0 ? FontWeight.w500 : FontWeight.w400,
               color: chat.unreadCount > 0
-                  ? Colors.white.withOpacity(0.7)
-                  : AppStyles.textMutedColor,
+                  ? context.xaneoTextSecondary
+                  : context.xaneoTextMuted,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

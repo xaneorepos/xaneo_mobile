@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 enum PremiumTransitionType {
-  chatReveal,      // Telegram-like slide from right
-  archivedReveal,  // Telegram-like slide from right
+  chatReveal, // Telegram-like slide from right
+  archivedReveal, // Telegram-like slide from right
 }
 
 class PremiumPageRoute<T> extends PageRouteBuilder<T> {

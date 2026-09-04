@@ -41,6 +41,40 @@ Map<String, dynamic> _allAudioMetadata(Map<String, dynamic> payload) {
   return result;
 }
 
+Map<String, dynamic> audioPayloadWithMetadata(
+  Map<String, dynamic> payload,
+  Map<String, dynamic> source, [
+  Map<String, dynamic>? fetchedMetadata,
+]) {
+  final merged = Map<String, dynamic>.from(payload);
+
+  void mergeFrom(Map<String, dynamic>? data) {
+    if (data == null) return;
+    const directKeys = <String>{
+      'title',
+      'artist',
+      'album',
+      'duration',
+      'cover_url',
+      'has_cover',
+    };
+    for (final key in directKeys) {
+      if (data[key] != null && data[key].toString().isNotEmpty) {
+        merged[key] = data[key];
+      }
+    }
+    for (final key in const ['audio_metadata', 'attached_file_metadata']) {
+      if (data[key] is Map) {
+        merged[key] = Map<String, dynamic>.from(data[key] as Map);
+      }
+    }
+  }
+
+  mergeFrom(source);
+  mergeFrom(fetchedMetadata);
+  return merged;
+}
+
 String audioTrackTitle(Map<String, dynamic> payload, String fileName) {
   final metadata = _allAudioMetadata(payload);
   final title = _firstText([

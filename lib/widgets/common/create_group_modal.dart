@@ -195,7 +195,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.08),
+                      color: context.xaneoDivider,
                       shape: BoxShape.circle,
                       image: _avatarFile != null
                           ? DecorationImage(
@@ -204,7 +204,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                             )
                           : null,
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.15),
+                        color: context.xaneoOverlay(0.15),
                         width: 1.5,
                       ),
                     ),
@@ -212,7 +212,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                         ? Center(
                             child: FaIcon(
                               FontAwesomeIcons.users,
-                              color: Colors.white70,
+                              color: context.xaneoTextSecondary,
                               size: 22,
                             ),
                           )
@@ -224,14 +224,14 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                     child: Container(
                       width: 22,
                       height: 22,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+                      decoration: BoxDecoration(
+                        color: context.xaneoTextPrimary,
                         shape: BoxShape.circle,
                       ),
-                      child: const Center(
+                      child: Center(
                         child: FaIcon(
                           FontAwesomeIcons.camera,
-                          color: Colors.black,
+                          color: context.xaneoSurface,
                           size: 11,
                         ),
                       ),
@@ -249,7 +249,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                     (AppLocalizations.of(context)?.sozdatGruppu_459f ??
                         'Fallback'),
                     style: TextStyle(
-                      color: Colors.white,
+                      color: context.xaneoTextPrimary,
                       fontSize: 19,
                       fontWeight: FontWeight.w600,
                       fontFamily: AppStyles.fontFamily,
@@ -279,13 +279,13 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
         // Поле ввода названия
         TextField(
           controller: _nameController,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+          style: TextStyle(color: context.xaneoTextPrimary, fontSize: 16),
           decoration: InputDecoration(
             hintText: (AppLocalizations.of(context)?.nazvanieGruppy_9a39 ??
                 'Fallback'),
             hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 15),
             filled: true,
-            fillColor: Colors.white.withOpacity(0.05),
+            fillColor: context.xaneoOverlay(0.05),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
@@ -294,8 +294,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+              borderSide: BorderSide(color: context.xaneoTextMuted, width: 1),
             ),
           ),
         ),
@@ -306,7 +305,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
         TextField(
           controller: _descriptionController,
           maxLines: 2,
-          style: const TextStyle(color: Colors.white, fontSize: 15),
+          style: TextStyle(color: context.xaneoTextPrimary, fontSize: 15),
           decoration: InputDecoration(
             hintText: RuntimeTranslations.instance.resolve(
               'messenger.createGroup.descriptionPlaceholder',
@@ -315,7 +314,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
             ),
             hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 15),
             filled: true,
-            fillColor: Colors.white.withOpacity(0.05),
+            fillColor: context.xaneoOverlay(0.05),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
@@ -324,8 +323,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+              borderSide: BorderSide(color: context.xaneoTextMuted, width: 1),
             ),
           ),
         ),
@@ -336,9 +334,9 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.04),
+            color: context.xaneoOverlay(0.04),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: context.xaneoDivider),
           ),
           child: Row(
             children: [
@@ -360,8 +358,8 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
                           : (AppLocalizations.of(context)
                                   ?.publichnayaGruppa_50f8 ??
                               'Fallback'),
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: context.xaneoTextPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
                         fontFamily: AppStyles.fontFamily,
@@ -386,7 +384,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
               ),
               Switch.adaptive(
                 value: _isPrivate,
-                activeTrackColor: Colors.white,
+                activeTrackColor: context.xaneoTextPrimary,
                 onChanged: (val) {
                   setState(() {
                     _isPrivate = val;
@@ -402,7 +400,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
           SizedBox(height: 12),
           TextField(
             controller: _usernameController,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+            style: TextStyle(color: context.xaneoTextPrimary, fontSize: 16),
             decoration: InputDecoration(
               hintText: (AppLocalizations.of(context)
                       ?.publichnayaSsylkanikneymMyGroup_6640 ??
@@ -410,12 +408,12 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
               hintStyle:
                   const TextStyle(color: Color(0xFF666666), fontSize: 14.5),
               prefixText: '@ ',
-              prefixStyle: const TextStyle(
-                  color: Colors.white,
+              prefixStyle: TextStyle(
+                  color: context.xaneoTextPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.bold),
               filled: true,
-              fillColor: Colors.white.withOpacity(0.05),
+              fillColor: context.xaneoOverlay(0.05),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               border: OutlineInputBorder(
@@ -424,8 +422,7 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide:
-                    BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+                borderSide: BorderSide(color: context.xaneoTextMuted, width: 1),
               ),
             ),
           ),
@@ -452,8 +449,8 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
           child: ElevatedButton(
             onPressed: _isLoading ? null : _handleCreateGroup,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
+              backgroundColor: context.xaneoTextPrimary,
+              foregroundColor: Theme.of(context).scaffoldBackgroundColor,
               padding: EdgeInsets.zero,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
@@ -461,12 +458,12 @@ class _CreateGroupModalState extends BaseCustomModalState<CreateGroupModal> {
               elevation: 0,
             ),
             child: _isLoading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.black,
+                      color: context.xaneoSurface,
                     ),
                   )
                 : Text(

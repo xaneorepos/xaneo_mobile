@@ -7,10 +7,11 @@ import 'package:path/path.dart' as p;
 
 import '../../models/database/chats_table.dart';
 import '../../models/database/messages_table.dart';
+import '../../models/database/audio_tracks_table.dart';
 
 part 'app_database.g.dart';
 
-@DriftDatabase(tables: [Chats, Messages])
+@DriftDatabase(tables: [Chats, Messages, AudioTracks])
 class AppDatabase extends _$AppDatabase {
   AppDatabase._(super.e);
 
@@ -82,7 +83,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -112,6 +113,9 @@ class AppDatabase extends _$AppDatabase {
           if (from < 6) {
             await m.addColumn(messages, messages.replyMarkup);
           }
+          if (from < 7) {
+            await m.createTable(audioTracks);
+          }
         },
         beforeOpen: (details) async {
           // Создаем композитный индекс для оптимизации сортировки и выборки сообщений в чате
@@ -120,6 +124,9 @@ class AppDatabase extends _$AppDatabase {
           );
           await customStatement(
             'CREATE INDEX IF NOT EXISTS idx_chats_last_message_time ON chats (last_message_time DESC);',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_audio_tracks_lru ON audio_tracks (last_accessed_at ASC);',
           );
         },
       );

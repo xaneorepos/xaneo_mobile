@@ -1,6 +1,10 @@
 package net.xaneo
 
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.Bundle
 import android.net.Uri
 import androidx.core.content.FileProvider
 import com.ryanheise.audioservice.AudioServiceActivity
@@ -10,6 +14,36 @@ import java.io.File
 
 class MainActivity : AudioServiceActivity() {
     private val CHANNEL = "net.xaneo/app_installer"
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        updateLauncherIcon()
+    }
+
+    private fun updateLauncherIcon() {
+        val useInvertedIcon =
+            Build.MANUFACTURER.equals("samsung", ignoreCase = true) ||
+                Build.BRAND.equals("samsung", ignoreCase = true)
+
+        setLauncherAlias("LauncherSamsung", useInvertedIcon)
+        setLauncherAlias("LauncherDefault", !useInvertedIcon)
+    }
+
+    private fun setLauncherAlias(alias: String, enabled: Boolean) {
+        val component = ComponentName(this, "$packageName.$alias")
+        val desiredState = if (enabled) {
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        } else {
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        }
+        if (packageManager.getComponentEnabledSetting(component) != desiredState) {
+            packageManager.setComponentEnabledSetting(
+                component,
+                desiredState,
+                PackageManager.DONT_KILL_APP,
+            )
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

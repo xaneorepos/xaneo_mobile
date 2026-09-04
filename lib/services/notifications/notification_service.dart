@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
@@ -11,8 +12,10 @@ import 'package:flutter_callkit_incoming/entities/android_params.dart';
 import 'package:flutter_callkit_incoming/entities/ios_params.dart';
 import 'package:flutter_callkit_incoming/entities/call_event.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../models/message_color_presets.dart';
 import '../../services/chat/chat_local_repository.dart';
 import '../../models/chat/chat_model.dart';
 import '../../screens/chat/chat_screen.dart';
@@ -25,14 +28,31 @@ import '../../services/api/api_client.dart';
 import '../../services/crypto/crypto_service.dart';
 
 class NotificationService {
+  static const _notificationStylePreference = 'appearance_notification_style';
+
+  static Future<bool> _usesRavenNotificationStyle() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final style = NotificationStyle.values.firstWhere(
+        (value) => value.name == prefs.getString(_notificationStylePreference),
+        orElse: () => NotificationStyle.standard,
+      );
+      return style == NotificationStyle.raven;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
 
   FirebaseMessaging get _messaging => FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
-  
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
 
   bool _initialized = false;
 
@@ -63,7 +83,8 @@ class NotificationService {
       requestSoundPermission: true,
     );
     await _localNotifications.initialize(
-      settings: const InitializationSettings(android: androidInit, iOS: iosInit),
+      settings:
+          const InitializationSettings(android: androidInit, iOS: iosInit),
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
@@ -110,7 +131,8 @@ class NotificationService {
   /// Создание каналов уведомлений (вызывается и из foreground, и из background)
   static Future<void> _ensureNotificationChannels() async {
     final localNotifications = FlutterLocalNotificationsPlugin();
-    final plugin = localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    final plugin = localNotifications.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
     if (plugin != null) {
       await plugin.createNotificationChannel(const AndroidNotificationChannel(
         'xaneo_messages_v2',
@@ -137,10 +159,15 @@ class NotificationService {
   /// Проверяет, было ли приложение запущено по нажатию на уведомление
   Future<void> _checkLaunchNotification() async {
     try {
-      final details = await _localNotifications.getNotificationAppLaunchDetails();
-      debugPrint('NotificationService: _checkLaunchNotification details=$details didLaunch=${details?.didNotificationLaunchApp} response=${details?.notificationResponse}');
-      if (details != null && details.didNotificationLaunchApp && details.notificationResponse != null) {
-        debugPrint('NotificationService: App was launched from notification, actionId=${details.notificationResponse!.actionId}');
+      final details =
+          await _localNotifications.getNotificationAppLaunchDetails();
+      debugPrint(
+          'NotificationService: _checkLaunchNotification details=$details didLaunch=${details?.didNotificationLaunchApp} response=${details?.notificationResponse}');
+      if (details != null &&
+          details.didNotificationLaunchApp &&
+          details.notificationResponse != null) {
+        debugPrint(
+            'NotificationService: App was launched from notification, actionId=${details.notificationResponse!.actionId}');
         await _onNotificationTapped(details.notificationResponse!);
       }
     } catch (e) {
@@ -152,7 +179,8 @@ class NotificationService {
   /// Вызывается из main.dart после полной инициализации виджетов.
   static Future<void> checkPendingCallPayload() async {
     try {
-      debugPrint('NotificationService: checkPendingCallPayload called, pendingCallPayload=$pendingCallPayload, isAppReady=$isAppReady');
+      debugPrint(
+          'NotificationService: checkPendingCallPayload called, pendingCallPayload=$pendingCallPayload, isAppReady=$isAppReady');
       if (pendingCallPayload != null) {
         final data = pendingCallPayload!;
         pendingCallPayload = null; // Очищаем сразу
@@ -162,25 +190,30 @@ class NotificationService {
           // Ждём пока navigator станет доступен
           int attempts = 0;
           while (navigatorKey.currentState == null && attempts < 50) {
-            debugPrint('NotificationService: waiting for navigatorState... attempt=$attempts');
+            debugPrint(
+                'NotificationService: waiting for navigatorState... attempt=$attempts');
             await Future.delayed(const Duration(milliseconds: 100));
             attempts++;
           }
           final context = navigatorKey.currentContext;
-          debugPrint('NotificationService: navigatorState is ready, context=$context, state=${navigatorKey.currentState}');
+          debugPrint(
+              'NotificationService: navigatorState is ready, context=$context, state=${navigatorKey.currentState}');
           if (context != null) {
-            debugPrint('NotificationService: Navigating to pending call $callId via push');
+            debugPrint(
+                'NotificationService: Navigating to pending call $callId via push');
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ActiveCallScreen()),
             );
-            debugPrint('NotificationService: Pushed ActiveCallScreen, now calling CallManager.acceptCallById($callId)');
+            debugPrint(
+                'NotificationService: Pushed ActiveCallScreen, now calling CallManager.acceptCallById($callId)');
             context.read<CallManager>().acceptCallById(
-              callId,
-              callerName: data['caller_name']?.toString(),
-              callerId: data['caller_id']?.toString(),
-            );
+                  callId,
+                  callerName: data['caller_name']?.toString(),
+                  callerId: data['caller_id']?.toString(),
+                );
           } else {
-            debugPrint('NotificationService: Cannot navigate, context is null!');
+            debugPrint(
+                'NotificationService: Cannot navigate, context is null!');
           }
         }
       }
@@ -205,7 +238,8 @@ class NotificationService {
   void _handleForegroundMessage(RemoteMessage message) async {
     // В режиме переднего плана (Foreground) системные всплывающие уведомления НЕ показываются.
     // Все обновления списка чатов и сообщений осуществляются исключительно в реальном времени через WebSocket.
-    debugPrint('NotificationService: Message push received in foreground, ignoring banner in favor of WebSocket');
+    debugPrint(
+        'NotificationService: Message push received in foreground, ignoring banner in favor of WebSocket');
   }
 
   // ─── Локальные уведомления ────────────────────────────────────────
@@ -215,7 +249,8 @@ class NotificationService {
     required String body,
     required String payload,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
+    final useRavenStyle = await _usesRavenNotificationStyle();
+    final androidDetails = AndroidNotificationDetails(
       'xaneo_messages_v2',
       'Xaneo Messages',
       channelDescription: 'Channel for message notifications',
@@ -224,8 +259,10 @@ class NotificationService {
       playSound: true,
       enableVibration: true,
       ticker: 'ticker',
+      color: useRavenStyle ? const Color(0xFF111111) : null,
+      colorized: useRavenStyle,
       actions: [
-        AndroidNotificationAction(
+        const AndroidNotificationAction(
           'mark_read',
           'Отметить как прочитанное',
           showsUserInterface: false,
@@ -242,22 +279,43 @@ class NotificationService {
       id: DateTime.now().millisecond,
       title: title,
       body: body,
-      notificationDetails: NotificationDetails(android: androidDetails, iOS: iosDetails),
+      notificationDetails:
+          NotificationDetails(android: androidDetails, iOS: iosDetails),
       payload: payload,
     );
   }
 
   // ─── Уведомление о входящем звонке ────────────────────────────────
 
-  static Future<void> _showIncomingCallNotification(Map<String, dynamic> data) async {
+  static Future<void> _showIncomingCallNotification(
+      Map<String, dynamic> data) async {
     // Гарантируем создание канала (критично для фонового изолята)
     await _ensureNotificationChannels();
 
     final callerName = data['caller_name'] ?? 'Пользователь';
     final callId = data['call_id'] ?? '';
-    
-    final List<int> vibratePattern = [0, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1000];
-    
+
+    final List<int> vibratePattern = [
+      0,
+      1000,
+      500,
+      1000,
+      500,
+      1000,
+      500,
+      1000,
+      500,
+      1000,
+      500,
+      1000,
+      500,
+      1000,
+      500,
+      1000,
+      500,
+      1000
+    ];
+
     final androidDetails = AndroidNotificationDetails(
       'xaneo_calls_v4',
       'Входящие звонки Xaneo',
@@ -300,7 +358,8 @@ class NotificationService {
       id: callId.hashCode,
       title: 'Входящий звонок',
       body: callerName,
-      notificationDetails: NotificationDetails(android: androidDetails, iOS: iosDetails),
+      notificationDetails:
+          NotificationDetails(android: androidDetails, iOS: iosDetails),
       payload: jsonEncode(data),
     );
   }
@@ -308,7 +367,8 @@ class NotificationService {
   // ─── Обработка нажатий на уведомления ─────────────────────────────
 
   Future<void> _onNotificationTapped(NotificationResponse response) async {
-    debugPrint('NotificationService: _onNotificationTapped triggered, actionId=${response.actionId}, payload=${response.payload}');
+    debugPrint(
+        'NotificationService: _onNotificationTapped triggered, actionId=${response.actionId}, payload=${response.payload}');
     if (response.actionId == 'mark_read') {
       if (response.payload != null) {
         try {
@@ -321,7 +381,8 @@ class NotificationService {
               '/messages/mark-read/',
               data: {'chat_id': chatId},
             );
-            debugPrint('Notification Action: Marked chat $chatId as read successfully');
+            debugPrint(
+                'Notification Action: Marked chat $chatId as read successfully');
           }
         } catch (e) {
           debugPrint('Notification Action: Error marking read: $e');
@@ -359,7 +420,10 @@ class NotificationService {
             } else {
               final tokenStorage = TokenStorage();
               final apiClient = ApiClient(tokenStorage: tokenStorage);
-              final callManager = CallManager(apiClient: apiClient, signalingService: WebRTCSignalingService(apiClient: apiClient));
+              final callManager = CallManager(
+                  apiClient: apiClient,
+                  signalingService:
+                      WebRTCSignalingService(apiClient: apiClient));
               await callManager.rejectCallById(callId);
             }
           }
@@ -375,7 +439,8 @@ class NotificationService {
       try {
         final data = jsonDecode(response.payload!) as Map<String, dynamic>;
         final type = data['type']?.toString();
-        debugPrint('Notification Service: Tap notification body, type=$type, payload=$data');
+        debugPrint(
+            'Notification Service: Tap notification body, type=$type, payload=$data');
         if (type == 'call') {
           final callId = data['call_id']?.toString() ?? '';
           if (callId.isNotEmpty) {
@@ -395,24 +460,28 @@ class NotificationService {
   /// Принять звонок с навигацией на экран звонка.
   /// Если навигатор доступен — переходит напрямую.
   /// Иначе сохраняет payload в переменную pendingCallPayload для обработки при старте.
-  static Future<void> _acceptCallWithNavigation(String callId, Map<String, dynamic> data) async {
+  static Future<void> _acceptCallWithNavigation(
+      String callId, Map<String, dynamic> data) async {
     final context = navigatorKey.currentContext;
-    debugPrint('NotificationService: _acceptCallWithNavigation called, context=$context, isAppReady=$isAppReady');
+    debugPrint(
+        'NotificationService: _acceptCallWithNavigation called, context=$context, isAppReady=$isAppReady');
     if (context != null && isAppReady) {
-      debugPrint('NotificationService: Accepting call $callId (UI alive & ready), pushing ActiveCallScreen');
+      debugPrint(
+          'NotificationService: Accepting call $callId (UI alive & ready), pushing ActiveCallScreen');
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const ActiveCallScreen()),
       );
       context.read<CallManager>().acceptCallById(
-        callId,
-        callerName: data['caller_name']?.toString(),
-        callerId: data['caller_id']?.toString(),
-      );
+            callId,
+            callerName: data['caller_name']?.toString(),
+            callerId: data['caller_id']?.toString(),
+          );
       return;
     }
 
     // UI недоступен или приложение еще запускается — сохраняем pending payload для обработки при старте
-    debugPrint('NotificationService: Saving pending call $callId in memory for cold start (isAppReady=$isAppReady)');
+    debugPrint(
+        'NotificationService: Saving pending call $callId in memory for cold start (isAppReady=$isAppReady)');
     pendingCallPayload = data;
   }
 
@@ -450,7 +519,7 @@ class NotificationService {
     FlutterCallkitIncoming.onEvent.listen((event) async {
       if (event == null) return;
       debugPrint('NotificationService: CallKit Event: $event');
-      
+
       String callId = '';
       if (event is CallEventActionCallAccept) {
         callId = event.callKitParams.id;
@@ -465,27 +534,32 @@ class NotificationService {
       if (callId.isEmpty) return;
 
       final context = navigatorKey.currentContext;
-      debugPrint('NotificationService: CallKit Event mapping: callId=$callId, context=$context');
+      debugPrint(
+          'NotificationService: CallKit Event mapping: callId=$callId, context=$context');
 
       if (event is CallEventActionCallAccept) {
         if (context != null) {
-          debugPrint('NotificationService: CallKit accept event, pushing ActiveCallScreen');
+          debugPrint(
+              'NotificationService: CallKit accept event, pushing ActiveCallScreen');
           Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => const ActiveCallScreen()),
           );
           context.read<CallManager>().acceptCallById(callId);
         } else {
-          debugPrint('NotificationService: CallKit accept event, but context is null!');
+          debugPrint(
+              'NotificationService: CallKit accept event, but context is null!');
         }
       } else if (event is CallEventActionCallDecline ||
-                 event is CallEventActionCallEnded ||
-                 event is CallEventActionCallTimeout) {
+          event is CallEventActionCallEnded ||
+          event is CallEventActionCallTimeout) {
         if (context != null) {
           context.read<CallManager>().rejectCallById(callId);
         } else {
           final tokenStorage = TokenStorage();
           final apiClient = ApiClient(tokenStorage: tokenStorage);
-          final callManager = CallManager(apiClient: apiClient, signalingService: WebRTCSignalingService(apiClient: apiClient));
+          final callManager = CallManager(
+              apiClient: apiClient,
+              signalingService: WebRTCSignalingService(apiClient: apiClient));
           await callManager.rejectCallById(callId);
         }
       }
@@ -502,14 +576,14 @@ class NotificationService {
       if (context != null) {
         crypto = Provider.of<CryptoService>(context, listen: false);
       }
-      
+
       if (crypto == null) {
         final tokenStorage = TokenStorage();
         final apiClient = ApiClient(tokenStorage: tokenStorage);
         crypto = CryptoService(apiClient: apiClient);
         await crypto.init();
       }
-      
+
       final decrypted = await crypto.decryptMessage(encryptedText, chatId);
       if (decrypted != null && decrypted.isNotEmpty) {
         return decrypted;
@@ -522,11 +596,12 @@ class NotificationService {
 
   // ─── Background message handler ───────────────────────────────────
 
-  static Future<void> _handleBackgroundMessage(Map<String, dynamic> data) async {
+  static Future<void> _handleBackgroundMessage(
+      Map<String, dynamic> data) async {
     final chatId = data['chat_id']?.toString() ?? '';
     final senderName = data['sender_name']?.toString() ?? 'Сообщение';
     final encryptedText = data['encrypted_text']?.toString() ?? '';
-    
+
     String displayBody = 'Новое зашифрованное сообщение';
     if (encryptedText.isNotEmpty) {
       try {
@@ -547,7 +622,9 @@ class NotificationService {
     await _ensureNotificationChannels();
 
     final localNotifications = FlutterLocalNotificationsPlugin();
-    const androidDetails = AndroidNotificationDetails(
+    final useRavenStyle =
+        await NotificationService._usesRavenNotificationStyle();
+    final androidDetails = AndroidNotificationDetails(
       'xaneo_messages_v2',
       'Xaneo Messages',
       channelDescription: 'Channel for message notifications',
@@ -555,8 +632,10 @@ class NotificationService {
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
+      color: useRavenStyle ? const Color(0xFF111111) : null,
+      colorized: useRavenStyle,
       actions: [
-        AndroidNotificationAction(
+        const AndroidNotificationAction(
           'mark_read',
           'Отметить как прочитанное',
           showsUserInterface: false,
@@ -573,7 +652,8 @@ class NotificationService {
       id: DateTime.now().millisecond,
       title: senderName,
       body: displayBody,
-      notificationDetails: const NotificationDetails(android: androidDetails, iOS: iosDetails),
+      notificationDetails:
+          NotificationDetails(android: androidDetails, iOS: iosDetails),
       payload: jsonEncode(data),
     );
   }
@@ -581,6 +661,9 @@ class NotificationService {
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
   await Firebase.initializeApp();
   final data = message.data;
   final type = data['type']?.toString();

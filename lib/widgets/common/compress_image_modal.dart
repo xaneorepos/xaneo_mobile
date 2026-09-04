@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
+import '../../styles/app_styles.dart';
 
 import 'base_custom_modal.dart';
 
-/// Спрашивает, нужно ли сжать фото перед отправкой (экономия трафика) —
-/// тот же выбор, что и в imagePreviewModal веб-клиента (checkbox "Сжать
-/// изображение для быстрой отправки").
-///
-/// Возвращает true (сжать), false (отправить как есть) или null (отмена).
+/// Выбирает только способ отображения: фото или файл.
+/// Исходное изображение не пережимается.
 class CompressImageModal extends BaseCustomModal {
   const CompressImageModal({super.key});
 
@@ -37,10 +35,10 @@ class _CompressImageModalState
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
+        Text(
           'Отправка фото',
           style: TextStyle(
-            color: Colors.white,
+            color: context.xaneoTextPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
@@ -58,10 +56,13 @@ class _CompressImageModalState
                   onChanged: (v) => setState(() => _compress = v ?? true),
                 ),
                 const SizedBox(width: 4),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Сжать изображение для быстрой отправки',
-                    style: TextStyle(color: Colors.white, fontSize: 14),
+                    'Показывать как фото (без потери качества)',
+                    style: TextStyle(
+                      color: context.xaneoTextPrimary,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ],

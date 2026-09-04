@@ -2016,6 +2016,36 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get fontSizeText => 'حجم الخط';
   @override
+  String get changePhoto => 'تغيير الصورة';
+  @override
+  String get avatarUpdated => 'تم تحديث الصورة الشخصية';
+  @override
+  String get avatarUploadFailed => 'تعذر رفع الصورة الشخصية';
+  @override
+  String get invalidNicknameFormat =>
+      'اسم المستخدم: من 3 إلى 30 حرفًا؛ أحرف وأرقام و . و _ و - فقط';
+  @override
+  String get deleteAccountPrompt =>
+      'سيتم حذف ملفك الشخصي نهائيًا. أدخل كلمة المرور للتأكيد.';
+  @override
+  String get deleteAccountFailed => 'تعذر حذف الحساب';
+  @override
+  String get chatFontSize => 'حجم خط الدردشة';
+  @override
+  String get chatWallpaper => 'خلفية الدردشة';
+  @override
+  String get myMessageColor => 'لون رسائلي';
+  @override
+  String get otherMessageColor => 'لون رسائل الآخرين';
+  @override
+  String get notificationStyle => 'نمط الإشعارات';
+  @override
+  String get standardNotificationStyle => 'قياسي';
+  @override
+  String get blackRavenNotificationStyle => 'الغراب الأسود';
+  @override
+  String get wallpaperUploadFailed => 'تعذر رفع خلفية الدردشة';
+  @override
   String get showPopups => 'إظهار الإشعارات المنبثقة';
   @override
   String get sound => 'الصوت';
@@ -2320,22 +2350,27 @@ class AppLocalizationsAr extends AppLocalizations {
   String get authNotificationPasswordLogin => 'تسجيل الدخول بكلمة المرور';
 
   @override
-  String get authNotificationSendingSubtitle => 'سيصل الرمز إلى محادثة "إشعارات Xaneo". لا تغلق هذه الشاشة.';
+  String get authNotificationSendingSubtitle =>
+      'سيصل الرمز إلى محادثة "إشعارات Xaneo". لا تغلق هذه الشاشة.';
 
   @override
-  String get authNotificationEnterCodeSubtitle => 'أدخل الرمز المكون من 6 أرقام من الرسالة.';
+  String get authNotificationEnterCodeSubtitle =>
+      'أدخل الرمز المكون من 6 أرقام من الرسالة.';
 
   @override
-  String get authNotificationConfirmSubtitle => 'افتح Xaneo على جهاز مصرح به مسبقًا وتحقق من تفاصيل الطلب.';
+  String get authNotificationConfirmSubtitle =>
+      'افتح Xaneo على جهاز مصرح به مسبقًا وتحقق من تفاصيل الطلب.';
 
   @override
-  String get authNotificationPasswordSubtitle => 'هذه الطريقة متاحة فقط بعد انتهاء فترة الانتظار. لا يتم حفظ كلمة المرور.';
+  String get authNotificationPasswordSubtitle =>
+      'هذه الطريقة متاحة فقط بعد انتهاء فترة الانتظار. لا يتم حفظ كلمة المرور.';
 
   @override
   String get authNotificationBotSource => 'يأتي الرمز من "إشعارات Xaneo".';
 
   @override
-  String authNotificationCodeSentToEmail(String email) => 'تم إرسال الرمز إلى $email';
+  String authNotificationCodeSentToEmail(String email) =>
+      'تم إرسال الرمز إلى $email';
 
   @override
   String get authNotificationNoBotAccess => 'لا يمكنك الوصول إلى البوت؟';
@@ -2344,34 +2379,43 @@ class AppLocalizationsAr extends AppLocalizations {
   String get authNotificationGetCodeViaEmail => 'الحصول على الرمز عبر البريد';
 
   @override
-  String get authNotificationResendCodeViaEmail => 'إعادة إرسال الرمز إلى البريد';
+  String get authNotificationResendCodeViaEmail =>
+      'إعادة إرسال الرمز إلى البريد';
 
   @override
-  String get authNotificationEmailUnavailable => 'الرمز عبر البريد غير متاح: لا يوجد بريد إلكتروني موثق في الحساب.';
+  String get authNotificationEmailUnavailable =>
+      'الرمز عبر البريد غير متاح: لا يوجد بريد إلكتروني موثق في الحساب.';
 
   @override
-  String authNotificationEmailAvailableIn(int seconds) => 'سيتوفر الرمز عبر البريد خلال $seconds ثانية.';
+  String authNotificationEmailAvailableIn(int seconds) =>
+      'سيتوفر الرمز عبر البريد خلال $seconds ثانية.';
 
   @override
   String get authNotificationLoginWithPassword => 'تسجيل الدخول بكلمة المرور';
 
   @override
-  String authNotificationPasswordAvailableIn(int seconds) => 'سيتوفر تسجيل الدخول بكلمة المرور خلال $seconds ثانية.';
+  String authNotificationPasswordAvailableIn(int seconds) =>
+      'سيتوفر تسجيل الدخول بكلمة المرور خلال $seconds ثانية.';
 
   @override
-  String get authNotificationErrorSendFailed => 'فشل إرسال الرمز. يرجى المحاولة لاحقًا.';
+  String get authNotificationErrorSendFailed =>
+      'فشل إرسال الرمز. يرجى المحاولة لاحقًا.';
 
   @override
-  String get authNotificationErrorInvalidCode => 'رمز غير صالح أو منتهي الصلاحية';
+  String get authNotificationErrorInvalidCode =>
+      'رمز غير صالح أو منتهي الصلاحية';
 
   @override
-  String get authNotificationErrorRequestExpired => 'تم رفض الطلب أو انتهت صلاحيته';
+  String get authNotificationErrorRequestExpired =>
+      'تم رفض الطلب أو انتهت صلاحيته';
 
   @override
-  String get authNotificationErrorEmailFailed => 'فشل إرسال الرمز إلى البريد. يرجى المحاولة لاحقًا.';
+  String get authNotificationErrorEmailFailed =>
+      'فشل إرسال الرمز إلى البريد. يرجى المحاولة لاحقًا.';
 
   @override
-  String get authNotificationErrorPasswordFailed => 'فشل تسجيل الدخول. تحقق من كلمة المرور أو ابدأ من جديد.';
+  String get authNotificationErrorPasswordFailed =>
+      'فشل تسجيل الدخول. تحقق من كلمة المرور أو ابدأ من جديد.';
 
   @override
   String get authNotificationGetCodeBtn => 'الحصول على الرمز';
@@ -2411,4 +2455,18 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get importLanguageFromJson => 'استيراد لغة من ملف JSON';
+  @override
+  String get customColor => 'لون مخصص';
+  @override
+  String get customGradient => 'تدرج مخصص';
+  @override
+  String get colorOne => 'اللون 1';
+  @override
+  String get colorTwo => 'اللون 2';
+  @override
+  String get diagonal => 'قطري';
+  @override
+  String get vertical => 'عمودي';
+  @override
+  String get horizontal => 'أفقي';
 }

@@ -96,15 +96,15 @@ class _TfaVerificationDialogState
                       width: 46,
                       height: 46,
                       decoration: BoxDecoration(
-                        color: AppStyles.backgroundColor,
+                        color: context.xaneoSurfaceElevated,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppStyles.borderColor),
+                        border: Border.all(color: context.xaneoDivider),
                       ),
                       alignment: Alignment.center,
-                      child: const FaIcon(
+                      child: FaIcon(
                         FontAwesomeIcons.shieldHalved,
                         size: 20,
-                        color: AppStyles.textPrimaryColor,
+                        color: context.xaneoTextPrimary,
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -114,12 +114,18 @@ class _TfaVerificationDialogState
                         children: [
                           Text(
                             l10n.twoFactorAuth,
-                            style: AppStyles.titleLarge.copyWith(fontSize: 20),
+                            style: AppStyles.titleLarge.copyWith(
+                              color: context.xaneoTextPrimary,
+                              fontSize: 20,
+                            ),
                           ),
                           const SizedBox(height: 3),
                           Text(
                             l10n.twoFactorAuthDesc,
-                            style: AppStyles.bodyMuted.copyWith(fontSize: 14),
+                            style: AppStyles.bodyMuted.copyWith(
+                              color: context.xaneoTextMuted,
+                              fontSize: 14,
+                            ),
                           ),
                         ],
                       ),
@@ -131,10 +137,17 @@ class _TfaVerificationDialogState
                   email?.isNotEmpty == true
                       ? l10n.codeSentToEmail(email!)
                       : l10n.codeSent,
-                  style: AppStyles.bodyMedium,
+                  style: AppStyles.bodyMedium.copyWith(
+                    color: context.xaneoTextSecondary,
+                  ),
                 ),
                 const SizedBox(height: 18),
-                Text(l10n.enterVerificationCode, style: AppStyles.bodyMuted),
+                Text(
+                  l10n.enterVerificationCode,
+                  style: AppStyles.bodyMuted.copyWith(
+                    color: context.xaneoTextMuted,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _codeController,
@@ -149,6 +162,7 @@ class _TfaVerificationDialogState
                   ],
                   textAlign: TextAlign.center,
                   style: AppStyles.inputText.copyWith(
+                    color: context.xaneoTextPrimary,
                     fontSize: 24,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 12,
@@ -157,21 +171,19 @@ class _TfaVerificationDialogState
                     hintText: '000000',
                     counterText: '',
                     filled: true,
-                    fillColor: AppStyles.backgroundColor,
+                    fillColor: context.xaneoSurfaceElevated,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide:
-                          const BorderSide(color: AppStyles.borderColor),
+                      borderSide: BorderSide(color: context.xaneoDivider),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide:
-                          const BorderSide(color: AppStyles.borderColor),
+                      borderSide: BorderSide(color: context.xaneoDivider),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
-                        color: AppStyles.borderActiveColor,
+                      borderSide: BorderSide(
+                        color: context.xaneoTextPrimary,
                         width: 1.5,
                       ),
                     ),

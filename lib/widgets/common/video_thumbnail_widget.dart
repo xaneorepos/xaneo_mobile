@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
@@ -35,8 +36,11 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
   }
 
   Future<void> _loadThumbnail() async {
-    final proxyUrl = LocalProxy.getProxyUrl(widget.videoUrl, jwtToken: widget.jwtToken);
-    
+    final localFile = File(widget.videoUrl);
+    final proxyUrl = localFile.existsSync()
+        ? widget.videoUrl
+        : LocalProxy.getProxyUrl(widget.videoUrl, jwtToken: widget.jwtToken);
+
     if (_cache.containsKey(proxyUrl)) {
       if (mounted) {
         setState(() {
@@ -51,14 +55,15 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
       final uint8list = await VideoThumbnail.thumbnailData(
         video: proxyUrl,
         imageFormat: ImageFormat.JPEG,
-        maxWidth: 320, // specify the width of the thumbnail, let the height auto-scaled to keep the source aspect ratio
+        maxWidth:
+            320, // specify the width of the thumbnail, let the height auto-scaled to keep the source aspect ratio
         quality: 50,
       );
-      
+
       if (uint8list != null) {
         _cache[proxyUrl] = uint8list;
       }
-      
+
       if (mounted) {
         setState(() {
           _thumbnailData = uint8list;
@@ -87,13 +92,15 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
         ),
         child: const Center(
           child: SizedBox(
-            width: 24, height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+                strokeWidth: 2, color: Colors.white54),
           ),
         ),
       );
     }
-    
+
     if (_thumbnailData == null) {
       return Container(
         width: widget.width,
@@ -107,7 +114,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
         ),
       );
     }
-    
+
     return ClipRRect(
       borderRadius: widget.borderRadius,
       child: Image.memory(

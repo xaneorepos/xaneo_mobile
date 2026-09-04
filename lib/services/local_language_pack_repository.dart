@@ -50,7 +50,8 @@ class InstalledLanguagePack {
       direction: (json['direction'] as String?) ?? 'ltr',
       fallbackLocale: json['fallback_locale'] as String,
       stringCount: (json['string_count'] as num?)?.toInt() ?? 0,
-      installedAt: DateTime.tryParse(json['installed_at'] as String? ?? '') ?? DateTime.now(),
+      installedAt: DateTime.tryParse(json['installed_at'] as String? ?? '') ??
+          DateTime.now(),
       relativeFilePath: json['relative_file_path'] as String,
     );
   }
@@ -115,7 +116,8 @@ class LocalLanguagePackRepository {
   }
 
   /// Save a validated normalized pack to local storage
-  Future<InstalledLanguagePack> installPack(Map<String, dynamic> normalizedPack) async {
+  Future<InstalledLanguagePack> installPack(
+      Map<String, dynamic> normalizedPack) async {
     final id = _generateUuid();
     final packsDir = await _getPacksDirectory();
     final fileName = '$id.json';

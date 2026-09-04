@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../screens/main/main_screen.dart';
 import '../../styles/app_styles.dart';
 import '../../widgets/common/auth_settings_modal.dart';
+import '../../widgets/common/auth_theme_toggle_button.dart';
 import '../../widgets/common/notification_login_dialog.dart';
 import 'register_screen.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
@@ -77,21 +78,22 @@ class _LoginScreenState extends State<LoginScreen>
     final isLoading = context.watch<AuthProvider>().isLoading;
 
     return Scaffold(
-      backgroundColor: AppStyles.backgroundColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: _authV2LoginStarted
             ? IconButton(
-                icon: const FaIcon(FontAwesomeIcons.chevronLeft,
-                    color: Colors.white, size: 18),
+                icon: FaIcon(FontAwesomeIcons.chevronLeft,
+                    color: context.xaneoTextPrimary, size: 18),
                 onPressed: isLoading ? null : _goBack,
               )
             : null,
         actions: [
+          const AuthThemeToggleButton(),
           IconButton(
-            icon: const FaIcon(FontAwesomeIcons.gear,
-                color: Colors.white70, size: 18),
+            icon: FaIcon(FontAwesomeIcons.gear,
+                color: context.xaneoTextSecondary, size: 18),
             onPressed: () => AuthSettingsModal.show(context),
           ),
         ],
@@ -108,14 +110,18 @@ class _LoginScreenState extends State<LoginScreen>
                   'assets/images/logo.png',
                   height: 60,
                   width: 60,
-                  errorBuilder: (context, error, stackTrace) => const Center(
+                  color: context.xaneoTextPrimary,
+                  colorBlendMode: BlendMode.srcIn,
+                  errorBuilder: (context, error, stackTrace) => Center(
                       child: FaIcon(FontAwesomeIcons.comments,
-                          color: Colors.white, size: 50)),
+                          color: context.xaneoTextPrimary, size: 50)),
                 ),
               ),
               const Spacer(flex: 1),
               AnimatedSwitcher(
-                duration: AppStyles.animationMedium,
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : AppStyles.animationMedium,
                 switchInCurve: AppStyles.curveEaseOut,
                 switchOutCurve: AppStyles.curveEaseIn,
                 transitionBuilder: (Widget child, Animation<double> animation) {
@@ -152,23 +158,28 @@ class _LoginScreenState extends State<LoginScreen>
                             ? _goToNextStep
                             : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppStyles.buttonBackgroundColor,
-                      disabledBackgroundColor: Colors.white24,
-                      foregroundColor: AppStyles.buttonTextColor,
+                      backgroundColor: context.xaneoTextPrimary,
+                      disabledBackgroundColor: context.xaneoOverlay(0.24),
+                      foregroundColor:
+                          Theme.of(context).scaffoldBackgroundColor,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
                       elevation: 0,
                     ),
                     child: isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             height: 24,
                             width: 24,
                             child: CircularProgressIndicator(
-                                color: Colors.black, strokeWidth: 2))
+                                color:
+                                    Theme.of(context).scaffoldBackgroundColor,
+                                strokeWidth: 2))
                         : Text(
                             AppLocalizations.of(context)?.prodolzhit_e9c3 ??
                                 'Continue',
-                            style: AppStyles.buttonText),
+                            style: AppStyles.buttonText.copyWith(
+                              color: Theme.of(context).scaffoldBackgroundColor,
+                            )),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -188,7 +199,9 @@ class _LoginScreenState extends State<LoginScreen>
                     child: Text(
                       (AppLocalizations.of(context)?.sozdatXaneoId_4033 ??
                           'Fallback'),
-                      style: AppStyles.bodyMedium.copyWith(color: Colors.white),
+                      style: AppStyles.bodyMedium.copyWith(
+                        color: context.xaneoTextPrimary,
+                      ),
                     ),
                   ),
                 ),
@@ -206,28 +219,34 @@ class _LoginScreenState extends State<LoginScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text((AppLocalizations.of(context)?.sVozvrascheniem_77ee ?? 'Fallback'),
-            style: AppStyles.titleGiant),
+            style: AppStyles.titleGiant.copyWith(
+              color: context.xaneoTextPrimary,
+            )),
         const SizedBox(height: 8),
         Text(
             (AppLocalizations.of(context)?.vvediteVashNikneym_51a6 ??
                 'Fallback'),
-            style: AppStyles.bodyMuted),
+            style: AppStyles.bodyMuted.copyWith(
+              color: context.xaneoTextMuted,
+            )),
         const SizedBox(height: 32),
         TextField(
           controller: _usernameController,
           focusNode: _usernameFocusNode,
-          style: AppStyles.inputText,
-          cursorColor: Colors.white,
+          style: AppStyles.inputText.copyWith(color: context.xaneoTextPrimary),
+          cursorColor: context.xaneoTextPrimary,
           decoration: InputDecoration(
+            filled: false,
             hintText:
                 (AppLocalizations.of(context)?.nikneym_3fea ?? 'Fallback'),
-            hintStyle: AppStyles.inputHint,
+            hintStyle:
+                AppStyles.inputHint.copyWith(color: context.xaneoTextMuted),
             border: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24)),
+                borderSide: BorderSide(color: context.xaneoDivider)),
             enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24)),
+                borderSide: BorderSide(color: context.xaneoDivider)),
             focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white)),
+                borderSide: BorderSide(color: context.xaneoTextPrimary)),
             contentPadding: EdgeInsets.symmetric(vertical: 16),
           ),
           onSubmitted: (_) => _goToNextStep(),
@@ -235,5 +254,4 @@ class _LoginScreenState extends State<LoginScreen>
       ],
     );
   }
-
 }

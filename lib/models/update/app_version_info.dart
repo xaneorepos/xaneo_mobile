@@ -46,7 +46,8 @@ class AppVersionInfo {
     return AppVersionInfo(
       version: versionClean,
       releaseNotes: json['body'] as String? ?? '',
-      htmlUrl: json['html_url'] as String? ?? 'https://github.com/xaneorepos/xaneo_mobile/releases/latest',
+      htmlUrl: json['html_url'] as String? ??
+          'https://github.com/xaneorepos/xaneo_mobile/releases/latest',
       publishedAt: pubDate,
       downloadUrl: download,
     );

@@ -15,7 +15,6 @@ import 'app_localizations_ko.dart';
 import 'app_localizations_ar.dart';
 import 'dynamic_app_localizations.dart';
 
-
 // ignore_for_file: type=lint
 
 /// Callers can lookup localized strings with an instance of AppLocalizations
@@ -1407,6 +1406,20 @@ abstract class AppLocalizations {
   String get theme;
   String get darkThemeDesc;
   String get fontSizeText;
+  String get changePhoto;
+  String get avatarUpdated;
+  String get avatarUploadFailed;
+  String get invalidNicknameFormat;
+  String get deleteAccountPrompt;
+  String get deleteAccountFailed;
+  String get chatFontSize;
+  String get chatWallpaper;
+  String get myMessageColor;
+  String get otherMessageColor;
+  String get notificationStyle;
+  String get standardNotificationStyle;
+  String get blackRavenNotificationStyle;
+  String get wallpaperUploadFailed;
   String get showPopups;
   String get sound;
   String get soundDesc;
@@ -1580,6 +1593,13 @@ abstract class AppLocalizations {
   String get deviceAuthApp;
   String get deviceAuthIp;
   String get importLanguageFromJson;
+  String get customColor;
+  String get customGradient;
+  String get colorOne;
+  String get colorTwo;
+  String get diagonal;
+  String get vertical;
+  String get horizontal;
 }
 
 class _AppLocalizationsDelegate
@@ -1611,17 +1631,34 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   AppLocalizations base;
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
-    case 'ru': base = AppLocalizationsRu(); break;
-    case 'en': base = AppLocalizationsEn(); break;
-    case 'fr': base = AppLocalizationsFr(); break;
-    case 'es': base = AppLocalizationsEs(); break;
-    case 'zh': base = AppLocalizationsZh(); break;
-    case 'ja': base = AppLocalizationsJa(); break;
-    case 'ko': base = AppLocalizationsKo(); break;
-    case 'ar': base = AppLocalizationsAr(); break;
-    default: base = AppLocalizationsRu(); break;
+    case 'ru':
+      base = AppLocalizationsRu();
+      break;
+    case 'en':
+      base = AppLocalizationsEn();
+      break;
+    case 'fr':
+      base = AppLocalizationsFr();
+      break;
+    case 'es':
+      base = AppLocalizationsEs();
+      break;
+    case 'zh':
+      base = AppLocalizationsZh();
+      break;
+    case 'ja':
+      base = AppLocalizationsJa();
+      break;
+    case 'ko':
+      base = AppLocalizationsKo();
+      break;
+    case 'ar':
+      base = AppLocalizationsAr();
+      break;
+    default:
+      base = AppLocalizationsRu();
+      break;
   }
 
   return DynamicAppLocalizations(base, locale.languageCode);
 }
-

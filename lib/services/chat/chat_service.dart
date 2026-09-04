@@ -100,12 +100,16 @@ class ChatService {
       if (response.statusCode != 200 || data is! Map) return const [];
       final result = data['result'];
       if (result is! List) return const [];
-      return result.whereType<Map>().map((item) {
-        return {
-          'command': item['command']?.toString() ?? '',
-          'description': item['description']?.toString() ?? '',
-        };
-      }).where((item) => item['command']!.isNotEmpty).toList();
+      return result
+          .whereType<Map>()
+          .map((item) {
+            return {
+              'command': item['command']?.toString() ?? '',
+              'description': item['description']?.toString() ?? '',
+            };
+          })
+          .where((item) => item['command']!.isNotEmpty)
+          .toList();
     } catch (e) {
       debugPrint('Error loading bot commands for $username: $e');
       return const [];

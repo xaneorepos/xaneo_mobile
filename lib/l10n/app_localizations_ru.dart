@@ -2055,6 +2055,36 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get fontSizeText => 'Размер шрифта';
   @override
+  String get changePhoto => 'Изменить фото';
+  @override
+  String get avatarUpdated => 'Аватар обновлён';
+  @override
+  String get avatarUploadFailed => 'Не удалось загрузить аватар';
+  @override
+  String get invalidNicknameFormat =>
+      'Никнейм: 3–30 символов, только буквы, цифры, ., _ и -';
+  @override
+  String get deleteAccountPrompt =>
+      'Профиль будет удалён без возможности восстановления. Введите пароль для подтверждения.';
+  @override
+  String get deleteAccountFailed => 'Не удалось удалить аккаунт';
+  @override
+  String get chatFontSize => 'Размер шрифта в чате';
+  @override
+  String get chatWallpaper => 'Обои чата';
+  @override
+  String get myMessageColor => 'Цвет своих сообщений';
+  @override
+  String get otherMessageColor => 'Цвет чужих сообщений';
+  @override
+  String get notificationStyle => 'Стиль уведомлений';
+  @override
+  String get standardNotificationStyle => 'Стандартный';
+  @override
+  String get blackRavenNotificationStyle => 'Чёрная ворона';
+  @override
+  String get wallpaperUploadFailed => 'Не удалось загрузить обои';
+  @override
   String get showPopups => 'Показывать всплывающие уведомления';
   @override
   String get sound => 'Звук';
@@ -2373,22 +2403,28 @@ class AppLocalizationsRu extends AppLocalizations {
   String get authNotificationPasswordLogin => 'Вход по паролю';
 
   @override
-  String get authNotificationSendingSubtitle => 'Код придёт в чат «Уведомления Xaneo». Не закрывайте этот экран.';
+  String get authNotificationSendingSubtitle =>
+      'Код придёт в чат «Уведомления Xaneo». Не закрывайте этот экран.';
 
   @override
-  String get authNotificationEnterCodeSubtitle => 'Введите шестизначный код из сообщения.';
+  String get authNotificationEnterCodeSubtitle =>
+      'Введите шестизначный код из сообщения.';
 
   @override
-  String get authNotificationConfirmSubtitle => 'Откройте Xaneo на уже авторизованном устройстве и проверьте детали запроса.';
+  String get authNotificationConfirmSubtitle =>
+      'Откройте Xaneo на уже авторизованном устройстве и проверьте детали запроса.';
 
   @override
-  String get authNotificationPasswordSubtitle => 'Этот способ доступен только после ожидания. Пароль не сохраняется.';
+  String get authNotificationPasswordSubtitle =>
+      'Этот способ доступен только после ожидания. Пароль не сохраняется.';
 
   @override
-  String get authNotificationBotSource => 'Код приходит от «Уведомления Xaneo».';
+  String get authNotificationBotSource =>
+      'Код приходит от «Уведомления Xaneo».';
 
   @override
-  String authNotificationCodeSentToEmail(String email) => 'Код отправлен на $email';
+  String authNotificationCodeSentToEmail(String email) =>
+      'Код отправлен на $email';
 
   @override
   String get authNotificationNoBotAccess => 'Нет доступа к боту?';
@@ -2397,34 +2433,42 @@ class AppLocalizationsRu extends AppLocalizations {
   String get authNotificationGetCodeViaEmail => 'Получить код на почту';
 
   @override
-  String get authNotificationResendCodeViaEmail => 'Отправить код на почту повторно';
+  String get authNotificationResendCodeViaEmail =>
+      'Отправить код на почту повторно';
 
   @override
-  String get authNotificationEmailUnavailable => 'Код по почте недоступен: в аккаунте нет подтверждённого email.';
+  String get authNotificationEmailUnavailable =>
+      'Код по почте недоступен: в аккаунте нет подтверждённого email.';
 
   @override
-  String authNotificationEmailAvailableIn(int seconds) => 'Код по почте станет доступен через $seconds сек.';
+  String authNotificationEmailAvailableIn(int seconds) =>
+      'Код по почте станет доступен через $seconds сек.';
 
   @override
   String get authNotificationLoginWithPassword => 'Войти по паролю';
 
   @override
-  String authNotificationPasswordAvailableIn(int seconds) => 'Вход по паролю будет доступен через $seconds сек.';
+  String authNotificationPasswordAvailableIn(int seconds) =>
+      'Вход по паролю будет доступен через $seconds сек.';
 
   @override
-  String get authNotificationErrorSendFailed => 'Не удалось отправить код. Попробуйте позже.';
+  String get authNotificationErrorSendFailed =>
+      'Не удалось отправить код. Попробуйте позже.';
 
   @override
-  String get authNotificationErrorInvalidCode => 'Неверный или просроченный код';
+  String get authNotificationErrorInvalidCode =>
+      'Неверный или просроченный код';
 
   @override
   String get authNotificationErrorRequestExpired => 'Запрос отклонён или истёк';
 
   @override
-  String get authNotificationErrorEmailFailed => 'Не удалось отправить код на почту. Попробуйте позже.';
+  String get authNotificationErrorEmailFailed =>
+      'Не удалось отправить код на почту. Попробуйте позже.';
 
   @override
-  String get authNotificationErrorPasswordFailed => 'Не удалось войти. Проверьте пароль или начните заново.';
+  String get authNotificationErrorPasswordFailed =>
+      'Не удалось войти. Проверьте пароль или начните заново.';
 
   @override
   String get authNotificationGetCodeBtn => 'Получить код';
@@ -2464,4 +2508,18 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get importLanguageFromJson => 'Импортировать язык из JSON';
+  @override
+  String get customColor => 'Свой цвет';
+  @override
+  String get customGradient => 'Свой градиент';
+  @override
+  String get colorOne => 'Цвет 1';
+  @override
+  String get colorTwo => 'Цвет 2';
+  @override
+  String get diagonal => 'По диагонали';
+  @override
+  String get vertical => 'Вертикально';
+  @override
+  String get horizontal => 'Горизонтально';
 }

@@ -521,7 +521,7 @@ class _NotificationLoginPanelState extends State<NotificationLoginPanel> {
           const SizedBox(height: 22),
           Row(children: [
             Expanded(
-                child: TextButton(
+                child: OutlinedButton(
                     onPressed: _busy ? null : _close,
                     child: Text(l10n?.otmena_987b ?? 'Cancel'))),
             if (_step != 2) ...[

@@ -428,5 +428,26 @@
   "importLanguageFromJson": "Import language from JSON",
   "@importLanguageFromJson": {
     "description": "Button to import a custom language pack from a JSON file"
-  }
+  },
+  "changePhoto": "Change photo",
+  "avatarUpdated": "Avatar updated",
+  "avatarUploadFailed": "Failed to upload avatar",
+  "invalidNicknameFormat": "Nickname: 3–30 characters; letters, numbers, ., _ and - only",
+  "deleteAccountPrompt": "Your profile will be permanently deleted. Enter your password to confirm.",
+  "deleteAccountFailed": "Failed to delete account",
+  "chatFontSize": "Chat font size",
+  "chatWallpaper": "Chat wallpaper",
+  "myMessageColor": "My message color",
+  "otherMessageColor": "Other message color",
+  "notificationStyle": "Notification style",
+  "standardNotificationStyle": "Standard",
+  "blackRavenNotificationStyle": "Black Raven",
+  "wallpaperUploadFailed": "Failed to upload wallpaper",
+  "customColor": "Custom color",
+  "customGradient": "Custom gradient",
+  "colorOne": "Color 1",
+  "colorTwo": "Color 2",
+  "diagonal": "Diagonal",
+  "vertical": "Vertical",
+  "horizontal": "Horizontal"
 }

@@ -7,6 +7,7 @@ import '../../services/api/api_client.dart';
 import '../../services/runtime_translations.dart';
 import '../../services/webrtc/call_manager.dart';
 import '../../widgets/common/avatar_widget.dart';
+import '../../styles/app_styles.dart';
 import '../chat/chat_screen.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
 
@@ -99,7 +100,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
               child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Color(0xFF18181B),
+                  color: context.xaneoSurface,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 ),
                 child: Column(
@@ -116,12 +117,12 @@ class _ContactsScreenState extends State<ContactsScreen> {
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.2,
-                            color: Colors.white54,
+                            color: context.xaneoTextMuted,
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close_rounded,
-                              color: Colors.white54, size: 20),
+                          icon: Icon(Icons.close_rounded,
+                              color: context.xaneoTextMuted, size: 20),
                           onPressed: () => Navigator.of(ctx).pop(),
                         ),
                       ],
@@ -129,15 +130,16 @@ class _ContactsScreenState extends State<ContactsScreen> {
                     const SizedBox(height: 14),
                     TextField(
                       controller: usernameCtrl,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      style: TextStyle(
+                          color: context.xaneoTextPrimary, fontSize: 14),
                       decoration: InputDecoration(
                         hintText: (AppLocalizations.of(context)
                                 ?.nikneymPolzovatelyaUsername_a6ff ??
                             'Fallback'),
-                        hintStyle: const TextStyle(
-                            color: Colors.white24, fontSize: 13),
+                        hintStyle: TextStyle(
+                            color: context.xaneoTextMuted, fontSize: 13),
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.06),
+                        fillColor: context.xaneoOverlay(0.06),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 12),
                         border: OutlineInputBorder(
@@ -148,15 +150,16 @@ class _ContactsScreenState extends State<ContactsScreen> {
                     const SizedBox(height: 10),
                     TextField(
                       controller: nameCtrl,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      style: TextStyle(
+                          color: context.xaneoTextPrimary, fontSize: 14),
                       decoration: InputDecoration(
                         hintText: (AppLocalizations.of(context)
                                 ?.otobrazhaemoeImyaNeobyazatelno_340a ??
                             'Fallback'),
-                        hintStyle: const TextStyle(
-                            color: Colors.white24, fontSize: 13),
+                        hintStyle: TextStyle(
+                            color: context.xaneoTextMuted, fontSize: 13),
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.06),
+                        fillColor: context.xaneoOverlay(0.06),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 12),
                         border: OutlineInputBorder(
@@ -175,8 +178,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
+                          backgroundColor: context.xaneoTextPrimary,
+                          foregroundColor:
+                              Theme.of(context).scaffoldBackgroundColor,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
@@ -220,7 +224,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.black),
+                                    strokeWidth: 2,
+                                    color: Theme.of(context)
+                                        .scaffoldBackgroundColor),
                               )
                             : Text(
                                 RuntimeTranslations.instance.resolve(
@@ -328,14 +334,14 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: context.xaneoTextPrimary,
                     fontFamily: 'Inter',
                   ),
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const FaIcon(FontAwesomeIcons.userPlus,
-                      color: Colors.white, size: 18),
+                  icon: FaIcon(FontAwesomeIcons.userPlus,
+                      color: context.xaneoTextPrimary, size: 18),
                   onPressed: _showAddContactModal,
                 ),
               ],
@@ -347,27 +353,28 @@ class _ContactsScreenState extends State<ContactsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
             child: TextField(
               onChanged: (val) => setState(() => _searchQuery = val),
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: TextStyle(color: context.xaneoTextPrimary, fontSize: 14),
               decoration: InputDecoration(
                 hintText: (AppLocalizations.of(context)?.poiskKontaktov_9a71 ??
                     'Fallback'),
-                hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded,
-                    color: Colors.white38, size: 20),
+                hintStyle:
+                    TextStyle(color: context.xaneoTextMuted, fontSize: 13),
+                prefixIcon: Icon(Icons.search_rounded,
+                    color: context.xaneoTextMuted, size: 20),
                 filled: true,
-                fillColor: const Color(0xFF141416),
+                fillColor: context.xaneoSurface,
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+                  borderSide: BorderSide(color: context.xaneoDivider),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+                  borderSide: BorderSide(color: context.xaneoDivider),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  borderSide: BorderSide(color: context.xaneoTextMuted),
                 ),
               ),
             ),
@@ -378,8 +385,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
           // Список
           Expanded(
             child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: Colors.white))
+                ? Center(
+                    child: CircularProgressIndicator(
+                        color: context.xaneoTextPrimary))
                 : _error != null
                     ? Center(
                         child: Text(_error!,
@@ -393,7 +401,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                 FaIcon(
                                   FontAwesomeIcons.users,
                                   size: 48,
-                                  color: Colors.white.withOpacity(0.2),
+                                  color: context.xaneoOverlay(0.2),
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
@@ -405,7 +413,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                               ?.kontaktyNeNaydeny_1b08 ??
                                           'Fallback'),
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.4),
+                                    color: context.xaneoTextMuted,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -415,8 +423,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
                           )
                         : RefreshIndicator(
                             onRefresh: _fetchContacts,
-                            color: Colors.white,
-                            backgroundColor: const Color(0xFF18181B),
+                            color: context.xaneoTextPrimary,
+                            backgroundColor: context.xaneoSurface,
                             child: ListView.separated(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 20, vertical: 8),
@@ -451,10 +459,10 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                 return Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: Color(0xFF141416),
+                                    color: context.xaneoSurface,
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
-                                      color: Colors.white.withOpacity(0.06),
+                                      color: context.xaneoDivider,
                                     ),
                                   ),
                                   child: Row(
@@ -477,10 +485,10 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                           children: [
                                             Text(
                                               displayName,
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontSize: 15,
                                                 fontWeight: FontWeight.w600,
-                                                color: Colors.white,
+                                                color: context.xaneoTextPrimary,
                                                 fontFamily: 'Inter',
                                               ),
                                               maxLines: 1,
@@ -490,9 +498,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                               const SizedBox(height: 2),
                                               Text(
                                                 '@$username',
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                   fontSize: 12,
-                                                  color: Colors.white38,
+                                                  color: context.xaneoTextMuted,
                                                   fontFamily: 'Inter',
                                                 ),
                                                 maxLines: 1,
@@ -507,7 +515,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                         icon: const FaIcon(
                                             FontAwesomeIcons.phone,
                                             size: 15),
-                                        color: Colors.white70,
+                                        color: context.xaneoTextSecondary,
                                         tooltip: (AppLocalizations.of(context)
                                                 ?.pozvonit_ccfa ??
                                             'Fallback'),
@@ -517,18 +525,18 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                         icon: const FaIcon(
                                             FontAwesomeIcons.comment,
                                             size: 15),
-                                        color: Colors.white70,
+                                        color: context.xaneoTextSecondary,
                                         tooltip: (AppLocalizations.of(context)
                                                 ?.napisat_0144 ??
                                             'Fallback'),
                                         onPressed: () => _openChat(item),
                                       ),
                                       PopupMenuButton<String>(
-                                        icon: const FaIcon(
+                                        icon: FaIcon(
                                             FontAwesomeIcons.ellipsisVertical,
                                             size: 15,
-                                            color: Colors.white38),
-                                        color: const Color(0xFF1E1E22),
+                                            color: context.xaneoTextMuted),
+                                        color: context.xaneoSurfaceElevated,
                                         shape: RoundedRectangleBorder(
                                             borderRadius:
                                                 BorderRadius.circular(12)),

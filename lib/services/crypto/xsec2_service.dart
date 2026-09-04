@@ -15,7 +15,8 @@ class Xsec2Service {
   Xsec2Service({
     required ApiClient apiClient,
     required CryptoService cryptoService,
-  }) : _apiClient = apiClient, _cryptoService = cryptoService;
+  })  : _apiClient = apiClient,
+        _cryptoService = cryptoService;
 
   CryptoService get cryptoService => _cryptoService;
 
@@ -58,12 +59,12 @@ class Xsec2Service {
       if (response != null && response.data != null) {
         final data = response.data as Map<String, dynamic>;
         final keyHex = (data['key'] ??
-            data['chat_key'] ??
-            data['server_epoch_key'] ??
-            data['encryption_key'] ??
-            (data['data'] is Map<String, dynamic>
-                ? (data['data'] as Map<String, dynamic>)['key']
-                : null))
+                data['chat_key'] ??
+                data['server_epoch_key'] ??
+                data['encryption_key'] ??
+                (data['data'] is Map<String, dynamic>
+                    ? (data['data'] as Map<String, dynamic>)['key']
+                    : null))
             ?.toString();
 
         if (keyHex != null && keyHex.isNotEmpty) {
@@ -96,7 +97,8 @@ class Xsec2Service {
       try {
         final response = await _apiClient.get(
           path,
-          options: Options(validateStatus: (status) => status != null && status < 500),
+          options: Options(
+              validateStatus: (status) => status != null && status < 500),
         );
         if (response.statusCode == 200) return response;
       } catch (_) {}

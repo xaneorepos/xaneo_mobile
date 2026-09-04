@@ -33,6 +33,7 @@ class _TfaScreenState extends State<TfaScreen>
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  bool _motionInitialized = false;
 
   @override
   void initState() {
@@ -46,8 +47,17 @@ class _TfaScreenState extends State<TfaScreen>
       CurvedAnimation(
           parent: _animationController, curve: AppStyles.curveEaseOut),
     );
+  }
 
-    _animationController.forward();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _animationController.value = 1;
+    } else if (!_motionInitialized) {
+      _animationController.forward();
+    }
+    _motionInitialized = true;
   }
 
   @override
@@ -98,7 +108,7 @@ class _TfaScreenState extends State<TfaScreen>
         content: Text(
             (AppLocalizations.of(context)?.kodOtpravlenPovtorno_e109 ??
                 'Fallback')),
-        backgroundColor: AppStyles.textPrimaryColor,
+        backgroundColor: context.xaneoTextPrimary,
       ),
     );
   }
@@ -106,7 +116,7 @@ class _TfaScreenState extends State<TfaScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppStyles.backgroundColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Consumer<AuthProvider>(
           builder: (context, auth, child) {
@@ -144,7 +154,9 @@ class _TfaScreenState extends State<TfaScreen>
               (AppLocalizations.of(context)
                       ?.dvuhfaktornayanautentifikatsiya_bacc ??
                   'Fallback'),
-              style: AppStyles.titleLarge,
+              style: AppStyles.titleLarge.copyWith(
+                color: context.xaneoTextPrimary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
@@ -153,7 +165,9 @@ class _TfaScreenState extends State<TfaScreen>
             Text(
               (AppLocalizations.of(context)?.naVashEmailOtpravlen6_b457 ??
                   'Fallback'),
-              style: AppStyles.bodyMedium,
+              style: AppStyles.bodyMedium.copyWith(
+                color: context.xaneoTextSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 48),
@@ -192,14 +206,14 @@ class _TfaScreenState extends State<TfaScreen>
         width: 80,
         height: 80,
         decoration: BoxDecoration(
-          color: AppStyles.inputBackgroundColor,
+          color: context.xaneoSurface,
           borderRadius: BorderRadius.circular(40),
-          border: Border.all(color: AppStyles.borderColor, width: 1),
+          border: Border.all(color: context.xaneoDivider, width: 1),
         ),
-        child: const FaIcon(
+        child: FaIcon(
           FontAwesomeIcons.shieldHalved,
           size: 34,
-          color: AppStyles.textPrimaryColor,
+          color: context.xaneoTextPrimary,
         ),
       ),
     );
@@ -219,27 +233,26 @@ class _TfaScreenState extends State<TfaScreen>
             maxLength: 1,
             enabled: !auth.isLoading,
             style: AppStyles.inputText.copyWith(
+              color: context.xaneoTextPrimary,
               fontSize: 24,
               fontWeight: FontWeight.w600,
             ),
             decoration: InputDecoration(
               counterText: '',
               filled: true,
-              fillColor: AppStyles.inputBackgroundColor,
+              fillColor: context.xaneoSurface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide:
-                    const BorderSide(color: AppStyles.borderColor, width: 1),
+                borderSide: BorderSide(color: context.xaneoDivider, width: 1),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide:
-                    const BorderSide(color: AppStyles.borderColor, width: 1),
+                borderSide: BorderSide(color: context.xaneoDivider, width: 1),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                    color: AppStyles.borderActiveColor, width: 1),
+                borderSide:
+                    BorderSide(color: context.xaneoTextPrimary, width: 1),
               ),
             ),
             onChanged: (value) => _onDigitEntered(index, value),
@@ -254,20 +267,26 @@ class _TfaScreenState extends State<TfaScreen>
       height: 50,
       child: ElevatedButton(
         onPressed: auth.isLoading ? null : _verifyCode,
-        style: AppStyles.primaryButton,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: context.xaneoTextPrimary,
+          foregroundColor: Theme.of(context).scaffoldBackgroundColor,
+        ),
         child: auth.isLoading
             ? SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor:
-                      AlwaysStoppedAnimation<Color>(AppStyles.backgroundColor),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).scaffoldBackgroundColor,
+                  ),
                 ),
               )
             : Text(
                 (AppLocalizations.of(context)?.podtverdit_e260 ?? 'Fallback'),
-                style: AppStyles.buttonText),
+                style: AppStyles.buttonText.copyWith(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                )),
       ),
     );
   }
@@ -276,7 +295,7 @@ class _TfaScreenState extends State<TfaScreen>
     return Center(
       child: TextButton(
         onPressed: _resendCode,
-        style: AppStyles.textButton,
+        style: TextButton.styleFrom(foregroundColor: context.xaneoTextPrimary),
         child: Text((AppLocalizations.of(context)
                 ?.nePoluchiliKodOtpravitPovtorno_c1d2 ??
             'Fallback')),
@@ -297,7 +316,7 @@ class _TfaScreenState extends State<TfaScreen>
             ),
           );
         },
-        style: AppStyles.textButton,
+        style: TextButton.styleFrom(foregroundColor: context.xaneoTextPrimary),
         child: Text((AppLocalizations.of(context)?.otmena_987b ?? 'Fallback')),
       ),
     );

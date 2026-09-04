@@ -6,7 +6,9 @@ import '../../config/app_config.dart';
 import '../../services/database/app_database.dart';
 import '../../services/chat/chat_local_repository.dart';
 import '../../providers/playback_provider.dart';
+import 'track_artwork.dart';
 import '../../utils/audio_metadata.dart';
+import '../../styles/app_styles.dart';
 import 'base_custom_modal.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
 
@@ -64,9 +66,6 @@ class _MusicPlaylistModalState
 
   @override
   double get maxExtent => 0.95;
-
-  @override
-  Color get backgroundColor => const Color(0xFF111111);
 
   @override
   void initState() {
@@ -128,8 +127,14 @@ class _MusicPlaylistModalState
     final tokenToUse = widget.jwtToken;
 
     for (final msg in rawMessages) {
-      final fileData = _getAttachmentData(msg);
-      if (fileData == null) continue;
+      final rawFileData = _getAttachmentData(msg);
+      if (rawFileData == null) continue;
+      final fileData = msg is Map
+          ? audioPayloadWithMetadata(
+              rawFileData,
+              Map<String, dynamic>.from(msg),
+            )
+          : rawFileData;
       final type = fileData['type']?.toString().toLowerCase() ?? '';
       if (type == 'voice' || type == 'video_message') continue;
 
@@ -186,6 +191,7 @@ class _MusicPlaylistModalState
           duration:
               trackDurationSec > 0 ? Duration(seconds: trackDurationSec) : null,
           artUri: artUri,
+          payload: fileData,
         ));
       }
     }
@@ -290,17 +296,17 @@ class _MusicPlaylistModalState
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: context.xaneoOverlay(0.1),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: context.xaneoOverlay(0.2),
                       width: 1,
                     ),
                   ),
-                  child: const Center(
+                  child: Center(
                     child: Icon(
                       Icons.queue_music_rounded,
-                      color: Colors.white,
+                      color: context.xaneoTextPrimary,
                       size: 20,
                     ),
                   ),
@@ -313,10 +319,10 @@ class _MusicPlaylistModalState
                       Text(
                         (AppLocalizations.of(context)?.spisokMuzyki_57d0 ??
                             'Список музыки'),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                          color: context.xaneoTextPrimary,
                           fontFamily: 'Inter',
                         ),
                       ),
@@ -325,7 +331,7 @@ class _MusicPlaylistModalState
                         '${AppLocalizations.of(context)?.music ?? 'Треков'}: ${items.length}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.5),
+                          color: context.xaneoTextMuted,
                           fontFamily: 'Inter',
                         ),
                       ),
@@ -333,9 +339,9 @@ class _MusicPlaylistModalState
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.keyboard_arrow_down_rounded,
-                    color: Colors.white70,
+                    color: context.xaneoTextSecondary,
                     size: 28,
                   ),
                   onPressed: () => Navigator.of(context).pop(),
@@ -346,7 +352,7 @@ class _MusicPlaylistModalState
 
             const SizedBox(height: 8),
             Divider(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: context.xaneoOverlay(0.1),
               height: 1,
             ),
             const SizedBox(height: 8),
@@ -361,12 +367,12 @@ class _MusicPlaylistModalState
                 margin: const EdgeInsets.only(left: -20, right: -20, top: 4),
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF161618),
+                  color: context.xaneoSurfaceElevated,
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(20)),
                   border: Border(
                     top: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.15),
+                      color: context.xaneoOverlay(0.15),
                       width: 1,
                     ),
                   ),
@@ -377,22 +383,20 @@ class _MusicPlaylistModalState
                     // Информация о текущем треке
                     Row(
                       children: [
-                        Container(
+                        SizedBox(
                           width: 32,
                           height: 32,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withValues(alpha: 0.1),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.18),
-                              width: 1,
-                            ),
-                          ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.music_note_rounded,
-                              color: Colors.white,
-                              size: 16,
+                          child: ClipOval(
+                            child: TrackArtwork(
+                              uri: playback.currentArtUri,
+                              fallback: ColoredBox(
+                                color: context.xaneoOverlay(0.1),
+                                child: Icon(
+                                  Icons.music_note_rounded,
+                                  color: context.xaneoTextPrimary,
+                                  size: 16,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -408,8 +412,8 @@ class _MusicPlaylistModalState
                                     : 'Аудиозапись',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: context.xaneoTextPrimary,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
                                   fontFamily: 'Inter',
@@ -422,7 +426,7 @@ class _MusicPlaylistModalState
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.6),
+                                    color: context.xaneoTextSecondary,
                                     fontSize: 11,
                                     fontFamily: 'Inter',
                                   ),
@@ -446,7 +450,7 @@ class _MusicPlaylistModalState
                         Text(
                           _formatDuration(displayPos),
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5),
+                            color: context.xaneoTextMuted,
                             fontSize: 10.5,
                             fontFamily: 'Inter',
                           ),
@@ -459,10 +463,9 @@ class _MusicPlaylistModalState
                                   enabledThumbRadius: 5),
                               overlayShape: const RoundSliderOverlayShape(
                                   overlayRadius: 10),
-                              activeTrackColor: Colors.white,
-                              inactiveTrackColor:
-                                  Colors.white.withValues(alpha: 0.18),
-                              thumbColor: Colors.white,
+                              activeTrackColor: context.xaneoTextPrimary,
+                              inactiveTrackColor: context.xaneoOverlay(0.18),
+                              thumbColor: context.xaneoTextPrimary,
                             ),
                             child: Slider(
                               value: progress.clamp(0.0, 1.0),
@@ -494,7 +497,7 @@ class _MusicPlaylistModalState
                         Text(
                           _formatDuration(duration),
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5),
+                            color: context.xaneoTextMuted,
                             fontSize: 10.5,
                             fontFamily: 'Inter',
                           ),
@@ -513,8 +516,8 @@ class _MusicPlaylistModalState
                           icon: Icon(
                             Icons.shuffle_rounded,
                             color: playback.isShuffle
-                                ? Colors.white
-                                : Colors.white.withValues(alpha: 0.3),
+                                ? context.xaneoTextPrimary
+                                : context.xaneoTextMuted,
                             size: 20,
                           ),
                           onPressed: () => playback.toggleShuffle(),
@@ -530,8 +533,8 @@ class _MusicPlaylistModalState
                             Icons.skip_previous_rounded,
                             color:
                                 (playback.hasPrevious || position.inSeconds > 3)
-                                    ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.25),
+                                    ? context.xaneoTextPrimary
+                                    : context.xaneoTextMuted,
                             size: 26,
                           ),
                           onPressed: () => playback.playPrevious(),
@@ -548,16 +551,17 @@ class _MusicPlaylistModalState
                           child: Container(
                             width: 40,
                             height: 40,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Colors.white,
+                              color: context.xaneoTextPrimary,
                             ),
                             child: Center(
                               child: Icon(
                                 isPlaying
                                     ? Icons.pause_rounded
                                     : Icons.play_arrow_rounded,
-                                color: Colors.black,
+                                color:
+                                    Theme.of(context).scaffoldBackgroundColor,
                                 size: 24,
                               ),
                             ),
@@ -570,8 +574,8 @@ class _MusicPlaylistModalState
                           icon: Icon(
                             Icons.skip_next_rounded,
                             color: playback.hasNext
-                                ? Colors.white
-                                : Colors.white.withValues(alpha: 0.25),
+                                ? context.xaneoTextPrimary
+                                : context.xaneoTextMuted,
                             size: 26,
                           ),
                           onPressed: playback.hasNext
@@ -588,8 +592,8 @@ class _MusicPlaylistModalState
                                 ? Icons.repeat_one_rounded
                                 : Icons.repeat_rounded,
                             color: playback.loopMode != LoopMode.off
-                                ? Colors.white
-                                : Colors.white.withValues(alpha: 0.3),
+                                ? context.xaneoTextPrimary
+                                : context.xaneoTextMuted,
                             size: 20,
                           ),
                           onPressed: () => playback.toggleLoopMode(),
@@ -625,14 +629,14 @@ class _MusicPlaylistModalState
             Icon(
               Icons.music_off_rounded,
               size: 44,
-              color: Colors.white.withValues(alpha: 0.25),
+              color: context.xaneoOverlay(0.25),
             ),
             const SizedBox(height: 10),
             Text(
               AppLocalizations.of(context)?.muzykalnyeTrekiOtsutstvuyut_3301 ??
                   'Музыкальные треки отсутствуют',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.45),
+                color: context.xaneoTextMuted,
                 fontSize: 13,
                 fontFamily: 'Inter',
               ),
@@ -664,13 +668,13 @@ class _MusicPlaylistModalState
             margin: const EdgeInsets.only(bottom: 6),
             decoration: BoxDecoration(
               color: isCurrent
-                  ? Colors.white.withValues(alpha: 0.12)
-                  : Colors.white.withValues(alpha: 0.035),
+                  ? context.xaneoOverlay(0.12)
+                  : context.xaneoOverlay(0.035),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isCurrent
-                    ? Colors.white.withValues(alpha: 0.4)
-                    : Colors.white.withValues(alpha: 0.06),
+                    ? context.xaneoOverlay(0.4)
+                    : context.xaneoDivider,
                 width: 1,
               ),
             ),
@@ -695,8 +699,8 @@ class _MusicPlaylistModalState
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: isCurrent
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.08),
+                              ? context.xaneoTextPrimary
+                              : context.xaneoOverlay(0.08),
                         ),
                         child: Center(
                           child: Icon(
@@ -705,7 +709,9 @@ class _MusicPlaylistModalState
                                     ? Icons.pause_rounded
                                     : Icons.play_arrow_rounded)
                                 : Icons.music_note_rounded,
-                            color: isCurrent ? Colors.black : Colors.white70,
+                            color: isCurrent
+                                ? context.xaneoSurface
+                                : context.xaneoTextSecondary,
                             size: 16,
                           ),
                         ),
@@ -721,7 +727,7 @@ class _MusicPlaylistModalState
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.white,
+                                color: context.xaneoTextPrimary,
                                 fontWeight: isCurrent
                                     ? FontWeight.w700
                                     : FontWeight.w500,
@@ -735,7 +741,7 @@ class _MusicPlaylistModalState
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.5),
+                                color: context.xaneoTextMuted,
                                 fontSize: 11,
                                 fontFamily: 'Inter',
                               ),
@@ -748,7 +754,7 @@ class _MusicPlaylistModalState
                         Text(
                           _formatDuration(item.duration!),
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.4),
+                            color: context.xaneoTextMuted,
                             fontSize: 11,
                             fontFamily: 'Inter',
                           ),
@@ -769,9 +775,9 @@ class _MusicPlaylistModalState
   }
 
   Widget _buildAnimatedWaveform() {
-    return const Icon(
+    return Icon(
       Icons.graphic_eq_rounded,
-      color: Colors.white,
+      color: context.xaneoTextPrimary,
       size: 18,
     );
   }

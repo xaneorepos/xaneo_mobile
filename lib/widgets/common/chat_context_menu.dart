@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
+import '../../styles/app_styles.dart';
 
 import 'base_custom_modal.dart';
 
@@ -120,7 +121,8 @@ class _ChatMenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = entry.destructive ? Colors.redAccent : Colors.white;
+    final color =
+        entry.destructive ? Colors.redAccent : context.xaneoTextPrimary;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -204,8 +206,8 @@ class _ChatActionConfirmationModalState
       children: [
         Text(
           widget.title,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: context.xaneoTextPrimary,
             fontSize: 19,
             fontWeight: FontWeight.w700,
           ),
@@ -214,7 +216,7 @@ class _ChatActionConfirmationModalState
         Text(
           widget.message,
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.65),
+            color: context.xaneoTextSecondary,
             fontSize: 14,
             height: 1.4,
           ),

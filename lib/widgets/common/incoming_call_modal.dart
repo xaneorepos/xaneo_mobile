@@ -57,7 +57,7 @@ class _IncomingCallModalState extends BaseCustomModalState<IncomingCallModal>
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
-    )..repeat(reverse: true);
+    );
 
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.06).animate(
       CurvedAnimation(
@@ -65,6 +65,18 @@ class _IncomingCallModalState extends BaseCustomModalState<IncomingCallModal>
         curve: Curves.easeInOut,
       ),
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pulseController
+        ..stop()
+        ..value = 0;
+    } else if (!_pulseController.isAnimating) {
+      _pulseController.repeat(reverse: true);
+    }
   }
 
   @override

@@ -38,7 +38,8 @@ class VideoMessagePlayer extends StatefulWidget {
   State<VideoMessagePlayer> createState() => _VideoMessagePlayerState();
 }
 
-class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticKeepAliveClientMixin {
+class _VideoMessagePlayerState extends State<VideoMessagePlayer>
+    with AutomaticKeepAliveClientMixin {
   VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _isPlaying = false;
@@ -94,7 +95,8 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticK
   @override
   bool get wantKeepAlive {
     if (_playbackProvider == null) return false;
-    return _playbackProvider!.currentAudioUrl == widget.videoUrl && _playbackProvider!.isVideo;
+    return _playbackProvider!.currentAudioUrl == widget.videoUrl &&
+        _playbackProvider!.isVideo;
   }
 
   @override
@@ -127,8 +129,11 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticK
     }
 
     try {
-      final proxyUrl = LocalProxy.getProxyUrl(videoUrl, jwtToken: widget.jwtToken);
-      final source = (widget.localPath != null && widget.localPath!.isNotEmpty && await File(widget.localPath!).exists())
+      final proxyUrl =
+          LocalProxy.getProxyUrl(videoUrl, jwtToken: widget.jwtToken);
+      final source = (widget.localPath != null &&
+              widget.localPath!.isNotEmpty &&
+              await File(widget.localPath!).exists())
           ? widget.localPath!
           : proxyUrl;
 
@@ -175,7 +180,8 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticK
 
       bool fileExists = await file.exists();
       if (!fileExists) {
-        final freshToken = widget.jwtToken ?? await TokenStorage().getAccessToken();
+        final freshToken =
+            widget.jwtToken ?? await TokenStorage().getAccessToken();
         Uri targetUri = Uri.parse(videoUrl);
         if (freshToken != null && freshToken.isNotEmpty) {
           final newParams = Map<String, String>.from(targetUri.queryParameters);
@@ -187,7 +193,8 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticK
         final dio = Dio();
         (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
           final client = HttpClient();
-          client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+          client.badCertificateCallback =
+              (X509Certificate cert, String host, int port) => true;
           return client;
         };
 
@@ -207,8 +214,10 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticK
 
       if (fileExists) {
         if (mounted) {
-          final localChatRepo = Provider.of<LocalChatRepository>(context, listen: false);
-          final messages = await localChatRepo.getMessagesByServerIds([messageId]);
+          final localChatRepo =
+              Provider.of<LocalChatRepository>(context, listen: false);
+          final messages =
+              await localChatRepo.getMessagesByServerIds([messageId]);
           if (messages.isNotEmpty) {
             final message = messages.first;
 
@@ -233,7 +242,8 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticK
                 textContent: Value(updatedJson),
               ),
             );
-            debugPrint('Cached video message successfully saved to local DB: $localFilePath');
+            debugPrint(
+                'Cached video message successfully saved to local DB: $localFilePath');
           }
         }
       }
@@ -267,7 +277,8 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticK
       }
 
       if (_controller == null) {
-        final proxyUrl = LocalProxy.getProxyUrl(widget.videoUrl, jwtToken: widget.jwtToken, ext: '.mp4');
+        final proxyUrl = LocalProxy.getProxyUrl(widget.videoUrl,
+            jwtToken: widget.jwtToken, ext: '.mp4');
         _controller = VideoPlayerController.networkUrl(
           Uri.parse(proxyUrl),
         );
@@ -288,10 +299,13 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticK
           _controller!.dispose();
           _controller = null;
 
-          if (widget.localPath != null && widget.localPath!.isNotEmpty && await File(widget.localPath!).exists()) {
+          if (widget.localPath != null &&
+              widget.localPath!.isNotEmpty &&
+              await File(widget.localPath!).exists()) {
             _controller = VideoPlayerController.file(File(widget.localPath!));
           } else {
-            final proxyUrl = LocalProxy.getProxyUrl(widget.videoUrl, jwtToken: widget.jwtToken, ext: '.mp4');
+            final proxyUrl = LocalProxy.getProxyUrl(widget.videoUrl,
+                jwtToken: widget.jwtToken, ext: '.mp4');
             _controller = VideoPlayerController.networkUrl(Uri.parse(proxyUrl));
           }
 
@@ -325,7 +339,8 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticK
   void _videoListener() {
     if (_controller == null) return;
     final isPlaying = _controller!.value.isPlaying;
-    final isCompleted = _controller!.value.position >= _controller!.value.duration;
+    final isCompleted =
+        _controller!.value.position >= _controller!.value.duration;
 
     if (isPlaying != _isPlaying) {
       if (mounted) {
@@ -336,7 +351,8 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticK
     }
 
     if (_playbackProvider != null) {
-      final isCurrent = _playbackProvider!.currentAudioUrl == widget.videoUrl && _playbackProvider!.isVideo;
+      final isCurrent = _playbackProvider!.currentAudioUrl == widget.videoUrl &&
+          _playbackProvider!.isVideo;
       if (isCurrent) {
         if (isCompleted && _playbackProvider!.isPlaying) {
           _playbackProvider!.setPlaying(false);
@@ -348,9 +364,11 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticK
   }
 
   void _onPlaybackProviderChanged() {
-    if (_playbackProvider == null || _controller == null || !_isInitialized) return;
+    if (_playbackProvider == null || _controller == null || !_isInitialized)
+      return;
 
-    final isCurrent = _playbackProvider!.currentAudioUrl == widget.videoUrl && _playbackProvider!.isVideo;
+    final isCurrent = _playbackProvider!.currentAudioUrl == widget.videoUrl &&
+        _playbackProvider!.isVideo;
     if (isCurrent) {
       final shouldBePlaying = _playbackProvider!.isPlaying;
       if (shouldBePlaying && !_controller!.value.isPlaying) {
@@ -384,11 +402,13 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticK
 
   void _togglePlay() {
     if (_controller == null || !_isInitialized) return;
-    final playbackProvider = Provider.of<PlaybackProvider>(context, listen: false);
+    final playbackProvider =
+        Provider.of<PlaybackProvider>(context, listen: false);
     playbackProvider.playVideo(
       widget.videoUrl,
       (AppLocalizations.of(context)?.videosoobschenie_2951 ?? 'Fallback'),
-      widget.senderName ?? (AppLocalizations.of(context)?.videosoobschenie_2951 ?? 'Fallback'),
+      widget.senderName ??
+          (AppLocalizations.of(context)?.videosoobschenie_2951 ?? 'Fallback'),
       duration: Duration(milliseconds: (widget.duration * 1000).toInt()),
     );
   }
@@ -509,4 +529,3 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer> with AutomaticK
     );
   }
 }
-

@@ -68,7 +68,8 @@ class WebRTCSignalingService {
     }
 
     if (token == null || token.isEmpty || isExpired) {
-      debugPrint('WebRTC WS: Auth token missing or expired. Connection aborted.');
+      debugPrint(
+          'WebRTC WS: Auth token missing or expired. Connection aborted.');
       return;
     }
 
@@ -106,8 +107,7 @@ class WebRTCSignalingService {
     final customClient = _buildDebugHttpClientForSelfSigned(uri);
     final token = uri.queryParameters['token'];
     final headers = <String, dynamic>{
-      if (token != null && token.isNotEmpty)
-        'Authorization': 'Bearer $token',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
 
     try {
@@ -121,10 +121,15 @@ class WebRTCSignalingService {
       final isTlsCertIssue = e.toString().contains('CERTIFICATE_VERIFY_FAILED');
       final isPrivate = _isPrivateIp(uri.host);
 
-      if ((!kReleaseMode || isPrivate) && isIpHost && uri.scheme == 'wss' && isTlsCertIssue) {
+      if ((!kReleaseMode || isPrivate) &&
+          isIpHost &&
+          uri.scheme == 'wss' &&
+          isTlsCertIssue) {
         final fallbackUri = uri.replace(scheme: 'ws');
-        final safeFallbackUri = fallbackUri.replace(queryParameters: {'token': '***'});
-        debugPrint('WebRTC WS: TLS failed, trying fallback to $safeFallbackUri');
+        final safeFallbackUri =
+            fallbackUri.replace(queryParameters: {'token': '***'});
+        debugPrint(
+            'WebRTC WS: TLS failed, trying fallback to $safeFallbackUri');
 
         return await WebSocket.connect(
           fallbackUri.toString(),
@@ -158,7 +163,10 @@ class WebRTCSignalingService {
     channel.sink.add(jsonEncode(payload));
   }
 
-  void startCall({required String targetUserId, required String callType, required String callerName}) {
+  void startCall(
+      {required String targetUserId,
+      required String callType,
+      required String callerName}) {
     send({
       'type': 'call_offer',
       'target_user_id': int.tryParse(targetUserId) ?? 0,
@@ -253,7 +261,8 @@ class WebRTCSignalingService {
     if (uri.scheme != 'wss' || !isIpHost) return null;
 
     final client = HttpClient();
-    client.badCertificateCallback = (X509Certificate cert, String host, int port) {
+    client.badCertificateCallback =
+        (X509Certificate cert, String host, int port) {
       debugPrint('WebRTC WS: bypass TLS self-signed cert for $host:$port');
       return true;
     };
@@ -270,7 +279,10 @@ class WebRTCSignalingService {
       if (parts.length == 4 && parts[0] != null) {
         if (parts[0] == 10) return true;
         if (parts[0] == 192 && parts[1] == 168) return true;
-        if (parts[0] == 172 && parts[1] != null && parts[1]! >= 16 && parts[1]! <= 31) return true;
+        if (parts[0] == 172 &&
+            parts[1] != null &&
+            parts[1]! >= 16 &&
+            parts[1]! <= 31) return true;
       }
     }
     return false;
@@ -343,7 +355,8 @@ class WebRTCSignalingService {
     final baseDelaySeconds = 1 << exponent;
     final jitterMs = Random().nextInt(1000);
     final delay = Duration(milliseconds: baseDelaySeconds * 1000 + jitterMs);
-    debugPrint('WebRTC WS: reconnect in ${baseDelaySeconds}s + ${jitterMs}ms (attempt $_reconnectAttempt)');
+    debugPrint(
+        'WebRTC WS: reconnect in ${baseDelaySeconds}s + ${jitterMs}ms (attempt $_reconnectAttempt)');
 
     _reconnectTimer = Timer(delay, () {
       final userId = _currentUserId;
@@ -356,7 +369,7 @@ class WebRTCSignalingService {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return true;
-      
+
       final payload = parts[1];
       var normalized = payload.replaceAll('-', '+').replaceAll('_', '/');
       final pad = normalized.length % 4;
@@ -368,11 +381,14 @@ class WebRTCSignalingService {
       final decodedBytes = base64Decode(normalized);
       final decodedString = utf8.decode(decodedBytes);
       final jsonMap = jsonDecode(decodedString) as Map<String, dynamic>;
-      
+
       if (jsonMap.containsKey('exp')) {
         final exp = jsonMap['exp'] as int;
-        final expiry = DateTime.fromMillisecondsSinceEpoch(exp * 1000, isUtc: true);
-        return DateTime.now().toUtc().isAfter(expiry.subtract(AppConfig.tokenRefreshThreshold));
+        final expiry =
+            DateTime.fromMillisecondsSinceEpoch(exp * 1000, isUtc: true);
+        return DateTime.now()
+            .toUtc()
+            .isAfter(expiry.subtract(AppConfig.tokenRefreshThreshold));
       }
       return true;
     } catch (e) {

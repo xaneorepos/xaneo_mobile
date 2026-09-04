@@ -29,7 +29,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  
+
   // Контроллеры полей
   final _firstNameController = TextEditingController();
   final _birthDateController = TextEditingController();
@@ -38,7 +38,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _verificationCodeController = TextEditingController();
   final _passwordController = TextEditingController();
   final _passwordConfirmController = TextEditingController();
-  
+
   // Focus nodes
   final _firstNameFocus = FocusNode();
   final _birthDateFocus = FocusNode();
@@ -47,7 +47,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _verificationCodeFocus = FocusNode();
   final _passwordFocus = FocusNode();
   final _passwordConfirmFocus = FocusNode();
-  
+
   // Состояние
   bool _isLoading = false;
   bool _hasAccounts = false;
@@ -63,33 +63,33 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _isVerifyingCode = false;
   bool _acceptTerms = false;
   bool _acceptDataProcessing = false;
-  
+
   // Ошибки и дебаунсы
   String? _nicknameError;
   String? _emailError;
   String? _verificationError;
   int _nicknameDebounce = 0;
   int _emailDebounce = 0;
-  
+
   // Переменные настроек
   bool _notificationsEnabled = true;
   bool _useCustomNotifications = true;
   double _fontSize = 16.0;
   int _selectedLanguageIndex = 1; // Индекс русского языка в списке
   bool _showSettings = false; // Показывать модальное окно настроек
-  
+
   // Список доступных языков
-  final List<Map<String, String>> _availableLanguages = LocaleProvider.availableLanguages;
-  
+  final List<Map<String, String>> _availableLanguages =
+      LocaleProvider.availableLanguages;
+
   // Аватар
   File? _avatarFile;
   final ImagePicker _imagePicker = ImagePicker();
   DateTime? _selectedBirthDate;
 
-  
   // Этапы регистрации (0-8, всего 9 шагов)
   int _currentStep = 0;
-  
+
   // Анимации
   late AnimationController _fadeController;
   late AnimationController _slideController;
@@ -97,7 +97,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   late AnimationController _settingsAnimationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  
+
   void _onFieldChanged() {
     setState(() {});
   }
@@ -122,27 +122,27 @@ class _RegisterScreenState extends State<RegisterScreen>
     _passwordController.addListener(_onFieldChanged);
     _passwordConfirmController.addListener(_onFieldChanged);
     _verificationCodeController.addListener(_onFieldChanged);
-    
+
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    
+
     _slideController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    
+
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
     )..repeat(reverse: true);
-    
+
     _settingsAnimationController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    
+
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -150,7 +150,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       parent: _fadeController,
       curve: Curves.easeInOut,
     ));
-    
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.3),
       end: Offset.zero,
@@ -158,11 +158,11 @@ class _RegisterScreenState extends State<RegisterScreen>
       parent: _slideController,
       curve: Curves.easeOutCubic,
     ));
-    
+
     _fadeController.forward();
     _slideController.forward();
   }
-  
+
   @override
   void dispose() {
     _firstNameController.dispose();
@@ -172,7 +172,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     _verificationCodeController.dispose();
     _passwordController.dispose();
     _passwordConfirmController.dispose();
-    
+
     _firstNameFocus.dispose();
     _birthDateFocus.dispose();
     _nicknameFocus.dispose();
@@ -180,19 +180,19 @@ class _RegisterScreenState extends State<RegisterScreen>
     _verificationCodeFocus.dispose();
     _passwordFocus.dispose();
     _passwordConfirmFocus.dispose();
-    
+
     _fadeController.dispose();
     _slideController.dispose();
     _pulseController.dispose();
     _settingsAnimationController.dispose();
-    
+
     super.dispose();
   }
-  
+
   void _onNicknameChanged() {
     _nicknameDebounce++;
     final currentDebounce = _nicknameDebounce;
-    
+
     setState(() {
       _isNicknameAvailable = false;
       _isNicknameTaken = false;
@@ -203,23 +203,23 @@ class _RegisterScreenState extends State<RegisterScreen>
         _isCheckingNickname = false;
       }
     });
-    
+
     if (_nicknameController.text.trim().length < 3) return;
-    
+
     Future.delayed(const Duration(milliseconds: 500), () async {
       if (currentDebounce == _nicknameDebounce && mounted) {
         await _validateNickname();
       }
     });
   }
-  
+
   Future<void> _validateNickname() async {
     final username = _nicknameController.text.trim();
     if (username.length < 3) return;
-    
+
     final apiService = ApiService();
     final result = await apiService.checkUsername(username);
-    
+
     if (mounted) {
       setState(() {
         _isCheckingNickname = false;
@@ -227,24 +227,31 @@ class _RegisterScreenState extends State<RegisterScreen>
           final isAvailable = result.data!['available'] == true;
           _isNicknameAvailable = isAvailable;
           _isNicknameTaken = !isAvailable;
-          _nicknameError = isAvailable ? null : (AppLocalizations.of(context)?.nikneymUzheZanyat_59aa ?? result.data!['message'] ?? 'Username taken');
+          _nicknameError = isAvailable
+              ? null
+              : (AppLocalizations.of(context)?.nikneymUzheZanyat_59aa ??
+                  result.data!['message'] ??
+                  'Username taken');
         } else {
           _isNicknameAvailable = false;
           _isNicknameTaken = true;
           print('Ошибка проверки никнейма: ${result.error}');
-          _nicknameError = result.error ?? (AppLocalizations.of(context)?.oshibkaProverki_2ab0 ?? 'Fallback');
+          _nicknameError = result.error ??
+              (AppLocalizations.of(context)?.oshibkaProverki_2ab0 ??
+                  'Fallback');
         }
       });
     }
   }
-  
+
   void _onEmailChanged() {
     _emailDebounce++;
     final currentDebounce = _emailDebounce;
-    
+
     final email = _emailController.text.trim();
-    final isValidFormat = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
-    
+    final isValidFormat =
+        RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+
     setState(() {
       _isEmailAvailable = false;
       _isEmailTaken = false;
@@ -255,24 +262,25 @@ class _RegisterScreenState extends State<RegisterScreen>
         _isCheckingEmail = false;
       }
     });
-    
+
     if (!isValidFormat) return;
-    
+
     Future.delayed(const Duration(milliseconds: 500), () async {
       if (currentDebounce == _emailDebounce && mounted) {
         await _validateEmail();
       }
     });
   }
-  
+
   Future<void> _validateEmail() async {
     final email = _emailController.text.trim();
-    final isValidFormat = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+    final isValidFormat =
+        RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
     if (!isValidFormat) return;
-    
+
     final apiService = ApiService();
     final result = await apiService.checkEmail(email);
-    
+
     if (mounted) {
       setState(() {
         _isCheckingEmail = false;
@@ -280,11 +288,17 @@ class _RegisterScreenState extends State<RegisterScreen>
           final isAvailable = result.data!['available'] == true;
           _isEmailAvailable = isAvailable;
           _isEmailTaken = !isAvailable;
-          _emailError = isAvailable ? null : (AppLocalizations.of(context)?.emailUzheZanyat_17e1 ?? result.data!['message'] ?? 'Email taken');
+          _emailError = isAvailable
+              ? null
+              : (AppLocalizations.of(context)?.emailUzheZanyat_17e1 ??
+                  result.data!['message'] ??
+                  'Email taken');
         } else {
           _isEmailAvailable = false;
           _isEmailTaken = true;
-          _emailError = result.error ?? (AppLocalizations.of(context)?.oshibkaProverki_2ab0 ?? 'Fallback');
+          _emailError = result.error ??
+              (AppLocalizations.of(context)?.oshibkaProverki_2ab0 ??
+                  'Fallback');
         }
       });
     }
@@ -296,45 +310,50 @@ class _RegisterScreenState extends State<RegisterScreen>
       _isLoading = true;
       _verificationError = null;
     });
-    
+
     final email = _emailController.text.trim();
     final nickname = _nicknameController.text.trim();
-    print('DEBUG UI: Starting _sendVerificationCode with email: $email, nickname: $nickname');
+    print(
+        'DEBUG UI: Starting _sendVerificationCode with email: $email, nickname: $nickname');
 
     final apiService = ApiService();
     final result = await apiService.sendVerificationCode(
       email: email,
       username: nickname,
     );
-    
-    print('DEBUG UI: _sendVerificationCode result: success=${result.success}, error=${result.error}');
+
+    print(
+        'DEBUG UI: _sendVerificationCode result: success=${result.success}, error=${result.error}');
 
     setState(() {
       _isLoading = false;
     });
-    
+
     if (result.success) {
       setState(() {
         _currentStep = 4; // Переходим к шагу подтверждения
       });
     } else {
       setState(() {
-        _verificationError = result.error ?? (AppLocalizations.of(context)?.oshibkaOtpravkiKoda_a42a ?? 'Fallback');
+        _verificationError = result.error ??
+            (AppLocalizations.of(context)?.oshibkaOtpravkiKoda_a42a ??
+                'Fallback');
       });
       _showErrorMessage(_verificationError!);
     }
   }
-  
+
   /// Подтвердить код
   Future<void> _verifyEmailCode() async {
     setState(() {
       _isLoading = true;
       _verificationError = null;
     });
-    
+
     final email = _emailController.text.trim();
     final code = _verificationCodeController.text.trim();
-    print('DEBUG UI: Starting _verifyEmailCode with email: $email, code: $code');
+    print(
+        'DEBUG UI: Starting _verifyEmailCode with email: $email, code: $code');
 
     final apiService = ApiService();
     final result = await apiService.verifyEmailCode(
@@ -342,24 +361,27 @@ class _RegisterScreenState extends State<RegisterScreen>
       code: code,
     );
 
-    print('DEBUG UI: _verifyEmailCode result: success=${result.success}, error=${result.error}');
-    
+    print(
+        'DEBUG UI: _verifyEmailCode result: success=${result.success}, error=${result.error}');
+
     setState(() {
       _isLoading = false;
     });
-    
+
     if (result.success) {
       setState(() {
         _currentStep = 5; // Переходим к шагу ввода пароля
       });
     } else {
       setState(() {
-        _verificationError = result.error ?? (AppLocalizations.of(context)?.nevernyyKodPodtverzhdeniya_7762 ?? 'Fallback');
+        _verificationError = result.error ??
+            (AppLocalizations.of(context)?.nevernyyKodPodtverzhdeniya_7762 ??
+                'Fallback');
       });
       _showErrorMessage(_verificationError!);
     }
   }
-  
+
   /// Выбрать аватар
   Future<void> _pickAvatar() async {
     final XFile? image = await _imagePicker.pickImage(
@@ -368,23 +390,24 @@ class _RegisterScreenState extends State<RegisterScreen>
       maxHeight: 512,
       imageQuality: 85,
     );
-    
+
     if (image != null) {
       setState(() => _avatarFile = File(image.path));
     }
   }
-  
+
   /// Удалить аватар
   void _removeAvatar() {
     setState(() => _avatarFile = null);
   }
-  
+
   /// Выбрать дату рождения — кастомный сеточный календарь
   Future<void> _selectBirthDate() async {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final isDark = themeProvider.isDarkMode;
 
-    DateTime initialDate = DateTime.now().subtract(const Duration(days: 365 * 18));
+    DateTime initialDate =
+        DateTime.now().subtract(const Duration(days: 365 * 18));
     if (_birthDateController.text.isNotEmpty) {
       try {
         initialDate = DateTime.parse(_birthDateController.text);
@@ -414,7 +437,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     }
   }
 
-    /// Перейти к следующему шагу
+  /// Перейти к следующему шагу
   void _nextStep() {
     if (_currentStep < 8) {
       if (_currentStep == 3) {
@@ -426,23 +449,25 @@ class _RegisterScreenState extends State<RegisterScreen>
       }
     }
   }
-  
+
   /// Вернуться к предыдущему шагу
   void _previousStep() {
     if (_currentStep > 0) {
       setState(() => _currentStep--);
     }
   }
-  
+
   /// Завершить регистрацию
   Future<void> _completeRegistration() async {
     if (!_acceptTerms || !_acceptDataProcessing) {
-      _showErrorMessage((AppLocalizations.of(context)?.neobhodimoPrinyatUsloviyaISoglasie_e31e ?? 'Fallback'));
+      _showErrorMessage((AppLocalizations.of(context)
+              ?.neobhodimoPrinyatUsloviyaISoglasie_e31e ??
+          'Fallback'));
       return;
     }
-    
+
     setState(() => _isLoading = true);
-    
+
     final apiService = ApiService();
     final result = await apiService.register(
       username: _nicknameController.text.trim(),
@@ -450,50 +475,56 @@ class _RegisterScreenState extends State<RegisterScreen>
       password: _passwordController.text,
       passwordConfirm: _passwordConfirmController.text,
       birthDate: _birthDateController.text,
-      firstName: _firstNameController.text.trim().isEmpty 
-          ? null 
+      firstName: _firstNameController.text.trim().isEmpty
+          ? null
           : _firstNameController.text.trim(),
     );
-    
+
     if (result.success) {
       // Генерируем и сохраняем E2EE ключи
       try {
-        final newBlob = await CryptoService().generateAndStoreKeys(_passwordController.text);
+        final newBlob = await CryptoService()
+            .generateAndStoreKeys(_passwordController.text);
         final uploadResponse = await apiService.uploadKeys(
           x25519PublicKey: newBlob['pub']['x25519'] as String,
           ed25519PublicKey: newBlob['pub']['ed25519'] as String,
           encryptedBlob: newBlob,
         );
         if (!uploadResponse.success) {
-          print("Error uploading keys during registration: ${uploadResponse.error}");
+          print(
+              "Error uploading keys during registration: ${uploadResponse.error}");
         }
       } catch (e) {
         print("Error generating keys during registration: $e");
       }
 
       setState(() => _isLoading = false);
-      _showSuccessMessage((AppLocalizations.of(context)?.registratsiyaUspeshna_9d5c ?? 'Fallback'));
-      
+      _showSuccessMessage(
+          (AppLocalizations.of(context)?.registratsiyaUspeshna_9d5c ??
+              'Fallback'));
+
       // Возвращаемся на экран входа
       if (mounted) {
         Navigator.of(context).pop(true); // true означает успешную регистрацию
       }
     } else {
       setState(() => _isLoading = false);
-      _showErrorMessage(result.error ?? (AppLocalizations.of(context)?.oshibkaRegistratsii_b9f2 ?? 'Fallback'));
+      _showErrorMessage(result.error ??
+          (AppLocalizations.of(context)?.oshibkaRegistratsii_b9f2 ??
+              'Fallback'));
     }
   }
-  
+
   /// Показать сообщение об ошибке
   void _showErrorMessage(String message) {
     CustomToast.show(context, message, type: ToastType.error);
   }
-  
+
   /// Показать сообщение об успехе
   void _showSuccessMessage(String message) {
     CustomToast.show(context, message, type: ToastType.success);
   }
-  
+
   /// Проверить валидность текущего шага
   bool _validateCurrentStep() {
     switch (_currentStep) {
@@ -502,18 +533,20 @@ class _RegisterScreenState extends State<RegisterScreen>
       case 1: // Дата рождения
         return _birthDateController.text.trim().isNotEmpty;
       case 2: // Никнейм
-        return _nicknameController.text.trim().length >= 3 && _isNicknameAvailable;
+        return _nicknameController.text.trim().length >= 3 &&
+            _isNicknameAvailable;
       case 3: // Email
-        return _emailController.text.trim().isNotEmpty && 
-               RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(_emailController.text.trim()) &&
-               _isEmailAvailable;
+        return _emailController.text.trim().isNotEmpty &&
+            RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                .hasMatch(_emailController.text.trim()) &&
+            _isEmailAvailable;
       case 4: // Код подтверждения
         return _verificationCodeController.text.trim().length == 6;
       case 5: // Пароль
         return _passwordController.text.length >= 8;
       case 6: // Подтверждение пароля
         return _passwordConfirmController.text.isNotEmpty &&
-               _passwordController.text == _passwordConfirmController.text;
+            _passwordController.text == _passwordConfirmController.text;
       case 7: // Аватар (опционально)
         return true;
       case 8: // Условия
@@ -522,7 +555,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         return false;
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -530,11 +563,12 @@ class _RegisterScreenState extends State<RegisterScreen>
     final isDark = themeProvider.isDarkMode;
     final screenWidth = MediaQuery.of(context).size.width;
     final showRightPanel = screenWidth > 750;
-    
+
     final canGoBack = Navigator.of(context).canPop() || _hasAccounts;
-    
+
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF070707) : const Color(0xFFFAF9FB),
+      backgroundColor:
+          isDark ? const Color(0xFF070707) : const Color(0xFFFAF9FB),
       body: Stack(
         children: [
           // Main Split Screen Layout
@@ -544,12 +578,15 @@ class _RegisterScreenState extends State<RegisterScreen>
               Expanded(
                 flex: showRightPanel ? 5 : 10,
                 child: Container(
-                  color: isDark ? const Color(0xFF0C0C0C) : const Color(0xFFFFFFFF),
+                  color: isDark
+                      ? const Color(0xFF0C0C0C)
+                      : const Color(0xFFFFFFFF),
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 400),
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 40, vertical: 48),
                         child: _ScaledContent(
                           child: FadeTransition(
                             opacity: _fadeAnimation,
@@ -567,36 +604,46 @@ class _RegisterScreenState extends State<RegisterScreen>
                                         'assets/logo.png',
                                         width: 44,
                                         height: 44,
-                                        color: isDark ? Colors.white : Colors.black,
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black,
                                         fit: BoxFit.contain,
                                       ),
                                       const SizedBox(height: 32),
                                     ],
-                                    
+
                                     // Step Header
                                     _buildHeader(scaleProvider, isDark),
                                     const SizedBox(height: 24),
-                                    
+
                                     // Progress Bar
-                                    _buildProgressIndicator(scaleProvider, isDark),
+                                    _buildProgressIndicator(
+                                        scaleProvider, isDark),
                                     const SizedBox(height: 32),
-                                    
+
                                     // Current Step form fields with fade transition
                                     AnimatedSwitcher(
-                                      duration: const Duration(milliseconds: 300),
-                                      transitionBuilder: (Widget child, Animation<double> animation) {
-                                        return FadeTransition(opacity: animation, child: child);
+                                      duration:
+                                          const Duration(milliseconds: 300),
+                                      transitionBuilder: (Widget child,
+                                          Animation<double> animation) {
+                                        return FadeTransition(
+                                            opacity: animation, child: child);
                                       },
                                       child: KeyedSubtree(
                                         key: ValueKey<int>(_currentStep),
-                                        child: _buildCurrentStep(scaleProvider, isDark),
+                                        child: _buildCurrentStep(
+                                            scaleProvider, isDark),
                                       ),
                                     ),
-                                    
-                                    SizedBox(height: (_currentStep == 8 ? 16 : 32) * scaleProvider.scale),
-                                    
+
+                                    SizedBox(
+                                        height: (_currentStep == 8 ? 16 : 32) *
+                                            scaleProvider.scale),
+
                                     // Navigation Buttons
-                                    _buildNavigationButtons(scaleProvider, isDark),
+                                    _buildNavigationButtons(
+                                        scaleProvider, isDark),
                                   ],
                                 ),
                               ),
@@ -608,17 +655,21 @@ class _RegisterScreenState extends State<RegisterScreen>
                   ),
                 ),
               ),
-              
+
               // Right Column: Minimal Branding Panel (identical to login)
               if (showRightPanel)
                 Expanded(
                   flex: 6,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF050505) : const Color(0xFFF1F0F3),
+                      color: isDark
+                          ? const Color(0xFF050505)
+                          : const Color(0xFFF1F0F3),
                       border: Border(
                         left: BorderSide(
-                          color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.04),
+                          color: isDark
+                              ? Colors.white.withOpacity(0.04)
+                              : Colors.black.withOpacity(0.04),
                           width: 1,
                         ),
                       ),
@@ -646,11 +697,15 @@ class _RegisterScreenState extends State<RegisterScreen>
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            (AppLocalizations.of(context)?.secureDesktopCommunicator ?? 'secure desktop communicator'),
+                            (AppLocalizations.of(context)
+                                    ?.secureDesktopCommunicator ??
+                                'secure desktop communicator'),
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w300,
-                              color: isDark ? Colors.grey.shade600 : Colors.grey.shade500,
+                              color: isDark
+                                  ? Colors.grey.shade600
+                                  : Colors.grey.shade500,
                               letterSpacing: 2,
                               fontFamily: 'Inter',
                             ),
@@ -662,7 +717,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                 ),
             ],
           ),
-          
+
           // Back button trigger
           if (canGoBack)
             Positioned(
@@ -678,22 +733,24 @@ class _RegisterScreenState extends State<RegisterScreen>
                       if (Navigator.of(context).canPop()) {
                         Navigator.of(context).pop();
                       } else if (_hasAccounts) {
-                        Navigator.of(context).pushReplacementNamed('/messenger');
+                        Navigator.of(context)
+                            .pushReplacementNamed('/messenger');
                       }
                     }
                   },
                   child: Tooltip(
-                    message: (AppLocalizations.of(context)?.nazad_2b0b ?? 'Fallback'),
+                    message: (AppLocalizations.of(context)?.nazad_2b0b ??
+                        'Fallback'),
                     child: Container(
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isDark 
+                        color: isDark
                             ? Colors.white.withOpacity(0.02)
                             : Colors.black.withOpacity(0.02),
                         border: Border.all(
-                          color: isDark 
+                          color: isDark
                               ? Colors.white.withOpacity(0.08)
                               : Colors.black.withOpacity(0.08),
                           width: 1,
@@ -726,11 +783,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                   height: 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isDark 
+                    color: isDark
                         ? Colors.white.withOpacity(0.02)
                         : Colors.black.withOpacity(0.02),
                     border: Border.all(
-                      color: isDark 
+                      color: isDark
                           ? Colors.white.withOpacity(0.08)
                           : Colors.black.withOpacity(0.08),
                       width: 1,
@@ -745,14 +802,14 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
             ),
           ),
-          
+
           // Settings Modal overlay
           if (_showSettings) _buildSettingsModal(context, isDark),
         ],
       ),
     );
   }
-  
+
   Widget _buildHeader(ScaleProvider scaleProvider, bool isDark) {
     final titles = [
       (AppLocalizations.of(context)?.kakVasZovut_68b7 ?? 'Fallback'),
@@ -765,19 +822,25 @@ class _RegisterScreenState extends State<RegisterScreen>
       (AppLocalizations.of(context)?.dobavteFoto_25eb ?? 'Fallback'),
       (AppLocalizations.of(context)?.posledniyShag_e0c5 ?? 'Fallback'),
     ];
-    
+
     final subtitles = [
-      (AppLocalizations.of(context)?.vvediteVasheNastoyascheeImya_e656 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.vvediteVasheNastoyascheeImya_e656 ??
+          'Fallback'),
       (AppLocalizations.of(context)?.vamDolzhnoBytNeMenee_1111 ?? 'Fallback'),
-      (AppLocalizations.of(context)?.nikneymDolzhenBytUnikalnym_952d ?? 'Fallback'),
-      (AppLocalizations.of(context)?.myOtpravimKodPodtverzhdeniya_fc71 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.nikneymDolzhenBytUnikalnym_952d ??
+          'Fallback'),
+      (AppLocalizations.of(context)?.myOtpravimKodPodtverzhdeniya_fc71 ??
+          'Fallback'),
       (AppLocalizations.of(context)?.vvedite6ZnachnyyKodIz_f22f ?? 'Fallback'),
-      (AppLocalizations.of(context)?.pridumayteNadezhnyyParol_2312 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.pridumayteNadezhnyyParol_2312 ??
+          'Fallback'),
       (AppLocalizations.of(context)?.povtoriteParolEscheRaz_6723 ?? 'Fallback'),
-      (AppLocalizations.of(context)?.etoNeobyazatelnoNoPriyatno_b6a3 ?? 'Fallback'),
-      (AppLocalizations.of(context)?.proverteVashiDannyeIPrimite_3121 ?? 'Fallback'),
+      (AppLocalizations.of(context)?.etoNeobyazatelnoNoPriyatno_b6a3 ??
+          'Fallback'),
+      (AppLocalizations.of(context)?.proverteVashiDannyeIPrimite_3121 ??
+          'Fallback'),
     ];
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -815,14 +878,16 @@ class _RegisterScreenState extends State<RegisterScreen>
       ],
     );
   }
-  
+
   Widget _buildProgressIndicator(ScaleProvider scaleProvider, bool isDark) {
     final progress = (_currentStep + 1) / 9.0;
     return Container(
       height: 2,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+        color: isDark
+            ? Colors.white.withOpacity(0.08)
+            : Colors.black.withOpacity(0.05),
         borderRadius: BorderRadius.circular(1),
       ),
       child: FractionallySizedBox(
@@ -837,7 +902,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       ),
     );
   }
-  
+
   Widget _buildCurrentStep(ScaleProvider scaleProvider, bool isDark) {
     switch (_currentStep) {
       case 0:
@@ -862,7 +927,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         return const SizedBox.shrink();
     }
   }
-  
+
   // Шаг 0: Имя
   Widget _buildStep0(ScaleProvider scaleProvider, bool isDark) {
     return _buildTextField(
@@ -875,12 +940,12 @@ class _RegisterScreenState extends State<RegisterScreen>
       isDark: isDark,
     );
   }
-  
+
   // Шаг 1: Дата рождения
   Widget _buildStep1(ScaleProvider scaleProvider, bool isDark) {
     return _buildDateField(scaleProvider, isDark);
   }
-  
+
   // Шаг 2: Никнейм
   Widget _buildStep2(ScaleProvider scaleProvider, bool isDark) {
     return Column(
@@ -894,7 +959,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           isDark: isDark,
         ),
         SizedBox(height: 16 * scaleProvider.scale),
-        
+
         // Статус доступности никнейма
         if (_isCheckingNickname)
           Row(
@@ -911,7 +976,8 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
               SizedBox(width: 8 * scaleProvider.scale),
               Text(
-                (AppLocalizations.of(context)?.proverkaDostupnosti_da13 ?? 'Fallback'),
+                (AppLocalizations.of(context)?.proverkaDostupnosti_da13 ??
+                    'Fallback'),
                 style: TextStyle(
                   fontSize: 14 * scaleProvider.scale,
                   color: isDark ? Colors.white60 : Colors.black54,
@@ -929,7 +995,8 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
               SizedBox(width: 8 * scaleProvider.scale),
               Text(
-                (AppLocalizations.of(context)?.nikneymDostupen_3fc9 ?? 'Fallback'),
+                (AppLocalizations.of(context)?.nikneymDostupen_3fc9 ??
+                    'Fallback'),
                 style: TextStyle(
                   fontSize: 14 * scaleProvider.scale,
                   color: Colors.green,
@@ -947,7 +1014,9 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
               SizedBox(width: 8 * scaleProvider.scale),
               Text(
-                _nicknameError ?? (AppLocalizations.of(context)?.nikneymZanyat_8a5f ?? 'Fallback'),
+                _nicknameError ??
+                    (AppLocalizations.of(context)?.nikneymZanyat_8a5f ??
+                        'Fallback'),
                 style: TextStyle(
                   fontSize: 14 * scaleProvider.scale,
                   color: Colors.red,
@@ -958,7 +1027,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       ],
     );
   }
-  
+
   // Шаг 3: Email
   Widget _buildStep3(ScaleProvider scaleProvider, bool isDark) {
     return Column(
@@ -973,7 +1042,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           isDark: isDark,
         ),
         SizedBox(height: 16 * scaleProvider.scale),
-        
+
         // Статус доступности email
         if (_isCheckingEmail)
           Row(
@@ -990,7 +1059,8 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
               SizedBox(width: 8 * scaleProvider.scale),
               Text(
-                (AppLocalizations.of(context)?.proverkaDostupnosti_da13 ?? 'Fallback'),
+                (AppLocalizations.of(context)?.proverkaDostupnosti_da13 ??
+                    'Fallback'),
                 style: TextStyle(
                   fontSize: 14 * scaleProvider.scale,
                   color: isDark ? Colors.white60 : Colors.black54,
@@ -1008,7 +1078,8 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
               SizedBox(width: 8 * scaleProvider.scale),
               Text(
-                (AppLocalizations.of(context)?.emailDostupen_e903 ?? 'Fallback'),
+                (AppLocalizations.of(context)?.emailDostupen_e903 ??
+                    'Fallback'),
                 style: TextStyle(
                   fontSize: 14 * scaleProvider.scale,
                   color: Colors.green,
@@ -1026,7 +1097,9 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
               SizedBox(width: 8 * scaleProvider.scale),
               Text(
-                _emailError ?? (AppLocalizations.of(context)?.emailZanyat_fb40 ?? 'Fallback'),
+                _emailError ??
+                    (AppLocalizations.of(context)?.emailZanyat_fb40 ??
+                        'Fallback'),
                 style: TextStyle(
                   fontSize: 14 * scaleProvider.scale,
                   color: Colors.red,
@@ -1037,13 +1110,15 @@ class _RegisterScreenState extends State<RegisterScreen>
       ],
     );
   }
-  
+
   // Шаг 4: Подтверждение Email
   Widget _buildStep4(ScaleProvider scaleProvider, bool isDark) {
     return Column(
       children: [
         Text(
-          (AppLocalizations.of(context)?.codeSentToEmail(_emailController.text) ?? 'Код отправлен на ${_emailController.text}'),
+          (AppLocalizations.of(context)
+                  ?.codeSentToEmail(_emailController.text) ??
+              'Код отправлен на ${_emailController.text}'),
           style: TextStyle(
             fontSize: 14 * scaleProvider.scale,
             color: isDark ? Colors.white70 : Colors.black87,
@@ -1054,7 +1129,8 @@ class _RegisterScreenState extends State<RegisterScreen>
         _buildTextField(
           controller: _verificationCodeController,
           focusNode: _verificationCodeFocus,
-          label: (AppLocalizations.of(context)?.kodPodtverzhdeniya_1c9d ?? 'Fallback'),
+          label: (AppLocalizations.of(context)?.kodPodtverzhdeniya_1c9d ??
+              'Fallback'),
           icon: FontAwesomeIcons.shield,
           keyboardType: TextInputType.number,
           scaleProvider: scaleProvider,
@@ -1077,7 +1153,8 @@ class _RegisterScreenState extends State<RegisterScreen>
         TextButton(
           onPressed: _isLoading ? null : _sendVerificationCode,
           child: Text(
-            (AppLocalizations.of(context)?.otpravitKodPovtorno_7703 ?? 'Fallback'),
+            (AppLocalizations.of(context)?.otpravitKodPovtorno_7703 ??
+                'Fallback'),
             style: TextStyle(
               fontSize: 14 * scaleProvider.scale,
               color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
@@ -1100,20 +1177,22 @@ class _RegisterScreenState extends State<RegisterScreen>
       isDark: isDark,
     );
   }
-  
+
   // Шаг 6: Подтверждение пароля
   Widget _buildStep6(ScaleProvider scaleProvider, bool isDark) {
     return _buildPasswordField(
       controller: _passwordConfirmController,
       focusNode: _passwordConfirmFocus,
-      label: (AppLocalizations.of(context)?.podtverditeParol_e3e3 ?? 'Fallback'),
+      label:
+          (AppLocalizations.of(context)?.podtverditeParol_e3e3 ?? 'Fallback'),
       obscureText: _obscureConfirmPassword,
-      onTap: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+      onTap: () =>
+          setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
       scaleProvider: scaleProvider,
       isDark: isDark,
     );
   }
-  
+
   // Шаг 7: Аватар
   Widget _buildStep7(ScaleProvider scaleProvider, bool isDark) {
     return Column(
@@ -1125,16 +1204,21 @@ class _RegisterScreenState extends State<RegisterScreen>
             width: 120 * scaleProvider.scale,
             height: 120 * scaleProvider.scale,
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+              color: isDark
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.05),
               borderRadius: BorderRadius.circular(60 * scaleProvider.scale),
               border: Border.all(
-                color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
+                color: isDark
+                    ? Colors.white.withOpacity(0.2)
+                    : Colors.black.withOpacity(0.1),
                 width: 2,
               ),
             ),
             child: _avatarFile != null
                 ? ClipRRect(
-                    borderRadius: BorderRadius.circular(60 * scaleProvider.scale),
+                    borderRadius:
+                        BorderRadius.circular(60 * scaleProvider.scale),
                     child: Image.file(
                       _avatarFile!,
                       fit: BoxFit.cover,
@@ -1148,15 +1232,16 @@ class _RegisterScreenState extends State<RegisterScreen>
           ),
         ),
         SizedBox(height: 16 * scaleProvider.scale),
-        
+
         Text(
-          (AppLocalizations.of(context)?.nazhmiteChtobyDobavitFoto_d6e8 ?? 'Fallback'),
+          (AppLocalizations.of(context)?.nazhmiteChtobyDobavitFoto_d6e8 ??
+              'Fallback'),
           style: TextStyle(
             fontSize: 14 * scaleProvider.scale,
             color: isDark ? Colors.white60 : Colors.black54,
           ),
         ),
-        
+
         if (_avatarFile != null) ...[
           SizedBox(height: 16 * scaleProvider.scale),
           TextButton.icon(
@@ -1190,10 +1275,14 @@ class _RegisterScreenState extends State<RegisterScreen>
             horizontal: 16 * scaleProvider.scale,
           ),
           decoration: BoxDecoration(
-            color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+            color: isDark
+                ? Colors.white.withOpacity(0.05)
+                : Colors.black.withOpacity(0.03),
             borderRadius: BorderRadius.circular(16 * scaleProvider.scale),
             border: Border.all(
-              color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+              color: isDark
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.05),
             ),
           ),
           child: Row(
@@ -1201,8 +1290,11 @@ class _RegisterScreenState extends State<RegisterScreen>
               // Аватар
               CircleAvatar(
                 radius: 24 * scaleProvider.scale,
-                backgroundColor: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
-                backgroundImage: _avatarFile != null ? FileImage(_avatarFile!) : null,
+                backgroundColor: isDark
+                    ? Colors.white.withOpacity(0.1)
+                    : Colors.black.withOpacity(0.05),
+                backgroundImage:
+                    _avatarFile != null ? FileImage(_avatarFile!) : null,
                 child: _avatarFile == null
                     ? Icon(
                         Icons.person,
@@ -1229,7 +1321,9 @@ class _RegisterScreenState extends State<RegisterScreen>
                       '@${_nicknameController.text.trim()}',
                       style: TextStyle(
                         fontSize: 13 * scaleProvider.scale,
-                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                        color: isDark
+                            ? Colors.grey.shade400
+                            : Colors.grey.shade600,
                       ),
                     ),
                   ],
@@ -1239,13 +1333,15 @@ class _RegisterScreenState extends State<RegisterScreen>
           ),
         ),
         SizedBox(height: 12 * scaleProvider.scale),
-        
+
         // Принятие условий
         CheckboxListTile(
           value: _acceptTerms,
           onChanged: (value) => setState(() => _acceptTerms = value ?? false),
           title: Text(
-            (AppLocalizations.of(context)?.yaPrinimayuUsloviyaIspolzovaniya_391a ?? 'Fallback'),
+            (AppLocalizations.of(context)
+                    ?.yaPrinimayuUsloviyaIspolzovaniya_391a ??
+                'Fallback'),
             style: TextStyle(
               fontSize: 13 * scaleProvider.scale,
               color: isDark ? Colors.white70 : Colors.black87,
@@ -1257,13 +1353,16 @@ class _RegisterScreenState extends State<RegisterScreen>
           contentPadding: EdgeInsets.zero,
           activeColor: isDark ? Colors.white : Colors.black,
         ),
-        
+
         // Согласие на обработку данных
         CheckboxListTile(
           value: _acceptDataProcessing,
-          onChanged: (value) => setState(() => _acceptDataProcessing = value ?? false),
+          onChanged: (value) =>
+              setState(() => _acceptDataProcessing = value ?? false),
           title: Text(
-            (AppLocalizations.of(context)?.yaSoglasenNaObrabotkuPersonalnyh_f2a8 ?? 'Fallback'),
+            (AppLocalizations.of(context)
+                    ?.yaSoglasenNaObrabotkuPersonalnyh_f2a8 ??
+                'Fallback'),
             style: TextStyle(
               fontSize: 13 * scaleProvider.scale,
               color: isDark ? Colors.white70 : Colors.black87,
@@ -1278,7 +1377,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       ],
     );
   }
-  
+
   Widget _buildNavigationButtons(ScaleProvider scaleProvider, bool isDark) {
     final canGoBack = Navigator.of(context).canPop() || _hasAccounts;
     final showBackButton = _currentStep > 0 || canGoBack;
@@ -1298,16 +1397,20 @@ class _RegisterScreenState extends State<RegisterScreen>
                         if (Navigator.of(context).canPop()) {
                           Navigator.of(context).pop();
                         } else if (_hasAccounts) {
-                          Navigator.of(context).pushReplacementNamed('/messenger');
+                          Navigator.of(context)
+                              .pushReplacementNamed('/messenger');
                         }
                       }
                     },
               style: OutlinedButton.styleFrom(
                 foregroundColor: isDark ? Colors.white : Colors.black,
                 side: BorderSide(
-                  color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.08),
+                  color: isDark
+                      ? Colors.white.withOpacity(0.08)
+                      : Colors.black.withOpacity(0.08),
                 ),
-                padding: EdgeInsets.symmetric(vertical: 14 * scaleProvider.scale),
+                padding:
+                    EdgeInsets.symmetric(vertical: 14 * scaleProvider.scale),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8 * scaleProvider.scale),
                 ),
@@ -1322,14 +1425,14 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
             ),
           ),
-        
+
         if (showBackButton) SizedBox(width: 16 * scaleProvider.scale),
-        
+
         // Кнопка "Далее" или "Завершить"
         Expanded(
           child: ElevatedButton(
-            onPressed: _isLoading || !_validateCurrentStep() 
-                ? null 
+            onPressed: _isLoading || !_validateCurrentStep()
+                ? null
                 : (_currentStep == 8 ? _completeRegistration : _nextStep),
             style: ElevatedButton.styleFrom(
               backgroundColor: isDark ? Colors.white : Colors.black,
@@ -1346,11 +1449,16 @@ class _RegisterScreenState extends State<RegisterScreen>
                     height: 20 * scaleProvider.scale,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(isDark ? Colors.black : Colors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                          isDark ? Colors.black : Colors.white),
                     ),
                   )
                 : Text(
-                    _currentStep == 8 ? (AppLocalizations.of(context)?.zavershit_b0e3 ?? 'Fallback') : (AppLocalizations.of(context)?.dalee_c453 ?? 'Fallback'),
+                    _currentStep == 8
+                        ? (AppLocalizations.of(context)?.zavershit_b0e3 ??
+                            'Fallback')
+                        : (AppLocalizations.of(context)?.dalee_c453 ??
+                            'Fallback'),
                     style: TextStyle(
                       fontSize: 14 * scaleProvider.scale,
                       fontWeight: FontWeight.bold,
@@ -1362,7 +1470,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       ],
     );
   }
-  
+
   Widget _buildTextField({
     required TextEditingController controller,
     required FocusNode focusNode,
@@ -1386,7 +1494,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       onChanged: onChanged,
     );
   }
-  
+
   Widget _buildPasswordField({
     required TextEditingController controller,
     required FocusNode focusNode,
@@ -1406,18 +1514,19 @@ class _RegisterScreenState extends State<RegisterScreen>
       validator: validator,
     );
   }
-  
+
   Widget _buildDateField(ScaleProvider scaleProvider, bool isDark) {
     return CustomTextFormField(
       controller: _birthDateController,
       focusNode: _birthDateFocus,
-      labelText: (AppLocalizations.of(context)?.dataRozhdeniya_505e ?? 'Fallback'),
+      labelText:
+          (AppLocalizations.of(context)?.dataRozhdeniya_505e ?? 'Fallback'),
       icon: FontAwesomeIcons.calendarDays,
       readOnly: true,
       onTap: _selectBirthDate,
     );
   }
-  
+
   /// Закрывает модальное окно с анимацией
   void _closeSettings() async {
     await _settingsAnimationController.reverse();
@@ -1428,7 +1537,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   Widget _buildSettingsModal(BuildContext context, bool isDark) {
     final l10n = AppLocalizations.of(context);
     final screenSize = MediaQuery.of(context).size;
-    
+
     return Consumer2<ThemeProvider, LocaleProvider>(
       builder: (context, themeProvider, localeProvider, child) {
         return AnimatedBuilder(
@@ -1445,276 +1554,378 @@ class _RegisterScreenState extends State<RegisterScreen>
                   child: GestureDetector(
                     onTap: _closeSettings,
                     child: Container(
-                      color: isDark 
-                          ? Colors.black.withOpacity(0.5 * _settingsAnimationController.value)
-                          : Colors.black.withOpacity(0.3 * _settingsAnimationController.value),
+                      color: isDark
+                          ? Colors.black.withOpacity(
+                              0.5 * _settingsAnimationController.value)
+                          : Colors.black.withOpacity(
+                              0.3 * _settingsAnimationController.value),
                     ),
                   ),
                 ),
-                
+
                 // Контент модального окна с анимацией
                 Positioned(
-                  top: 60,
-                  left: 0,
-                  right: 0,
-                  bottom: 20,
-                  child: FadeTransition(
-                    opacity: CurvedAnimation(
-                      parent: _settingsAnimationController,
-                      curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
-                    ),
-                    child: ScaleTransition(
-                      scale: Tween<double>(
-                        begin: 0.95,
-                        end: 1.0,
-                      ).animate(CurvedAnimation(
+                    top: 60,
+                    left: 0,
+                    right: 0,
+                    bottom: 20,
+                    child: FadeTransition(
+                      opacity: CurvedAnimation(
                         parent: _settingsAnimationController,
-                        curve: Curves.easeOut,
-                      )),
-                      child: Center(
-                        child: Container(
-                          width: screenSize.width * 0.85,
-                          constraints: BoxConstraints(
-                            maxWidth: 480,
-                            maxHeight: screenSize.height * 0.85,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF141414) : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
-                              width: 1,
+                        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+                      ),
+                      child: ScaleTransition(
+                        scale: Tween<double>(
+                          begin: 0.95,
+                          end: 1.0,
+                        ).animate(CurvedAnimation(
+                          parent: _settingsAnimationController,
+                          curve: Curves.easeOut,
+                        )),
+                        child: Center(
+                          child: Container(
+                            width: screenSize.width * 0.85,
+                            constraints: BoxConstraints(
+                              maxWidth: 480,
+                              maxHeight: screenSize.height * 0.85,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: isDark ? Colors.black.withOpacity(0.5) : Colors.black.withOpacity(0.05),
-                                blurRadius: 40,
-                                offset: const Offset(0, 20),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xFF141414)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white.withOpacity(0.08)
+                                    : Colors.black.withOpacity(0.06),
+                                width: 1,
                               ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // Заголовок с кнопкой закрытия
-                                  Container(
-                                    padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        bottom: BorderSide(
-                                          color: isDark
-                                              ? Colors.white.withOpacity(0.08)
-                                              : Colors.black.withOpacity(0.05),
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        // Анимированная иконка
-                                        TweenAnimationBuilder<double>(
-                                          duration: const Duration(milliseconds: 800),
-                                          tween: Tween<double>(begin: 0.0, end: 1.0),
-                                          curve: Curves.elasticOut,
-                                          builder: (context, iconAnim, child) {
-                                            return Transform.rotate(
-                                              angle: iconAnim * 2 * math.pi * 0.3,
-                                              child: Container(
-                                                width: 48,
-                                                height: 48,
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  gradient: LinearGradient(
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                    colors: isDark
-                                                        ? [
-                                                            Colors.white.withOpacity(0.2),
-                                                            Colors.white.withOpacity(0.05),
-                                                          ]
-                                                        : [
-                                                            Colors.black.withOpacity(0.1),
-                                                            Colors.black.withOpacity(0.02),
-                                                          ],
-                                                  ),
-                                                  border: Border.all(
-                                                    color: isDark
-                                                        ? Colors.white.withOpacity(0.25)
-                                                        : Colors.black.withOpacity(0.1),
-                                                    width: 1,
-                                                  ),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: isDark
-                                                          ? Colors.white.withOpacity(0.1)
-                                                          : Colors.black.withOpacity(0.05),
-                                                      blurRadius: 15,
-                                                      spreadRadius: 2,
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: Icon(
-                                                  Icons.settings_rounded,
-                                                  color: isDark ? Colors.white : Colors.black,
-                                                  size: 24,
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                        SizedBox(width: 16),
-                                    Expanded(
-                                      child: Text(
-                                        l10n?.settings ?? (AppLocalizations.of(context)?.nastroyki_c919 ?? 'Fallback'),
-                                        style: TextStyle(
-                                          color: isDark ? Colors.white : Colors.black,
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                    ),
-                                    // Кнопка закрытия
-                                    MouseRegion(
-                                      cursor: SystemMouseCursors.click,
-                                      child: GestureDetector(
-                                        onTap: _closeSettings,
-                                        child: Container(
-                                          width: 40,
-                                          height: 40,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: isDark
+                                      ? Colors.black.withOpacity(0.5)
+                                      : Colors.black.withOpacity(0.05),
+                                  blurRadius: 40,
+                                  offset: const Offset(0, 20),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: BackdropFilter(
+                                filter:
+                                    ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Заголовок с кнопкой закрытия
+                                    Container(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          24, 20, 16, 16),
+                                      decoration: BoxDecoration(
+                                        border: Border(
+                                          bottom: BorderSide(
                                             color: isDark
                                                 ? Colors.white.withOpacity(0.08)
-                                                : Colors.black.withOpacity(0.05),
-                                            border: Border.all(
-                                              color: isDark
-                                                  ? Colors.white.withOpacity(0.15)
-                                                  : Colors.black.withOpacity(0.08),
-                                              width: 1,
+                                                : Colors.black
+                                                    .withOpacity(0.05),
+                                            width: 1,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          // Анимированная иконка
+                                          TweenAnimationBuilder<double>(
+                                            duration: const Duration(
+                                                milliseconds: 800),
+                                            tween: Tween<double>(
+                                                begin: 0.0, end: 1.0),
+                                            curve: Curves.elasticOut,
+                                            builder:
+                                                (context, iconAnim, child) {
+                                              return Transform.rotate(
+                                                angle: iconAnim *
+                                                    2 *
+                                                    math.pi *
+                                                    0.3,
+                                                child: Container(
+                                                  width: 48,
+                                                  height: 48,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    gradient: LinearGradient(
+                                                      begin: Alignment.topLeft,
+                                                      end:
+                                                          Alignment.bottomRight,
+                                                      colors: isDark
+                                                          ? [
+                                                              Colors.white
+                                                                  .withOpacity(
+                                                                      0.2),
+                                                              Colors.white
+                                                                  .withOpacity(
+                                                                      0.05),
+                                                            ]
+                                                          : [
+                                                              Colors.black
+                                                                  .withOpacity(
+                                                                      0.1),
+                                                              Colors.black
+                                                                  .withOpacity(
+                                                                      0.02),
+                                                            ],
+                                                    ),
+                                                    border: Border.all(
+                                                      color: isDark
+                                                          ? Colors.white
+                                                              .withOpacity(0.25)
+                                                          : Colors.black
+                                                              .withOpacity(0.1),
+                                                      width: 1,
+                                                    ),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: isDark
+                                                            ? Colors.white
+                                                                .withOpacity(
+                                                                    0.1)
+                                                            : Colors.black
+                                                                .withOpacity(
+                                                                    0.05),
+                                                        blurRadius: 15,
+                                                        spreadRadius: 2,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Icon(
+                                                    Icons.settings_rounded,
+                                                    color: isDark
+                                                        ? Colors.white
+                                                        : Colors.black,
+                                                    size: 24,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          SizedBox(width: 16),
+                                          Expanded(
+                                            child: Text(
+                                              l10n?.settings ??
+                                                  (AppLocalizations.of(context)
+                                                          ?.nastroyki_c919 ??
+                                                      'Fallback'),
+                                              style: TextStyle(
+                                                color: isDark
+                                                    ? Colors.white
+                                                    : Colors.black,
+                                                fontSize: 24,
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: 0.5,
+                                              ),
                                             ),
                                           ),
-                                          child: Icon(
-                                            Icons.close_rounded,
-                                            color: isDark ? Colors.white : Colors.black,
-                                            size: 20,
+                                          // Кнопка закрытия
+                                          MouseRegion(
+                                            cursor: SystemMouseCursors.click,
+                                            child: GestureDetector(
+                                              onTap: _closeSettings,
+                                              child: Container(
+                                                width: 40,
+                                                height: 40,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: isDark
+                                                      ? Colors.white
+                                                          .withOpacity(0.08)
+                                                      : Colors.black
+                                                          .withOpacity(0.05),
+                                                  border: Border.all(
+                                                    color: isDark
+                                                        ? Colors.white
+                                                            .withOpacity(0.15)
+                                                        : Colors.black
+                                                            .withOpacity(0.08),
+                                                    width: 1,
+                                                  ),
+                                                ),
+                                                child: Icon(
+                                                  Icons.close_rounded,
+                                                  color: isDark
+                                                      ? Colors.white
+                                                      : Colors.black,
+                                                  size: 20,
+                                                ),
+                                              ),
+                                            ),
                                           ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    // Содержимое настроек
+                                    Flexible(
+                                      child: SingleChildScrollView(
+                                        padding: const EdgeInsets.all(20),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            // === СЕКЦИЯ: ВНЕШНИЙ ВИД ===
+                                            _buildSectionHeader(
+                                                l10n?.darkTheme ??
+                                                    (AppLocalizations.of(
+                                                                context)
+                                                            ?.temnayaTema_cb48 ??
+                                                        'Fallback'),
+                                                isDark,
+                                                Icons.palette_outlined),
+                                            const SizedBox(height: 10),
+
+                                            // Тёмная тема
+                                            _buildAnimatedSettingsTile(
+                                              icon: Icons.dark_mode_rounded,
+                                              title: l10n?.darkTheme ??
+                                                  (AppLocalizations.of(context)
+                                                          ?.temnayaTema_cb48 ??
+                                                      'Fallback'),
+                                              subtitle: l10n
+                                                      ?.darkThemeDescription ??
+                                                  (AppLocalizations.of(context)
+                                                          ?.vklyuchitTemnuyuTemuOformleniya_86c4 ??
+                                                      'Fallback'),
+                                              isDark: isDark,
+                                              trailing: _buildAnimatedSwitch(
+                                                value: themeProvider.isDarkMode,
+                                                isDark: isDark,
+                                                onChanged: (value) {
+                                                  themeProvider
+                                                      .setDarkMode(value);
+                                                },
+                                              ),
+                                            ),
+
+                                            SizedBox(height: 24),
+
+                                            // === СЕКЦИЯ: ЯЗЫК ===
+                                            _buildSectionHeader(
+                                                l10n?.language ??
+                                                    (AppLocalizations.of(
+                                                                context)
+                                                            ?.yazyk_0577 ??
+                                                        'Fallback'),
+                                                isDark,
+                                                Icons.translate_rounded),
+                                            const SizedBox(height: 10),
+
+                                            // Выбор языка
+                                            _buildLanguageSelector(
+                                                localeProvider, isDark, l10n),
+
+                                            const SizedBox(height: 24),
+
+                                            // === СЕКЦИЯ: УВЕДОМЛЕНИЯ ===
+                                            _buildSectionHeader(
+                                                l10n?.notifications ??
+                                                    (AppLocalizations.of(
+                                                                context)
+                                                            ?.uvedomleniya_d2ed ??
+                                                        'Fallback'),
+                                                isDark,
+                                                Icons.notifications_outlined),
+                                            const SizedBox(height: 10),
+
+                                            // Уведомления
+                                            _buildAnimatedSettingsTile(
+                                              icon: Icons
+                                                  .notifications_active_rounded,
+                                              title: l10n?.notifications ??
+                                                  (AppLocalizations.of(context)
+                                                          ?.uvedomleniya_d2ed ??
+                                                      'Fallback'),
+                                              subtitle: l10n
+                                                      ?.notificationsDescription ??
+                                                  (AppLocalizations.of(context)
+                                                          ?.vklyuchitUvedomleniya_d311 ??
+                                                      'Fallback'),
+                                              isDark: isDark,
+                                              trailing: _buildAnimatedSwitch(
+                                                value: _notificationsEnabled,
+                                                isDark: isDark,
+                                                onChanged: (value) {
+                                                  setState(() {
+                                                    _notificationsEnabled =
+                                                        value;
+                                                  });
+                                                },
+                                              ),
+                                            ),
+                                            if (_notificationsEnabled &&
+                                                NotificationService
+                                                    .isCustomOverlaySupported()) ...[
+                                              SizedBox(height: 10),
+                                              _buildAnimatedSettingsTile(
+                                                icon: Icons
+                                                    .dashboard_customize_rounded,
+                                                title: (AppLocalizations.of(
+                                                            context)
+                                                        ?.kastomnyyOverleyXaneo_7d39 ??
+                                                    'Fallback'),
+                                                subtitle: (AppLocalizations.of(
+                                                            context)
+                                                        ?.animirovannyeUvedomleniyaSBystrymOtvetom_a25d ??
+                                                    'Fallback'),
+                                                isDark: isDark,
+                                                trailing: _buildAnimatedSwitch(
+                                                  value:
+                                                      _useCustomNotifications,
+                                                  isDark: isDark,
+                                                  onChanged: (value) {
+                                                    setState(() {
+                                                      _useCustomNotifications =
+                                                          value;
+                                                    });
+                                                  },
+                                                ),
+                                              ),
+                                            ],
+
+                                            const SizedBox(height: 24),
+
+                                            // === СЕКЦИЯ: ШРИФТ ===
+                                            _buildSectionHeader(
+                                                l10n?.fontSize(
+                                                        _fontSize.round()) ??
+                                                    'Font size: ${_fontSize.round()}',
+                                                isDark,
+                                                Icons.text_fields_rounded),
+                                            const SizedBox(height: 10),
+
+                                            // Размер шрифта
+                                            _buildFontSizeSliderInline(isDark),
+
+                                            const SizedBox(height: 20),
+                                          ],
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              
-                              // Содержимое настроек
-                              Flexible(
-                                child: SingleChildScrollView(
-                                  padding: const EdgeInsets.all(20),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      // === СЕКЦИЯ: ВНЕШНИЙ ВИД ===
-                                      _buildSectionHeader(l10n?.darkTheme ?? (AppLocalizations.of(context)?.temnayaTema_cb48 ?? 'Fallback'), isDark, Icons.palette_outlined),
-                                      const SizedBox(height: 10),
-                                      
-                                      // Тёмная тема
-                                      _buildAnimatedSettingsTile(
-                                        icon: Icons.dark_mode_rounded,
-                                        title: l10n?.darkTheme ?? (AppLocalizations.of(context)?.temnayaTema_cb48 ?? 'Fallback'),
-                                        subtitle: l10n?.darkThemeDescription ?? (AppLocalizations.of(context)?.vklyuchitTemnuyuTemuOformleniya_86c4 ?? 'Fallback'),
-                                        isDark: isDark,
-                                        trailing: _buildAnimatedSwitch(
-                                          value: themeProvider.isDarkMode,
-                                          isDark: isDark,
-                                          onChanged: (value) {
-                                            themeProvider.setDarkMode(value);
-                                          },
-                                        ),
-                                      ),
-                                      
-                                      SizedBox(height: 24),
-                                      
-                                      // === СЕКЦИЯ: ЯЗЫК ===
-                                      _buildSectionHeader(l10n?.language ?? (AppLocalizations.of(context)?.yazyk_0577 ?? 'Fallback'), isDark, Icons.translate_rounded),
-                                      const SizedBox(height: 10),
-                                      
-                                      // Выбор языка
-                                      _buildLanguageSelector(localeProvider, isDark, l10n),
-                                      
-                                      const SizedBox(height: 24),
-                                      
-                                      // === СЕКЦИЯ: УВЕДОМЛЕНИЯ ===
-                                      _buildSectionHeader(l10n?.notifications ?? (AppLocalizations.of(context)?.uvedomleniya_d2ed ?? 'Fallback'), isDark, Icons.notifications_outlined),
-                                      const SizedBox(height: 10),
-                                      
-                                      // Уведомления
-                                      _buildAnimatedSettingsTile(
-                                        icon: Icons.notifications_active_rounded,
-                                        title: l10n?.notifications ?? (AppLocalizations.of(context)?.uvedomleniya_d2ed ?? 'Fallback'),
-                                        subtitle: l10n?.notificationsDescription ?? (AppLocalizations.of(context)?.vklyuchitUvedomleniya_d311 ?? 'Fallback'),
-                                        isDark: isDark,
-                                        trailing: _buildAnimatedSwitch(
-                                          value: _notificationsEnabled,
-                                          isDark: isDark,
-                                          onChanged: (value) {
-                                            setState(() {
-                                              _notificationsEnabled = value;
-                                            });
-                                          },
-                                        ),
-                                      ),
-                                      if (_notificationsEnabled && NotificationService.isCustomOverlaySupported()) ...[
-                                        SizedBox(height: 10),
-                                        _buildAnimatedSettingsTile(
-                                          icon: Icons.dashboard_customize_rounded,
-                                          title: (AppLocalizations.of(context)?.kastomnyyOverleyXaneo_7d39 ?? 'Fallback'),
-                                          subtitle: (AppLocalizations.of(context)?.animirovannyeUvedomleniyaSBystrymOtvetom_a25d ?? 'Fallback'),
-                                          isDark: isDark,
-                                          trailing: _buildAnimatedSwitch(
-                                            value: _useCustomNotifications,
-                                            isDark: isDark,
-                                            onChanged: (value) {
-                                              setState(() {
-                                                _useCustomNotifications = value;
-                                              });
-                                            },
-                                          ),
-                                        ),
-                                      ],
-                                      
-                                      const SizedBox(height: 24),
-                                      
-                                      // === СЕКЦИЯ: ШРИФТ ===
-                                      _buildSectionHeader(l10n?.fontSize(_fontSize.round()) ?? 'Font size: ${_fontSize.round()}', isDark, Icons.text_fields_rounded),
-                                      const SizedBox(height: 10),
-                                      
-                                      // Размер шрифта
-                                      _buildFontSizeSliderInline(isDark),
-                                      
-                                      const SizedBox(height: 20),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
-            ))],
+                    ))
+              ],
             );
           },
         );
       },
     );
   }
-  
+
   /// Создаёт слайдер размера шрифта (inline версия без StateSetter)
   Widget _buildFontSizeSliderInline(bool isDark) {
     return Container(
@@ -1751,7 +1962,8 @@ class _RegisterScreenState extends State<RegisterScreen>
               fontSize: _fontSize,
               fontWeight: FontWeight.w500,
             ),
-            child: Text((AppLocalizations.of(context)?.aaBbVv_1c6b ?? 'Fallback')),
+            child:
+                Text((AppLocalizations.of(context)?.aaBbVv_1c6b ?? 'Fallback')),
           ),
           const SizedBox(height: 20),
           // Слайдер
@@ -1763,9 +1975,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
                 activeTrackColor: isDark ? Colors.white : Colors.black,
-                inactiveTrackColor: isDark
-                    ? Colors.grey.shade800
-                    : Colors.grey.shade300,
+                inactiveTrackColor:
+                    isDark ? Colors.grey.shade800 : Colors.grey.shade300,
                 thumbColor: isDark ? Colors.white : Colors.black,
                 overlayColor: isDark
                     ? Colors.white.withOpacity(0.15)
@@ -1906,7 +2117,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                      color:
+                          isDark ? Colors.grey.shade500 : Colors.grey.shade600,
                       fontSize: 12,
                     ),
                   ),
@@ -1951,7 +2163,9 @@ class _RegisterScreenState extends State<RegisterScreen>
           border: Border.all(
             color: value
                 ? Colors.transparent
-                : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
+                : (isDark
+                    ? Colors.white.withOpacity(0.1)
+                    : Colors.black.withOpacity(0.1)),
             width: 1,
           ),
         ),
@@ -1981,9 +2195,10 @@ class _RegisterScreenState extends State<RegisterScreen>
       ),
     );
   }
-  
+
   /// Создаёт селектор языка
-  Widget _buildLanguageSelector(LocaleProvider localeProvider, bool isDark, AppLocalizations? l10n) {
+  Widget _buildLanguageSelector(
+      LocaleProvider localeProvider, bool isDark, AppLocalizations? l10n) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -2010,14 +2225,16 @@ class _RegisterScreenState extends State<RegisterScreen>
       ),
       child: Column(
         children: _availableLanguages.map((lang) {
-          final isSelected = localeProvider.locale?.languageCode == lang['code'];
+          final isSelected =
+              localeProvider.locale?.languageCode == lang['code'];
           return MouseRegion(
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               onTap: () {
                 localeProvider.setLocale(Locale(lang['code']!));
                 setState(() {
-                  _selectedLanguageIndex = _availableLanguages.indexWhere((l) => l['code'] == lang['code']);
+                  _selectedLanguageIndex = _availableLanguages
+                      .indexWhere((l) => l['code'] == lang['code']);
                 });
               },
               child: AnimatedContainer(
@@ -2026,12 +2243,16 @@ class _RegisterScreenState extends State<RegisterScreen>
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05))
+                      ? (isDark
+                          ? Colors.white.withOpacity(0.1)
+                          : Colors.black.withOpacity(0.05))
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isSelected
-                        ? (isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1))
+                        ? (isDark
+                            ? Colors.white.withOpacity(0.2)
+                            : Colors.black.withOpacity(0.1))
                         : Colors.transparent,
                     width: 1,
                   ),
@@ -2046,7 +2267,9 @@ class _RegisterScreenState extends State<RegisterScreen>
                         border: Border.all(
                           color: isSelected
                               ? (isDark ? Colors.white : Colors.black)
-                              : (isDark ? Colors.grey.shade600 : Colors.grey.shade400),
+                              : (isDark
+                                  ? Colors.grey.shade600
+                                  : Colors.grey.shade400),
                           width: 2,
                         ),
                       ),
@@ -2069,7 +2292,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                       style: TextStyle(
                         color: isDark ? Colors.white : Colors.black,
                         fontSize: 15,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                   ],
@@ -2115,10 +2339,28 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet>
   late Animation<double> _fadeAnim;
 
   List<String> get _monthNames => [
-    (AppLocalizations.of(context)?.yanvar_ee86 ?? 'Январь'), (AppLocalizations.of(context)?.fevral_28ff ?? 'Февраль'), (AppLocalizations.of(context)?.mart_d766 ?? 'Март'), (AppLocalizations.of(context)?.aprel_03e9 ?? 'Апрель'), (AppLocalizations.of(context)?.may_2e53 ?? 'Май'), (AppLocalizations.of(context)?.iyun_cfcb ?? 'Июнь'),
-    (AppLocalizations.of(context)?.iyul_89fb ?? 'Июль'), (AppLocalizations.of(context)?.avgust_de5a ?? 'Август'), (AppLocalizations.of(context)?.sentyabr_ebfb ?? 'Сентябрь'), (AppLocalizations.of(context)?.oktyabr_1720 ?? 'Октябрь'), (AppLocalizations.of(context)?.noyabr_66fb ?? 'Ноябрь'), (AppLocalizations.of(context)?.dekabr_39b3 ?? 'Декабрь'),
-  ];
-  List<String> get _weekDays => [(AppLocalizations.of(context)?.pn_2c1e ?? 'Fallback'), (AppLocalizations.of(context)?.vt_7145 ?? 'Fallback'), (AppLocalizations.of(context)?.sr_c6e4 ?? 'Fallback'), (AppLocalizations.of(context)?.cht_a51f ?? 'Fallback'), (AppLocalizations.of(context)?.pt_0123 ?? 'Fallback'), (AppLocalizations.of(context)?.sb_3a4b ?? 'Fallback'), (AppLocalizations.of(context)?.vs_4ad9 ?? 'Fallback')];
+        (AppLocalizations.of(context)?.yanvar_ee86 ?? 'Январь'),
+        (AppLocalizations.of(context)?.fevral_28ff ?? 'Февраль'),
+        (AppLocalizations.of(context)?.mart_d766 ?? 'Март'),
+        (AppLocalizations.of(context)?.aprel_03e9 ?? 'Апрель'),
+        (AppLocalizations.of(context)?.may_2e53 ?? 'Май'),
+        (AppLocalizations.of(context)?.iyun_cfcb ?? 'Июнь'),
+        (AppLocalizations.of(context)?.iyul_89fb ?? 'Июль'),
+        (AppLocalizations.of(context)?.avgust_de5a ?? 'Август'),
+        (AppLocalizations.of(context)?.sentyabr_ebfb ?? 'Сентябрь'),
+        (AppLocalizations.of(context)?.oktyabr_1720 ?? 'Октябрь'),
+        (AppLocalizations.of(context)?.noyabr_66fb ?? 'Ноябрь'),
+        (AppLocalizations.of(context)?.dekabr_39b3 ?? 'Декабрь'),
+      ];
+  List<String> get _weekDays => [
+        (AppLocalizations.of(context)?.pn_2c1e ?? 'Fallback'),
+        (AppLocalizations.of(context)?.vt_7145 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.sr_c6e4 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.cht_a51f ?? 'Fallback'),
+        (AppLocalizations.of(context)?.pt_0123 ?? 'Fallback'),
+        (AppLocalizations.of(context)?.sb_3a4b ?? 'Fallback'),
+        (AppLocalizations.of(context)?.vs_4ad9 ?? 'Fallback')
+      ];
 
   @override
   void initState() {
@@ -2142,10 +2384,13 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet>
 
   Color get _accent => const Color(0xFF6C63FF);
   Color get _bg => widget.isDark ? const Color(0xFF1C1C1E) : Colors.white;
-  Color get _surface => widget.isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
+  Color get _surface =>
+      widget.isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
   Color get _textPrimary => widget.isDark ? Colors.white : Colors.black;
   Color get _textSecondary => widget.isDark ? Colors.white54 : Colors.black45;
-  Color get _divider => widget.isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.07);
+  Color get _divider => widget.isDark
+      ? Colors.white.withOpacity(0.08)
+      : Colors.black.withOpacity(0.07);
 
   void _prevMonth() {
     setState(() {
@@ -2196,8 +2441,10 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet>
 
   bool _isSelectable(DateTime day) {
     final d = DateTime(day.year, day.month, day.day);
-    final min = DateTime(widget.minDate.year, widget.minDate.month, widget.minDate.day);
-    final max = DateTime(widget.maxDate.year, widget.maxDate.month, widget.maxDate.day);
+    final min =
+        DateTime(widget.minDate.year, widget.minDate.month, widget.minDate.day);
+    final max =
+        DateTime(widget.maxDate.year, widget.maxDate.month, widget.maxDate.day);
     return !d.isBefore(min) && !d.isAfter(max);
   }
 
@@ -2302,7 +2549,8 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet>
               final today = _isToday(day);
 
               return GestureDetector(
-                onTap: selectable ? () => setState(() => _selected = day) : null,
+                onTap:
+                    selectable ? () => setState(() => _selected = day) : null,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
                   decoration: BoxDecoration(
@@ -2318,7 +2566,9 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet>
                       '${day.day}',
                       style: TextStyle(
                         fontSize: 14,
-                        fontWeight: selected || today ? FontWeight.w700 : FontWeight.normal,
+                        fontWeight: selected || today
+                            ? FontWeight.w700
+                            : FontWeight.normal,
                         color: selected
                             ? Colors.white
                             : selectable
@@ -2381,10 +2631,14 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet>
                             padding: EdgeInsets.zero,
                             minimumSize: const Size(48, 36),
                           ),
-                          child: Text((AppLocalizations.of(context)?.otmena_987b ?? 'Fallback'), style: TextStyle(fontSize: 15)),
+                          child: Text(
+                              (AppLocalizations.of(context)?.otmena_987b ??
+                                  'Fallback'),
+                              style: TextStyle(fontSize: 15)),
                         ),
                         Text(
-                          (AppLocalizations.of(context)?.dataRozhdeniya_505e ?? 'Fallback'),
+                          (AppLocalizations.of(context)?.dataRozhdeniya_505e ??
+                              'Fallback'),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -2399,8 +2653,10 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet>
                             minimumSize: const Size(48, 36),
                           ),
                           child: Text(
-                            (AppLocalizations.of(context)?.gotovo_34e1 ?? 'Fallback'),
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                            (AppLocalizations.of(context)?.gotovo_34e1 ??
+                                'Fallback'),
+                            style: TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.w700),
                           ),
                         ),
                       ],
@@ -2423,9 +2679,11 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet>
                         // Month label
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => setState(() => _showYearPicker = !_showYearPicker),
+                            onTap: () => setState(
+                                () => _showYearPicker = !_showYearPicker),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 12),
                               decoration: BoxDecoration(
                                 color: _surface,
                                 borderRadius: BorderRadius.circular(12),

@@ -87,7 +87,7 @@ class _AvatarCropperState extends State<AvatarCropper> {
           ),
           title: Text(
               (AppLocalizations.of(context)?.redaktirovanie_1167 ?? 'Fallback'),
-              style: AppStyles.titleLarge),
+              style: AppStyles.titleLarge.copyWith(color: Colors.white)),
         ),
         body: const Center(
           child: CircularProgressIndicator(color: Colors.white),
@@ -106,7 +106,7 @@ class _AvatarCropperState extends State<AvatarCropper> {
         ),
         title: Text(
             (AppLocalizations.of(context)?.redaktirovanie_1167 ?? 'Fallback'),
-            style: AppStyles.titleLarge),
+            style: AppStyles.titleLarge.copyWith(color: Colors.white)),
         actions: [
           IconButton(
             icon: _isSaving

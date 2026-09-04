@@ -27,6 +27,7 @@ import '../widgets/settings_modal.dart'; // деактивировано — и�
 import '../widgets/xaneo_settings_modal.dart';
 import '../widgets/global_search_modal.dart';
 import '../widgets/common/music_playlist_modal.dart';
+import '../widgets/common/track_artwork.dart';
 import '../services/api_service.dart';
 import '../services/crypto_service.dart';
 import '../services/account_service.dart';
@@ -3679,7 +3680,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
       final attachedFileId =
           msg['attached_file_id']?.toString() ?? msg['file_id']?.toString();
 
-      final payload = customPayload ??
+      final basePayload = customPayload ??
           (attachedFileId != null
               ? {
                   'type':
@@ -3693,6 +3694,15 @@ class _MessengerScreenState extends State<MessengerScreen> {
                       msg['attached_file_type'] ?? msg['mime_type'] ?? '',
                 }
               : null);
+      final payload = basePayload == null
+          ? null
+          : audioPayloadWithMetadata(
+              basePayload,
+              msg,
+              attachedFileId == null
+                  ? null
+                  : _fileMetadataCache[attachedFileId],
+            );
 
       final msgType = (payload?['type'] ??
                   payload?['message_type'] ??
@@ -6090,10 +6100,12 @@ class _MessengerScreenState extends State<MessengerScreen> {
   Widget _buildVoicePlaybackBar(bool isDark, double scale) {
     return Consumer<PlaybackProvider>(
       builder: (context, playback, child) {
-        final isVisible = playback.currentAudioUrl != null;
+        final isVisible = playback.showPlayerControls;
 
         return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 280),
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 280),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           transitionBuilder: (widget, animation) {
@@ -6116,7 +6128,6 @@ class _MessengerScreenState extends State<MessengerScreen> {
                   alignment: Alignment.topCenter,
                   child: _TopAudioPlaybackBar(
                     playback: playback,
-                    isDark: isDark,
                     scale: scale,
                     onTapTitle: () =>
                         _showMusicPlaylistModal(context, isDark, scale),
@@ -6151,7 +6162,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
       final attachedFileId =
           msg['attached_file_id']?.toString() ?? msg['file_id']?.toString();
 
-      final payload = customPayload ??
+      final basePayload = customPayload ??
           (attachedFileId != null
               ? {
                   'type': msg['attached_file_type'] == 'audio' ||
@@ -6168,6 +6179,15 @@ class _MessengerScreenState extends State<MessengerScreen> {
                   'mime_type': msg['attached_file_type'] ?? 'audio/mp3',
                 }
               : null);
+      final payload = basePayload == null
+          ? null
+          : audioPayloadWithMetadata(
+              basePayload,
+              msg,
+              attachedFileId == null
+                  ? null
+                  : _fileMetadataCache[attachedFileId],
+            );
 
       if (payload == null) continue;
 
@@ -6217,6 +6237,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
           duration:
               trackDurationSec > 0 ? Duration(seconds: trackDurationSec) : null,
           artUri: artUri,
+          payload: payload,
         ));
       }
     }
@@ -6559,6 +6580,27 @@ class _MessengerScreenState extends State<MessengerScreen> {
           'type': 'file_loading',
           'file_id': attachedFileId,
         };
+        _triggerFileMetadataFetch(attachedFileId);
+      }
+    }
+    if (customPayload != null && attachedFileId != null) {
+      customPayload = audioPayloadWithMetadata(
+        customPayload,
+        msg,
+        _fileMetadataCache[attachedFileId],
+      );
+      final mime =
+          (msg['attached_file_type'] ?? customPayload['mime_type'] ?? '')
+              .toString()
+              .toLowerCase();
+      final kind = (msg['attached_file_kind'] ??
+              msg['file_type'] ??
+              customPayload['type'] ??
+              '')
+          .toString()
+          .toLowerCase();
+      if (!_fileMetadataCache.containsKey(attachedFileId) &&
+          (kind == 'audio' || mime.startsWith('audio/'))) {
         _triggerFileMetadataFetch(attachedFileId);
       }
     }
@@ -8817,7 +8859,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
           print('🎙️ Запуск arecord напрямую: $_recordingPath');
           _arecordProcess = await Process.start('arecord', [
             '-f', 'S16_LE', // PCM 16-bit little-endian
-            '-r', '24000', // 24 kHz (достаточно для голоса)
+            '-r', '48000', // сохраняем полную полосу голоса
             '-c', '1', // моно
             '-t', 'wav', // формат WAV
             _recordingPath!,
@@ -8838,7 +8880,11 @@ class _MessengerScreenState extends State<MessengerScreen> {
         if (await _audioRecorder!.hasPermission()) {
           try {
             await _audioRecorder!.start(
-              const RecordConfig(encoder: AudioEncoder.wav),
+              const RecordConfig(
+                encoder: AudioEncoder.wav,
+                sampleRate: 48000,
+                numChannels: 1,
+              ),
               path: _recordingPath!,
             );
           } catch (e) {
@@ -9055,7 +9101,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
       final file = File(path);
       if (await file.exists() && await file.length() > 0) {
         final uploadRes = await _apiService.uploadFile(
-            file, 'audio', _selectedChat!['id'].toString());
+            file, 'voice', _selectedChat!['id'].toString());
 
         if (uploadRes.success && uploadRes.data != null) {
           final fileId = uploadRes.data!['file_id'] ??
@@ -10304,6 +10350,15 @@ class _MusicMessageBubblePlayerState extends State<_MusicMessageBubblePlayer> {
     final fileSize = payload['file_size'] as int? ?? 0;
     final mimeType = payload['mime_type']?.toString() ?? 'audio/mp3';
     final audioUrl = _buildAudioUrl();
+    final coverUriStr = audioTrackCoverUri(payload);
+    final serverUri = Uri.parse(ApiService.baseUrl);
+    final serverHost =
+        '${serverUri.scheme}://${serverUri.host}${serverUri.hasPort ? ':${serverUri.port}' : ''}';
+    final artUri = coverUriStr != null && coverUriStr.isNotEmpty
+        ? Uri.tryParse(coverUriStr.startsWith('http')
+            ? coverUriStr
+            : '$serverHost${coverUriStr.startsWith('/') ? '' : '/'}$coverUriStr')
+        : null;
 
     final rawDuration = payload['duration'];
     final fallbackSeconds = rawDuration is num
@@ -10377,34 +10432,44 @@ class _MusicMessageBubblePlayerState extends State<_MusicMessageBubblePlayer> {
                             duration: totalDuration > Duration.zero
                                 ? totalDuration
                                 : null,
+                            artUri: artUri,
                           );
                     },
                     radius: 20 * scale,
                     child: SizedBox(
                       width: 36 * scale,
                       height: 36 * scale,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: foreground,
-                        ),
-                        child: Center(
-                          child: isLoading
-                              ? SizedBox(
-                                  width: 16 * scale,
-                                  height: 16 * scale,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: inverse.withValues(alpha: 0.6),
-                                  ),
-                                )
-                              : FaIcon(
-                                  isPlaying
-                                      ? FontAwesomeIcons.pause
-                                      : FontAwesomeIcons.play,
-                                  color: inverse,
-                                  size: 14 * scale,
-                                ),
+                      child: ClipOval(
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            TrackArtwork(
+                              uri: artUri,
+                              fallback: ColoredBox(color: foreground),
+                            ),
+                            if (artUri != null)
+                              ColoredBox(
+                                color: Colors.black.withValues(alpha: 0.3),
+                              ),
+                            Center(
+                              child: isLoading
+                                  ? SizedBox(
+                                      width: 16 * scale,
+                                      height: 16 * scale,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: inverse.withValues(alpha: 0.6),
+                                      ),
+                                    )
+                                  : FaIcon(
+                                      isPlaying
+                                          ? FontAwesomeIcons.pause
+                                          : FontAwesomeIcons.play,
+                                      color: inverse,
+                                      size: 14 * scale,
+                                    ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -10501,6 +10566,7 @@ class _MusicMessageBubblePlayerState extends State<_MusicMessageBubblePlayer> {
                                   _formatBytes(fileSize),
                                   mimeType: mimeType,
                                   duration: totalDuration,
+                                  artUri: artUri,
                                 );
                               }
                             }
@@ -10630,273 +10696,121 @@ class _NewMessageAnimatorState extends State<NewMessageAnimator>
   }
 }
 
-class _TopAudioPlaybackBar extends StatefulWidget {
+class _TopAudioPlaybackBar extends StatelessWidget {
   final PlaybackProvider playback;
-  final bool isDark;
   final double scale;
   final VoidCallback? onTapTitle;
 
   const _TopAudioPlaybackBar({
     required this.playback,
-    required this.isDark,
     required this.scale,
     this.onTapTitle,
   });
 
   @override
-  State<_TopAudioPlaybackBar> createState() => _TopAudioPlaybackBarState();
-}
-
-class _TopAudioPlaybackBarState extends State<_TopAudioPlaybackBar> {
-  double? _dragValue;
-
-  String _formatDuration(Duration d) {
-    final m = d.inMinutes;
-    final s = d.inSeconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final playback = widget.playback;
-    final isDark = widget.isDark;
-    final scale = widget.scale;
-
+    final scale = this.scale;
     final isPlaying = playback.isPlaying;
     final title = playback.title.isEmpty
         ? (AppLocalizations.of(context)?.golosovoeSoobschenie_33d5 ??
             'Fallback')
         : playback.title;
     final subtitle = playback.subtitle;
-    final position = playback.position;
-    final duration = playback.duration;
 
-    final sliderValue = _dragValue ??
-        (duration > Duration.zero
-            ? (position.inMilliseconds / duration.inMilliseconds)
-                .clamp(0.0, 1.0)
-            : 0.0);
-
-    final displayPos = _dragValue != null && duration > Duration.zero
-        ? Duration(
-            milliseconds: (_dragValue! * duration.inMilliseconds).round())
-        : position;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: widget.onTapTitle,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 520 * scale),
-        child: Container(
-          padding:
-              EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 8 * scale),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xF01C1C20) : const Color(0xF5FFFFFF),
-            borderRadius: BorderRadius.circular(16 * scale),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.08),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.45 : 0.12),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Row 1: Controls (Prev, Play/Pause, Next), Title & Subtitle, Time Text, Close button
-              Row(
-                children: [
-                  // Previous button
-                  IconButton(
-                    icon: FaIcon(
-                      FontAwesomeIcons.backwardStep,
-                      color: playback.hasPrevious
-                          ? (isDark ? Colors.white : Colors.black87)
-                          : (isDark ? Colors.white24 : Colors.black26),
-                      size: 12 * scale,
-                    ),
-                    onPressed: playback.hasPrevious
-                        ? () => playback.playPrevious()
-                        : null,
-                    padding: EdgeInsets.zero,
-                    constraints: BoxConstraints.tightFor(
-                        width: 24 * scale, height: 24 * scale),
-                  ),
-                  SizedBox(width: 2 * scale),
-                  // Play / Pause
-                  GestureDetector(
-                    onTap: () {
-                      if (isPlaying) {
-                        playback.pause();
-                      } else {
-                        playback.resume();
-                      }
-                    },
-                    child: Container(
-                      width: 32 * scale,
-                      height: 32 * scale,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.blue.shade600
-                            : Colors.blue.shade500,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.withOpacity(0.3),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: 520 * scale),
+      child: Container(
+        height: 52 * scale,
+        padding: EdgeInsets.symmetric(horizontal: 8 * scale),
+        decoration: BoxDecoration(
+          color: const Color(0xFF18181B),
+          borderRadius: BorderRadius.circular(14 * scale),
+          border: Border.all(color: const Color(0xFF333333)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: isPlaying ? playback.pause : playback.resume,
+              child: SizedBox(
+                width: 36 * scale,
+                height: 36 * scale,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10 * scale),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      TrackArtwork(
+                        uri: playback.currentArtUri,
+                        fallback: const ColoredBox(color: Color(0xFF27272A)),
                       ),
-                      child: Center(
-                        child: FaIcon(
-                          isPlaying
-                              ? FontAwesomeIcons.pause
-                              : FontAwesomeIcons.play,
-                          color: Colors.white,
-                          size: 13 * scale,
+                      ColoredBox(
+                        color: Colors.black.withValues(alpha: 0.28),
+                      ),
+                      Icon(
+                        isPlaying
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 24 * scale,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: 8 * scale),
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onTapTitle,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13 * scale,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                    if (subtitle.isNotEmpty) ...[
+                      SizedBox(height: 1 * scale),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: const Color(0xFFB0B0B0),
+                          fontSize: 10.5 * scale,
+                          fontFamily: 'Inter',
                         ),
                       ),
-                    ),
-                  ),
-                  SizedBox(width: 2 * scale),
-                  // Next button
-                  IconButton(
-                    icon: FaIcon(
-                      FontAwesomeIcons.forwardStep,
-                      color: playback.hasNext
-                          ? (isDark ? Colors.white : Colors.black87)
-                          : (isDark ? Colors.white24 : Colors.black26),
-                      size: 12 * scale,
-                    ),
-                    onPressed:
-                        playback.hasNext ? () => playback.playNext() : null,
-                    padding: EdgeInsets.zero,
-                    constraints: BoxConstraints.tightFor(
-                        width: 24 * scale, height: 24 * scale),
-                  ),
-                  SizedBox(width: 10 * scale),
-                  // Track Info - Tapping opens playlist modal
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: widget.onTapTitle,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: isDark ? Colors.white : Colors.black87,
-                              fontSize: 13 * scale,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                          if (subtitle.isNotEmpty) ...[
-                            SizedBox(height: 1 * scale),
-                            Text(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: isDark ? Colors.white54 : Colors.black54,
-                                fontSize: 11 * scale,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 8 * scale),
-                  Text(
-                    duration > Duration.zero
-                        ? '${_formatDuration(displayPos)} / ${_formatDuration(duration)}'
-                        : _formatDuration(displayPos),
-                    style: TextStyle(
-                      color: isDark ? Colors.white70 : Colors.black87,
-                      fontSize: 11 * scale,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                  SizedBox(width: 4 * scale),
-                  IconButton(
-                    icon: Icon(
-                      Icons.queue_music_rounded,
-                      color: isDark ? Colors.white70 : Colors.black87,
-                      size: 18 * scale,
-                    ),
-                    onPressed: widget.onTapTitle,
-                    padding: EdgeInsets.zero,
-                    constraints: BoxConstraints.tightFor(
-                        width: 26 * scale, height: 26 * scale),
-                    tooltip: 'Плейлист',
-                  ),
-                  SizedBox(width: 2 * scale),
-                  GestureDetector(
-                    onTap: () => playback.stop(),
-                    child: Padding(
-                      padding: EdgeInsets.all(4 * scale),
-                      child: Icon(
-                        Icons.close_rounded,
-                        color: isDark ? Colors.white54 : Colors.black45,
-                        size: 18 * scale,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              SizedBox(height: 4 * scale),
-
-              // Row 2: Interactive Slider Progress Bar
-              SliderTheme(
-                data: SliderThemeData(
-                  trackHeight: 3.5 * scale,
-                  thumbShape:
-                      RoundSliderThumbShape(enabledThumbRadius: 5.5 * scale),
-                  overlayShape:
-                      RoundSliderOverlayShape(overlayRadius: 12 * scale),
-                  activeTrackColor: Colors.blue.shade500,
-                  inactiveTrackColor: isDark ? Colors.white24 : Colors.black12,
-                  thumbColor:
-                      isDark ? Colors.blue.shade400 : Colors.blue.shade600,
-                ),
-                child: Slider(
-                  value: sliderValue.clamp(0.0, 1.0),
-                  onChanged: (val) {
-                    setState(() {
-                      _dragValue = val;
-                    });
-                    if (duration > Duration.zero) {
-                      final targetMs = (val * duration.inMilliseconds).round();
-                      playback.seekPreview(Duration(milliseconds: targetMs));
-                    }
-                  },
-                  onChangeEnd: (val) {
-                    setState(() {
-                      _dragValue = null;
-                    });
-                    if (duration > Duration.zero) {
-                      final targetMs = (val * duration.inMilliseconds).round();
-                      playback.seek(Duration(milliseconds: targetMs));
-                    }
-                  },
+                    ],
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+            IconButton(
+              onPressed: playback.dismissPlayerControls,
+              icon: Icon(
+                Icons.close_rounded,
+                color: const Color(0xFF707070),
+                size: 20 * scale,
+              ),
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints.tightFor(
+                width: 36 * scale,
+                height: 36 * scale,
+              ),
+            ),
+          ],
         ),
       ),
     );
