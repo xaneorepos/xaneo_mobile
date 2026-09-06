@@ -1234,7 +1234,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
               ),
             ),
             trailing: IconButton(
-              icon: const Icon(Icons.download_rounded, color: Colors.white70),
+              icon: Icon(Icons.download_rounded,
+                  color: context.xaneoTextSecondary),
               onPressed: () {
                 _downloadFile(context, fileUrl, item.fileName);
               },
@@ -1292,8 +1293,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                     width: 40,
                     height: 40,
                     padding: const EdgeInsets.all(10),
-                    child: const CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: context.xaneoTextPrimary),
                   )
                 else
                   IconButton(
@@ -1528,8 +1529,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                     width: 36,
                     height: 36,
                     padding: const EdgeInsets.all(8),
-                    child: const CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: context.xaneoTextPrimary),
                   )
                 : IconButton(
                     padding: EdgeInsets.zero,
@@ -1580,7 +1581,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.01),
+        color: context.xaneoOverlay(0.01),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: context.xaneoOverlay(0.02),

@@ -390,12 +390,12 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                             child: TextField(
                               controller: _searchController,
                               focusNode: _searchFocusNode,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: context.xaneoTextPrimary,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,
                               ),
-                              cursorColor: Colors.white,
+                              cursorColor: context.xaneoTextPrimary,
                               decoration: InputDecoration(
                                 hintText: (AppLocalizations.of(context)
                                         ?.poiskVArhive_c5d8 ??
@@ -437,8 +437,8 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                   ),
                   const SizedBox(width: 8),
                   _buildHeaderButton(
-                    child: const Icon(Icons.close_rounded,
-                        color: Colors.white, size: 20),
+                    child: Icon(Icons.close_rounded,
+                        color: context.xaneoTextPrimary, size: 20),
                     onTap: () {
                       _searchController.clear();
                       _searchFocusNode.unfocus();
@@ -709,7 +709,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                               ? FontWeight.w500
                               : FontWeight.w400,
                           color: chat.unreadCount > 0
-                              ? Colors.white
+                              ? context.xaneoTextPrimary
                               : context.xaneoTextMuted,
                         ),
                       ),

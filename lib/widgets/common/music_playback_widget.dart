@@ -789,6 +789,11 @@ class MusicFullPlayerModal extends BaseCustomModal {
 
 class _MusicFullPlayerModalState
     extends BaseCustomModalState<MusicFullPlayerModal> {
+  // The player deliberately uses light controls throughout. Keep its surface
+  // dark in both app themes so those controls retain sufficient contrast.
+  @override
+  Color backgroundColor(BuildContext context) => const Color(0xFF141416);
+
   @override
   double get initialExtent => 0.78;
 

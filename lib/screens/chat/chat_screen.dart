@@ -11685,18 +11685,18 @@ class _FullEmojiPickerModalState
           children: [
             Text(
               RuntimeTranslations.instance.resolveByText('Все реакции'),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: context.xaneoTextPrimary,
               ),
             ),
             IconButton(
               onPressed: () => Navigator.pop(context),
-              icon: const FaIcon(
+              icon: FaIcon(
                 FontAwesomeIcons.xmark,
                 size: 16,
-                color: Colors.white54,
+                color: context.xaneoTextMuted,
               ),
             ),
           ],
@@ -11708,21 +11708,21 @@ class _FullEmojiPickerModalState
               _searchQuery = val.trim();
             });
           },
-          style: const TextStyle(fontSize: 14, color: Colors.white),
+          style: TextStyle(fontSize: 14, color: context.xaneoTextPrimary),
           decoration: InputDecoration(
             hintText:
                 RuntimeTranslations.instance.resolveByText('Поиск эмодзи...'),
             hintStyle: TextStyle(
-              color: Colors.white.withValues(alpha: 0.38),
+              color: context.xaneoTextMuted,
               fontSize: 14,
             ),
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.search,
               size: 18,
-              color: Colors.white54,
+              color: context.xaneoTextMuted,
             ),
             filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.06),
+            fillColor: context.xaneoOverlay(0.06),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -11755,10 +11755,10 @@ class _FullEmojiPickerModalState
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Text(
                       RuntimeTranslations.instance.resolveByText(categoryTitle),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white54,
+                        color: context.xaneoTextSecondary,
                       ),
                     ),
                   ),
@@ -11789,7 +11789,7 @@ class _FullEmojiPickerModalState
                             color: hasMyReaction
                                 ? const Color(0xFF2563EB)
                                     .withValues(alpha: 0.25)
-                                : Colors.white.withValues(alpha: 0.06),
+                                : context.xaneoOverlay(0.06),
                             shape: BoxShape.circle,
                             border: hasMyReaction
                                 ? Border.all(

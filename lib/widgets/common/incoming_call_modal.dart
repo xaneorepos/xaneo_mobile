@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/webrtc/call_manager.dart';
+import '../../styles/app_styles.dart';
 import '../../widgets/common/avatar_widget.dart';
 import '../../screens/webrtc/active_call_screen.dart';
 import 'base_custom_modal.dart';
@@ -129,8 +130,8 @@ class _IncomingCallModalState extends BaseCustomModalState<IncomingCallModal>
                     'Fallback')
                 : (AppLocalizations.of(context)?.vhodyaschiyZvonok_5ce9 ??
                     'Fallback'),
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: context.xaneoTextPrimary,
               fontSize: 20,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
@@ -143,7 +144,7 @@ class _IncomingCallModalState extends BaseCustomModalState<IncomingCallModal>
             callManager.targetName ??
                 (AppLocalizations.of(context)?.neizvestnyy_be89 ?? 'Fallback'),
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: context.xaneoTextSecondary,
               fontSize: 15,
               fontWeight: FontWeight.w400,
             ),
@@ -194,7 +195,7 @@ class _IncomingCallModalState extends BaseCustomModalState<IncomingCallModal>
                           (AppLocalizations.of(context)?.otklonit_8b0d ??
                               'Fallback'),
                           style: TextStyle(
-                            color: Colors.white70,
+                            color: context.xaneoTextSecondary,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -249,7 +250,7 @@ class _IncomingCallModalState extends BaseCustomModalState<IncomingCallModal>
                           (AppLocalizations.of(context)?.prinyat_5dc5 ??
                               'Fallback'),
                           style: TextStyle(
-                            color: Colors.white70,
+                            color: context.xaneoTextSecondary,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
