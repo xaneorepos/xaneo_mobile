@@ -313,17 +313,11 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     final email = _emailController.text.trim();
     final nickname = _nicknameController.text.trim();
-    print(
-        'DEBUG UI: Starting _sendVerificationCode with email: $email, nickname: $nickname');
-
     final apiService = ApiService();
     final result = await apiService.sendVerificationCode(
       email: email,
       username: nickname,
     );
-
-    print(
-        'DEBUG UI: _sendVerificationCode result: success=${result.success}, error=${result.error}');
 
     setState(() {
       _isLoading = false;
@@ -352,17 +346,11 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     final email = _emailController.text.trim();
     final code = _verificationCodeController.text.trim();
-    print(
-        'DEBUG UI: Starting _verifyEmailCode with email: $email, code: $code');
-
     final apiService = ApiService();
     final result = await apiService.verifyEmailCode(
       email: email,
       code: code,
     );
-
-    print(
-        'DEBUG UI: _verifyEmailCode result: success=${result.success}, error=${result.error}');
 
     setState(() {
       _isLoading = false;

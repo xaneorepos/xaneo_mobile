@@ -11,6 +11,7 @@ import '../auth/token_storage.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'webrtc_signaling_service.dart';
 import '../runtime_translations.dart';
+import '../../utils/avatar_resolver.dart';
 
 enum CallState {
   idle,
@@ -142,7 +143,13 @@ class CallManager extends ChangeNotifier {
     _targetUserId = data['group_id']?.toString();
     _targetName = data['group_name']?.toString() ??
         RuntimeTranslations.instance.resolveByText('Групповой звонок');
-    _targetAvatar = data['group_avatar']?.toString();
+    final group = data['group'] is Map ? data['group'] as Map : null;
+    _targetAvatar = preferredAvatar([
+      data['group_avatar_url'],
+      data['group_avatar'],
+      group?['avatar_url'],
+      group?['avatar'],
+    ]);
     _targetGradient = data['group_gradient']?.toString();
     _callType = data['call_type']?.toString() ?? 'video';
     _isMicrophoneMuted = false;
@@ -155,7 +162,10 @@ class CallManager extends ChangeNotifier {
         'user_id': initId,
         'name': data['initiator_name']?.toString() ??
             RuntimeTranslations.instance.resolveByText('Организатор'),
-        'avatar': data['initiator_avatar'],
+        'avatar': preferredAvatar([
+          data['initiator_avatar_url'],
+          data['initiator_avatar'],
+        ]),
         'gradient': data['initiator_gradient'],
         'status': 'connected',
       };
@@ -191,7 +201,7 @@ class CallManager extends ChangeNotifier {
       _groupParticipants[uid] = {
         'user_id': uid,
         'name': name.isNotEmpty ? name : 'Участник $uid',
-        'avatar': data['avatar'],
+        'avatar': preferredAvatar([data['avatar_url'], data['avatar']]),
         'gradient': data['gradient'],
         'status': 'connected',
       };
@@ -204,7 +214,7 @@ class CallManager extends ChangeNotifier {
           _groupParticipants[kStr] = {
             'user_id': kStr,
             'name': val['first_name'] ?? val['username'] ?? 'Участник $kStr',
-            'avatar': val['avatar'],
+            'avatar': preferredAvatar([val['avatar_url'], val['avatar']]),
             'gradient': val['gradient'],
             'status': val['status'] ?? 'connected',
           };
@@ -306,8 +316,7 @@ class CallManager extends ChangeNotifier {
   /// Принять звонок по ID (для запуска из фонового режима/убитого состояния)
   Future<void> acceptCallById(String callId,
       {String? callerName, String? callerId}) async {
-    debugPrint(
-        'CallManager: acceptCallById $callId, callerName=$callerName, callerId=$callerId');
+    debugPrint('CallManager: accepting incoming call');
 
     // Синхронно переводим состояние, чтобы UI не закрывал ActiveCallScreen
     _activeCallId = callId;
@@ -332,7 +341,7 @@ class CallManager extends ChangeNotifier {
 
   /// Отклонить звонок по ID (для запуска из фонового режима/убитого состояния)
   Future<void> rejectCallById(String callId) async {
-    debugPrint('CallManager: rejectCallById $callId');
+    debugPrint('CallManager: rejecting incoming call');
     if (_activeCallId == callId && _state == CallState.incoming) {
       rejectIncomingCall();
       return;
@@ -448,13 +457,52 @@ class CallManager extends ChangeNotifier {
     _targetName = data['caller_first_name']?.toString() ??
         data['caller_name']?.toString() ??
         RuntimeTranslations.instance.resolveByText('Пользователь');
-    _targetAvatar = data['caller_avatar']?.toString();
+    final caller = data['caller'] is Map ? data['caller'] as Map : null;
+    _targetAvatar = preferredAvatar([
+      data['caller_avatar_url'],
+      data['caller_avatar'],
+      caller?['avatar_url'],
+      caller?['avatar'],
+    ]);
+    _refreshIncomingAvatarIfNeeded();
     _targetGradient = data['caller_gradient']?.toString();
     _callType = data['call_type']?.toString() ?? 'audio';
     _isMicrophoneMuted = false;
     _isCameraOff = false;
     _startRingtone();
     notifyListeners();
+  }
+
+  void _refreshIncomingAvatarIfNeeded() {
+    final userId = _targetUserId;
+    final callId = _activeCallId;
+    final currentAvatar = _targetAvatar;
+    if (userId == null ||
+        (currentAvatar != null && !isGeneratedAvatar(currentAvatar))) {
+      return;
+    }
+
+    unawaited(() async {
+      try {
+        final response = await _apiClient.get('/user/$userId/');
+        final rawData = response.data;
+        if (rawData is! Map) return;
+
+        final resolved = preferredAvatar([
+          rawData['avatar_url'],
+          rawData['avatar'],
+          currentAvatar,
+        ]);
+        if (resolved == null || isGeneratedAvatar(resolved)) return;
+        if (_activeCallId != callId || _targetUserId != userId) return;
+
+        _targetAvatar = resolved;
+        notifyListeners();
+      } catch (_) {
+        // The signaling avatar remains a valid fallback if profile lookup is
+        // unavailable or forbidden by privacy settings.
+      }
+    }());
   }
 
   void _handleCallAnswered(Map<String, dynamic> data) {
@@ -506,7 +554,7 @@ class CallManager extends ChangeNotifier {
           ).toString();
         }
       }
-      debugPrint('CallManager: Mobile connecting to LiveKit URL: $lkUrl');
+      debugPrint('CallManager: Mobile connecting to LiveKit');
 
       // 2. Создаем комнату
       _room = Room();

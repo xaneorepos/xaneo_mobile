@@ -467,8 +467,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
                               );
                             },
                             errorBuilder: (context, error, stackTrace) {
-                              debugPrint('FULLSCREEN IMAGE LOAD ERROR: $error');
-                              debugPrint('FULLSCREEN IMAGE URL: $url');
+                              debugPrint(
+                                  'FULLSCREEN IMAGE LOAD ERROR: ${error.runtimeType}');
                               return Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,

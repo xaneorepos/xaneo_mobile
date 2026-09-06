@@ -60,7 +60,7 @@ class ChatService {
       }
       return false;
     } catch (e) {
-      debugPrint('Error archiving chat $chatId: $e');
+      debugPrint('Error archiving chat: ${e.runtimeType}');
       return false;
     }
   }
@@ -111,7 +111,7 @@ class ChatService {
           .where((item) => item['command']!.isNotEmpty)
           .toList();
     } catch (e) {
-      debugPrint('Error loading bot commands for $username: $e');
+      debugPrint('Error loading bot commands: ${e.runtimeType}');
       return const [];
     }
   }
@@ -149,7 +149,7 @@ class ChatService {
           response.data is Map &&
           response.data['success'] == true;
     } catch (e) {
-      debugPrint('Error updating $field for chat $chatId: $e');
+      debugPrint('Error updating chat field: ${e.runtimeType}');
       return false;
     }
   }
@@ -164,7 +164,7 @@ class ChatService {
           response.data is Map &&
           response.data['success'] == true;
     } catch (e) {
-      debugPrint('Error clearing history for chat $chatId: $e');
+      debugPrint('Error clearing chat history: ${e.runtimeType}');
       return false;
     }
   }
@@ -179,7 +179,7 @@ class ChatService {
           response.data is Map &&
           response.data['success'] == true;
     } catch (e) {
-      debugPrint('Error deleting chat $chatId: $e');
+      debugPrint('Error deleting chat: ${e.runtimeType}');
       return false;
     }
   }
@@ -207,7 +207,7 @@ class ChatService {
       }
       return null;
     } catch (e) {
-      debugPrint('Error fetching encrypted messages for chat $chatId: $e');
+      debugPrint('Error fetching encrypted messages: ${e.runtimeType}');
       return null;
     }
   }
@@ -221,7 +221,7 @@ class ChatService {
 
       return response.statusCode == 200;
     } catch (e) {
-      debugPrint('Error marking messages as read for chat $chatId: $e');
+      debugPrint('Error marking messages as read: ${e.runtimeType}');
       return false;
     }
   }

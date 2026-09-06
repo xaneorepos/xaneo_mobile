@@ -242,13 +242,12 @@ class _VideoMessagePlayerState extends State<VideoMessagePlayer>
                 textContent: Value(updatedJson),
               ),
             );
-            debugPrint(
-                'Cached video message successfully saved to local DB: $localFilePath');
+            debugPrint('Cached video message successfully saved to local DB');
           }
         }
       }
     } catch (e) {
-      debugPrint('Error caching video message $messageId: $e');
+      debugPrint('Error caching video message: ${e.runtimeType}');
     } finally {
       _downloadingUrls.remove(videoUrl);
     }

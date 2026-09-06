@@ -355,7 +355,7 @@ class ChatWebSocketService {
       }
       return true;
     } catch (e) {
-      debugPrint('WS: Error parsing token expiry: $e');
+      debugPrint('WS: Error parsing token expiry: ${e.runtimeType}');
       return true;
     }
   }

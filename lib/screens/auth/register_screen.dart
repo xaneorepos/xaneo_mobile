@@ -26,6 +26,11 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen>
     with SingleTickerProviderStateMixin {
+  static final Uri _userAgreementUri =
+      Uri.parse('https://xaneo.ru/support/#user-agreement');
+  static final Uri _personalDataPolicyUri =
+      Uri.parse('https://xaneo.ru/support/#personal-data-policy');
+
   // Steps (new order):
   // 0: Name (Как вас зовут)
   // 1: Birthdate (Дата рождения)
@@ -400,7 +405,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     if (!mounted) return;
 
     if (success) {
-      Navigator.of(context).pop();
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } else if (auth.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1234,11 +1239,11 @@ class _RegisterScreenState extends State<RegisterScreen>
   void _showCupertinoDatePicker() {
     showCupertinoModalPopup(
       context: context,
-      builder: (_) => Container(
+      builder: (sheetContext) => Container(
         height: 250,
-        decoration: const BoxDecoration(
-          color: Color(0xFF1E1E1E),
-          borderRadius: BorderRadius.only(
+        decoration: BoxDecoration(
+          color: sheetContext.xaneoSurface,
+          borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(24),
             topRight: Radius.circular(24),
           ),
@@ -1254,13 +1259,13 @@ class _RegisterScreenState extends State<RegisterScreen>
                   CupertinoButton(
                     child: Text(
                         (AppLocalizations.of(context)?.otmena_987b ?? 'Cancel'),
-                        style: TextStyle(color: context.xaneoTextMuted)),
+                        style: TextStyle(color: sheetContext.xaneoTextMuted)),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   CupertinoButton(
                     child: Text(
                         (AppLocalizations.of(context)?.gotovo_34e1 ?? 'Done'),
-                        style: TextStyle(color: context.xaneoTextPrimary)),
+                        style: TextStyle(color: sheetContext.xaneoTextPrimary)),
                     onPressed: () {
                       setState(() {
                         _selectedBirthdate ??= DateTime(2000, 1, 1);
@@ -1275,12 +1280,15 @@ class _RegisterScreenState extends State<RegisterScreen>
             Expanded(
               child: CupertinoTheme(
                 data: CupertinoThemeData(
+                  brightness: Theme.of(sheetContext).brightness,
+                  scaffoldBackgroundColor: sheetContext.xaneoSurface,
                   textTheme: CupertinoTextThemeData(
                     dateTimePickerTextStyle: TextStyle(
-                        color: context.xaneoTextPrimary, fontSize: 22),
+                        color: sheetContext.xaneoTextPrimary, fontSize: 22),
                   ),
                 ),
                 child: CupertinoDatePicker(
+                  backgroundColor: sheetContext.xaneoSurface,
                   mode: CupertinoDatePickerMode.date,
                   initialDateTime: _selectedBirthdate ?? DateTime(2000, 1, 1),
                   minimumDate: DateTime(1900),
@@ -1481,6 +1489,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         _buildCheckbox(
           title: (l10n?.yaPrinimayuPolzovatelskoeSoglashenie_c431 ??
               'I accept the User Agreement'),
+          documentUri: _userAgreementUri,
           value: _agreedToTerms,
           onChanged: (val) {
             setState(() {
@@ -1492,6 +1501,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         _buildCheckbox(
           title: (l10n?.yaDayuSoglasieNaObrabotku_0d03 ??
               'I agree to the processing of personal data'),
+          documentUri: _personalDataPolicyUri,
           value: _agreedToDataStorage,
           onChanged: (val) {
             setState(() {
@@ -1506,43 +1516,58 @@ class _RegisterScreenState extends State<RegisterScreen>
   Widget _buildCheckbox(
       {required String title,
       required bool value,
-      required ValueChanged<bool?> onChanged}) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      behavior: HitTestBehavior.opaque,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 2),
-            width: 20,
-            height: 20,
-            child: Checkbox(
-              value: value,
-              onChanged: onChanged,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              fillColor: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.selected)) {
-                  return context.xaneoTextPrimary;
-                }
-                return Colors.transparent;
-              }),
-              checkColor: Theme.of(context).scaffoldBackgroundColor,
-              side: BorderSide(color: context.xaneoTextMuted, width: 1.5),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(5)),
+      required ValueChanged<bool?> onChanged,
+      Uri? documentUri}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          width: 20,
+          height: 20,
+          child: Checkbox(
+            value: value,
+            onChanged: onChanged,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            fillColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return context.xaneoTextPrimary;
+              }
+              return Colors.transparent;
+            }),
+            checkColor: Theme.of(context).scaffoldBackgroundColor,
+            side: BorderSide(color: context.xaneoTextMuted, width: 1.5),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: documentUri == null
+                ? () => onChanged(!value)
+                : () => launchUrl(
+                      documentUri,
+                      mode: LaunchMode.externalApplication,
+                    ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 1),
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: context.xaneoTextSecondary,
+                  fontSize: 13,
+                  height: 1.4,
+                  decoration:
+                      documentUri == null ? null : TextDecoration.underline,
+                  decorationColor: context.xaneoTextSecondary,
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                  color: context.xaneoTextSecondary, fontSize: 13, height: 1.4),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

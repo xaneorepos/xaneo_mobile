@@ -33,6 +33,7 @@ import '../../services/database/app_database.dart';
 import '../../styles/app_styles.dart';
 import '../../utils/audio_metadata.dart';
 import '../../utils/chat_name_localizer.dart';
+import '../../utils/avatar_resolver.dart';
 import '../../widgets/common/chat_info_modal.dart';
 import '../../widgets/common/chat_context_menu.dart';
 import '../../widgets/common/base_custom_modal.dart';
@@ -689,7 +690,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (await partialFile.exists()) {
           await partialFile.delete();
         }
-        debugPrint('Historical image cache failed for $fileId: $error');
+        debugPrint('Historical image cache failed: ${error.runtimeType}');
         return false;
       }
     }
@@ -824,8 +825,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   bool _parseIsRead(Map<String, dynamic> item, {bool isFavorites = false}) {
     if (isFavorites) {
-      debugPrint(
-          '[READ_STATUS_LOG] _parseIsRead: favorites chat => isRead=true');
       return true;
     }
 
@@ -839,15 +838,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         isReadVal == 1 ||
         isReadVal == 'true' ||
         isReadVal == '1') {
-      debugPrint(
-          '[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched value=$isReadVal (by_recipient=${item['is_read_by_recipient']}, is_read=${item['is_read']}) => isRead=true');
       return true;
     }
 
     final status = item['status']?.toString().toLowerCase();
     if (status == 'read' || status == 'seen') {
-      debugPrint(
-          '[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched status=$status => isRead=true');
       return true;
     }
 
@@ -855,27 +850,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (readAt != null &&
         readAt.toString().isNotEmpty &&
         readAt.toString() != 'null') {
-      debugPrint(
-          '[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched readAt=$readAt => isRead=true');
       return true;
     }
 
     final readBy = item['read_by'] ?? item['readBy'] ?? item['readers'];
     if (readBy is List && readBy.isNotEmpty) {
-      debugPrint(
-          '[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} matched readBy=$readBy => isRead=true');
       return true;
     }
-
-    debugPrint(
-        '[READ_STATUS_LOG] _parseIsRead: msgId=${item['id']} NO READ MATCH (is_read_by_recipient=${item['is_read_by_recipient']}, is_read=${item['is_read']}, is_read_by_current_user=${item['is_read_by_current_user']}) => isRead=false');
     return false;
   }
 
   void _markChatAsRead() async {
     final localId = _localChatId;
-    debugPrint(
-        '[READ_STATUS_LOG] _markChatAsRead called for chat=${widget.chat.id}, localId=$localId');
     if (localId != null) {
       await _localChatRepo.markMessagesAsReadInDb(localId);
       if (mounted) {
@@ -1916,11 +1902,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _handleWsEvent(Map<String, dynamic> event) async {
     final type = event['type']?.toString();
-    if (type != null && (type.contains('read') || type.contains('mark'))) {
-      debugPrint(
-          '[READ_STATUS_LOG] Incoming WS Event with read/mark: type=$type, payload=$event');
-    }
-
     if (type == 'user_typing' || type == 'typing') {
       final userId =
           event['user_id']?.toString() ?? event['username']?.toString();
@@ -2124,8 +2105,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         type == 'read_receipt') {
       final eventChatId =
           event['chat_id']?.toString() ?? event['chatId']?.toString();
-      debugPrint(
-          '[READ_STATUS_LOG] WS READ EVENT: type=$type, eventChatId=$eventChatId, activeChatId=${widget.chat.id}, payload=$event');
       if (eventChatId == null || _areSameChat(eventChatId, widget.chat.id)) {
         final localId = _localChatId;
         if (localId != null) {
@@ -5161,7 +5140,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     await callManager.startOutgoingCall(
       targetUserId: targetId,
       targetName: widget.chat.name,
-      targetAvatar: widget.chat.avatar,
+      targetAvatar: preferredAvatar([
+        _otherUser?['avatar_url'],
+        _otherUser?['avatar'],
+        widget.chat.avatar,
+      ]),
       targetGradient: widget.chat.avatarGradient,
       callerName: authProvider.user?.username ?? 'User',
       callType: callType,
@@ -9057,8 +9040,8 @@ class MessageBubble extends StatelessWidget {
                               width: 260,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
-                                debugPrint('IMAGE PREVIEW LOAD ERROR: $error');
-                                debugPrint('IMAGE PREVIEW URL: $absoluteUrl');
+                                debugPrint(
+                                    'IMAGE PREVIEW LOAD ERROR: ${error.runtimeType}');
                                 return _buildImagePlaceholder(
                                   width: 260,
                                   height: 120,

@@ -81,9 +81,7 @@ class AuthService {
     } on DioException catch (e) {
       debugPrint('=== Mobile Login DioException ===');
       debugPrint('Type: ${e.type}');
-      debugPrint('Message: ${e.message}');
-      debugPrint('Underlying error: ${e.error}');
-      debugPrint('Response: ${e.response?.data}');
+      debugPrint('Status: ${e.response?.statusCode}');
       throw _handleDioError(e);
     }
   }
@@ -595,9 +593,9 @@ class AuthService {
       );
       debugPrint('FCM: Token registered with backend successfully.');
     } on DioException catch (e) {
-      debugPrint('FCM: Error registering token with backend: ${e.message}');
+      debugPrint('FCM: Error registering token with backend: ${e.type}');
     } catch (e) {
-      debugPrint('FCM: Unexpected error registering token with backend: $e');
+      debugPrint('FCM: Unexpected token registration error: ${e.runtimeType}');
     }
   }
 

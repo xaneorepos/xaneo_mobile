@@ -56,8 +56,8 @@ class LocalProxy {
           });
 
           await clientResponse.pipe(request.response);
-        } catch (e, stack) {
-          debugPrint('LocalProxy handler error for url $targetUrl: $e\n$stack');
+        } catch (e) {
+          debugPrint('LocalProxy handler error: ${e.runtimeType}');
           request.response.statusCode = 500;
           await request.response.close();
         }

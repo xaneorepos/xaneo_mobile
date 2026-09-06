@@ -786,8 +786,7 @@ class CryptoService {
       throw StateError('User public key missing');
     }
 
-    debugPrint(
-        'XSEC-2: _computeSharedSecret: myPrivKey=${myPrivateKeyHex.substring(0, 8)}...');
+    debugPrint('XSEC-2: computing shared secret');
 
     final myPrivateKey = _hexToBytes(myPrivateKeyHex);
     final theirPublicKey = _hexToBytes(theirPublicKeyHex);
@@ -959,7 +958,7 @@ class CryptoService {
       }
 
       // Избранное: ECDH с самим собой
-      debugPrint('XSEC-2: favorites: myPublicKey=${myPublicKey}');
+      debugPrint('XSEC-2: favorites public key is available');
       final myPub = myPublicKey;
       if (myPub == null) {
         debugPrint('XSEC-2: favorites: No public key, returning null');
@@ -1063,10 +1062,7 @@ class CryptoService {
         if (variants.any((k) => _bytesToHex(k) == fingerprint)) return;
         variants.add(key);
         if (label != null) {
-          final preview = fingerprint.length >= 12
-              ? fingerprint.substring(0, 12)
-              : fingerprint;
-          debugPrint('XSEC-2: group epoch key [$label] fp=$preview...');
+          debugPrint('XSEC-2: group epoch key candidate added [$label]');
         }
       }
 
@@ -1274,8 +1270,7 @@ class CryptoService {
           }
         }
       } catch (e) {
-        debugPrint(
-            'XSEC-2: Error fetching historical epoch $ep for $chatId: $e');
+        debugPrint('XSEC-2: Error fetching historical epoch: ${e.runtimeType}');
       }
     }
 
@@ -1494,7 +1489,7 @@ class CryptoService {
     try {
       final key = await ensureKeyForChat(chatId);
       if (key == null) {
-        debugPrint('XSEC-2: No key for chat $chatId');
+        debugPrint('XSEC-2: No key for chat');
         return null;
       }
 
@@ -1592,13 +1587,13 @@ class CryptoService {
   Future<String?> _performDecryptMessage(
       String encryptedBase64, String chatId) async {
     try {
-      debugPrint('XSEC-2: decryptMessage start for chat $chatId');
+      debugPrint('XSEC-2: decryptMessage start');
 
       if (encryptedBase64.isEmpty) return null;
 
       final baseKey = await ensureKeyForChat(chatId);
       if (baseKey == null) {
-        debugPrint('XSEC-2: No key for chat $chatId');
+        debugPrint('XSEC-2: No key for chat');
         return null;
       }
 
@@ -2182,10 +2177,7 @@ class CryptoService {
       if (variants.any((k) => _bytesToHex(k) == fingerprint)) return;
       variants.add(key);
       if (_logKeyCandidates && label != null) {
-        final preview = fingerprint.length >= 12
-            ? fingerprint.substring(0, 12)
-            : fingerprint;
-        debugPrint('XSEC-2: key candidate [$label] fp=$preview...');
+        debugPrint('XSEC-2: key candidate added [$label]');
       }
     }
 
@@ -2884,7 +2876,7 @@ class CryptoService {
         'sender_pub': _bytesToHex(Uint8List.fromList(ephemeralPubKey.bytes)),
       };
     } catch (e) {
-      debugPrint('XSEC-2: createQrTransferPayload error: $e');
+      debugPrint('XSEC-2: createQrTransferPayload error: ${e.runtimeType}');
       return null;
     }
   }
@@ -2944,7 +2936,7 @@ class CryptoService {
       _initialized = true;
       return true;
     } catch (e) {
-      debugPrint('XSEC-2: importDeviceTransferPayload error: $e');
+      debugPrint('XSEC-2: importDeviceTransferPayload error: ${e.runtimeType}');
       return false;
     }
   }
@@ -3093,7 +3085,7 @@ class CryptoService {
         return storageUserId;
       }
     } catch (e) {
-      debugPrint('XSEC-2: error reading current user ID from TokenStorage: $e');
+      debugPrint('XSEC-2: error reading current user ID: ${e.runtimeType}');
     }
     debugPrint('XSEC-2: current user id is not initialized');
     return null;

@@ -199,7 +199,7 @@ class ApiService {
   /// Вход в систему
   /// Возвращает Map с данными пользователя или ошибкой
   Future<ApiResponse> login(String username, String password) async {
-    Logger.info('ApiService', 'Attempting login for user: $username');
+    Logger.info('ApiService', 'Attempting login');
     try {
       final response = await _dio.post(
         '$_baseUrl/auth/login/',
@@ -211,12 +211,10 @@ class ApiService {
       );
 
       final result = _handleDioResponse(response, isAuthRequest: true);
-      Logger.info('ApiService',
-          'Login result for $username: success=${result.success}');
+      Logger.info('ApiService', 'Login result: success=${result.success}');
       return result;
     } catch (e) {
-      Logger.error(
-          'ApiService', 'Login connection error for user: $username', e);
+      Logger.error('ApiService', 'Login connection error');
       return ApiResponse(
         success: false,
         error: 'Ошибка подключения к серверу: $e',
@@ -274,27 +272,14 @@ class ApiService {
       };
       final options = _getOptions(contentType: 'application/json');
 
-      print('DEBUG API: POST to $urlStr');
-      print('DEBUG API: Request Body: $data');
-      print('DEBUG API: Request Headers: ${options.headers}');
-      final cookiesBefore = await _cookieJar.loadForRequest(Uri.parse(urlStr));
-      print('DEBUG API: Cookies before request: $cookiesBefore');
-
       final response = await _dio.post(
         urlStr,
         options: options,
         data: data,
       );
 
-      print('DEBUG API: Response Code: ${response.statusCode}');
-      print('DEBUG API: Response Headers: ${response.headers}');
-      print('DEBUG API: Response Body: ${response.data}');
-      final cookiesAfter = await _cookieJar.loadForRequest(Uri.parse(urlStr));
-      print('DEBUG API: Cookies after request: $cookiesAfter');
-
       return _handleDioResponse(response);
     } catch (e) {
-      print('DEBUG API: Error in sendVerificationCode: $e');
       return ApiResponse(
         success: false,
         error: 'Ошибка отправки кода: $e',
@@ -316,27 +301,14 @@ class ApiService {
       };
       final options = _getOptions(contentType: 'application/json');
 
-      print('DEBUG API: POST to $urlStr');
-      print('DEBUG API: Request Body: $data');
-      print('DEBUG API: Request Headers: ${options.headers}');
-      final cookiesBefore = await _cookieJar.loadForRequest(Uri.parse(urlStr));
-      print('DEBUG API: Cookies before request: $cookiesBefore');
-
       final response = await _dio.post(
         urlStr,
         options: options,
         data: data,
       );
 
-      print('DEBUG API: Response Code: ${response.statusCode}');
-      print('DEBUG API: Response Headers: ${response.headers}');
-      print('DEBUG API: Response Body: ${response.data}');
-      final cookiesAfter = await _cookieJar.loadForRequest(Uri.parse(urlStr));
-      print('DEBUG API: Cookies after request: $cookiesAfter');
-
       return _handleDioResponse(response);
     } catch (e) {
-      print('DEBUG API: Error in verifyEmailCode: $e');
       return ApiResponse(
         success: false,
         error: 'Ошибка проверки кода: $e',
@@ -367,23 +339,11 @@ class ApiService {
       };
       final options = _getOptions(contentType: 'application/json');
 
-      print('DEBUG API: POST to $urlStr');
-      print('DEBUG API: Request Body: $data');
-      print('DEBUG API: Request Headers: ${options.headers}');
-      final cookiesBefore = await _cookieJar.loadForRequest(Uri.parse(urlStr));
-      print('DEBUG API: Cookies before request: $cookiesBefore');
-
       final response = await _dio.post(
         urlStr,
         options: options,
         data: data,
       );
-
-      print('DEBUG API: Response Code: ${response.statusCode}');
-      print('DEBUG API: Response Headers: ${response.headers}');
-      print('DEBUG API: Response Body: ${response.data}');
-      final cookiesAfter = await _cookieJar.loadForRequest(Uri.parse(urlStr));
-      print('DEBUG API: Cookies after request: $cookiesAfter');
 
       final result = _handleDioResponse(response, isAuthRequest: true);
 
@@ -399,7 +359,6 @@ class ApiService {
 
       return result;
     } catch (e) {
-      print('DEBUG API: Error in register: $e');
       return ApiResponse(
         success: false,
         error: 'Ошибка регистрации: $e',
@@ -409,7 +368,7 @@ class ApiService {
 
   /// Получение JWT токена
   Future<ApiResponse> obtainToken(String username, String password) async {
-    Logger.info('ApiService', 'obtainToken called for user: $username');
+    Logger.info('ApiService', 'obtainToken called');
     try {
       final response = await _dio.post(
         '$_baseUrl/auth/token/',
@@ -432,13 +391,12 @@ class ApiService {
           await saveRefreshToken(result.data!['refresh'] as String);
         }
       } else {
-        Logger.warning('ApiService', 'obtainToken failed: ${result.error}');
+        Logger.warning('ApiService', 'obtainToken failed');
       }
 
       return result;
     } catch (e) {
-      Logger.error(
-          'ApiService', 'obtainToken connection error for user: $username', e);
+      Logger.error('ApiService', 'obtainToken connection error');
       return ApiResponse(
         success: false,
         error: 'Ошибка получения токена: $e',
@@ -504,7 +462,7 @@ class ApiService {
       completer.complete(result);
       return result;
     } catch (e) {
-      Logger.error('ApiService', 'Exception during token refresh', e);
+      Logger.error('ApiService', 'Exception during token refresh');
       final res = ApiResponse(
         success: false,
         error: 'Ошибка обновления токена: $e',

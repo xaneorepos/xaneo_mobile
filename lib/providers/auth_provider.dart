@@ -361,15 +361,30 @@ class AuthProvider extends ChangeNotifier {
       );
 
       if (registerResponse.success) {
-        _user = UserModel(
-          id: registerResponse.userId ?? 0,
-          username: registerResponse.username ?? username,
-          email: registerResponse.email ?? email,
-          firstName: registerResponse.firstName ?? realname,
-          emailVerified: true,
-          avatar: registerResponse.avatarUrl,
-          createdAt: DateTime.now(),
-        );
+        // Current mobile-register responses contain a complete JWT session and
+        // AuthService persists it. Older deployments only returned user data,
+        // so fall back to a regular mobile login instead of showing the login
+        // screen again after a successful registration.
+        var registeredUser = await _authService.getCurrentUser();
+        if (registeredUser == null) {
+          final loginResult = await _authService.mobileLogin(
+            username: username,
+            password: password,
+          );
+          if (!loginResult.isSuccess || loginResult.userInfo == null) {
+            _error = ApiError(
+              message: loginResult.message ??
+                  'Регистрация завершена, но не удалось войти в аккаунт',
+            );
+            _status = AuthStatus.unauthenticated;
+            _setLoading(false);
+            notifyListeners();
+            return false;
+          }
+          registeredUser = loginResult.userInfo;
+        }
+
+        _user = registeredUser;
 
         await _syncCryptoUserId();
         await _ensureCryptoKeysReady(password: password, username: username);
@@ -606,7 +621,8 @@ class AuthProvider extends ChangeNotifier {
           await _authService.registerFcmToken(token);
         }
       } catch (e) {
-        debugPrint('FCM: Failed to fetch/register device token: $e');
+        debugPrint(
+            'FCM: Failed to fetch/register device token: ${e.runtimeType}');
       }
     }
   }

@@ -40,6 +40,7 @@ import '../widgets/custom_toast.dart';
 import '../widgets/custom_context_menu.dart';
 import '../utils/local_proxy.dart';
 import '../utils/audio_metadata.dart';
+import '../utils/avatar_resolver.dart';
 import '../services/webrtc/call_manager.dart';
 import '../services/webrtc/webrtc_signaling_service.dart';
 import 'webrtc/incoming_call_screen.dart';
@@ -432,7 +433,12 @@ class _MessengerScreenState extends State<MessengerScreen> {
       final targetId = otherUser['id']?.toString() ?? '';
       final targetName =
           otherUser['first_name'] ?? otherUser['username'] ?? 'User';
-      final targetAvatar = otherUser['avatar'];
+      final targetAvatar = preferredAvatar([
+        otherUser['avatar_url'],
+        otherUser['avatar'],
+        _selectedChat!['avatar_url'],
+        _selectedChat!['avatar'],
+      ]);
       final targetGradient = otherUser['avatar_gradient'];
       final myUsername = _myUsername ?? 'User';
 

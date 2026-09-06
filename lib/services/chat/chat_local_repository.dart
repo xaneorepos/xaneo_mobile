@@ -478,8 +478,7 @@ class LocalChatRepository {
             ..where((m) => m.chatId.equals(chatId)))
           .write(const MessagesCompanion(isRead: Value(true)));
     }
-    debugPrint(
-        '[READ_STATUS_LOG] markMessagesAsReadInDb: chatId=$chatId, serverMessageIds=$serverMessageIds => updated $updatedCount rows to isRead=true');
+    debugPrint('[READ_STATUS_LOG] marked $updatedCount local messages as read');
   }
 
   ChatModel _mapChatToModel(Chat row) {

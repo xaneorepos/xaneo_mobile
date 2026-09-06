@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../models/chat/chat_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/avatar_resolver.dart';
 import '../../services/api/api_client.dart';
 import '../../services/runtime_translations.dart';
 import '../../services/webrtc/call_manager.dart';
@@ -253,7 +254,11 @@ class _ContactsScreenState extends State<ContactsScreen> {
     final username = contact['contact_user_username']?.toString() ?? '';
     final firstName = contact['contact_user_first_name']?.toString() ?? '';
     final customName = contact['custom_name']?.toString();
-    final avatar = contact['custom_avatar'] ?? contact['contact_user_avatar'];
+    final avatar = preferredAvatar([
+      contact['custom_avatar'],
+      contact['contact_user_avatar_url'],
+      contact['contact_user_avatar'],
+    ]);
     final gradient = contact['contact_user_avatar_gradient']?.toString();
 
     final displayName = (customName != null && customName.isNotEmpty)

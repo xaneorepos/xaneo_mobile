@@ -392,7 +392,7 @@ class WebRTCSignalingService {
       }
       return true;
     } catch (e) {
-      debugPrint('WebRTC WS: error parsing token expiry: $e');
+      debugPrint('WebRTC WS: error parsing token expiry: ${e.runtimeType}');
       return true;
     }
   }

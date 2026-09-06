@@ -275,21 +275,10 @@ class _LoggingInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     if (kDebugMode) {
-      debugPrint(
-          '🌐 API Request: ${options.method} ${options.baseUrl}${options.path}');
+      debugPrint('🌐 API Request: ${options.method} ${options.uri.path}');
       if (options.data != null) {
-        // Sanitize sensitive data in logs
-        final data = options.data is Map
-            ? Map<String, dynamic>.from(options.data)
-            : options.data;
-        if (data is Map<String, dynamic>) {
-          if (data.containsKey('password')) data['password'] = '***';
-          if (data.containsKey('token')) data['token'] = '***';
-          if (data.containsKey('refresh')) data['refresh'] = '***';
-          if (data.containsKey('access')) data['access'] = '***';
-          if (data.containsKey('code')) data['code'] = '***';
-        }
-        debugPrint(' Data: $data');
+        debugPrint(
+            ' Request body: <omitted, type=${options.data.runtimeType}>');
       }
     }
     handler.next(options);
@@ -299,25 +288,10 @@ class _LoggingInterceptor extends Interceptor {
   void onResponse(Response response, ResponseInterceptorHandler handler) {
     if (kDebugMode) {
       debugPrint(
-          '✅ API Response: ${response.statusCode} ${response.requestOptions.path}');
+          '✅ API Response: ${response.statusCode} ${response.requestOptions.uri.path}');
       if (response.data != null) {
-        final data = response.data is Map
-            ? Map<String, dynamic>.from(response.data)
-            : response.data;
-        if (data is Map<String, dynamic>) {
-          if (data.containsKey('access')) data['access'] = '***';
-          if (data.containsKey('refresh')) data['refresh'] = '***';
-          if (data.containsKey('temp_token')) data['temp_token'] = '***';
-          debugPrint(' Response data: $data');
-        } else {
-          final text = data.toString();
-          if (text.length > 600 || text.startsWith('<!DOCTYPE html>')) {
-            debugPrint(
-                ' Response data: <omitted large/non-json payload, len=${text.length}>');
-          } else {
-            debugPrint(' Response data: $text');
-          }
-        }
+        debugPrint(
+            ' Response body: <omitted, type=${response.data.runtimeType}>');
       }
     }
     handler.next(response);
@@ -327,17 +301,11 @@ class _LoggingInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (kDebugMode) {
       debugPrint(
-          '❌ API Error: ${err.response?.statusCode} ${err.requestOptions.path}');
+          '❌ API Error: ${err.response?.statusCode} ${err.requestOptions.uri.path}');
       debugPrint(' Error type: ${err.type}');
-      debugPrint(' Error message: ${err.message}');
       if (err.response?.data != null) {
-        final errorText = err.response?.data.toString() ?? '';
-        if (errorText.length > 600 || errorText.startsWith('<!DOCTYPE html>')) {
-          debugPrint(
-              ' Error data: <omitted large/non-json payload, len=${errorText.length}>');
-        } else {
-          debugPrint(' Error data: $errorText');
-        }
+        debugPrint(
+            ' Error body: <omitted, type=${err.response?.data.runtimeType}>');
       }
     }
     handler.next(err);

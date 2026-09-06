@@ -104,8 +104,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
 
     try {
       final res = await widget.apiService.searchUsers(_query);
-      debugPrint(
-          '🔍 GlobalSearch API response success: ${res.success}, data: ${res.data}');
+      debugPrint('🔍 GlobalSearch completed: success=${res.success}');
 
       if (mounted) {
         setState(() {

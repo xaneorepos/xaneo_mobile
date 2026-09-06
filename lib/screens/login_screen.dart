@@ -130,7 +130,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _handleLogin() async {
     final username = _loginController.text.trim();
-    Logger.info('LoginScreen', 'Login attempt started for user: $username');
+    Logger.info('LoginScreen', 'Login attempt started');
     
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -141,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen>
         final password = _passwordController.text;
         
         // Получаем JWT токен
-        Logger.info('LoginScreen', 'Requesting JWT token for user: $username');
+        Logger.info('LoginScreen', 'Requesting JWT token');
         final tokenResponse = await _apiService.obtainToken(username, password);
 
         if (tokenResponse.success) {
@@ -240,7 +240,8 @@ class _LoginScreenState extends State<LoginScreen>
             final profileRes = await _apiService.getProfile();
             bool savedSuccess = false;
             if (profileRes.success && profileRes.data != null) {
-              Logger.info('LoginScreen', 'Profile fetched successfully. Saving current account: ${profileRes.data!['username']}');
+              Logger.info('LoginScreen',
+                  'Profile fetched successfully. Saving current account.');
               savedSuccess = await AccountService().saveCurrentAccount(profileRes.data!);
             } else {
               Logger.error('LoginScreen', 'Failed to fetch user profile: ${profileRes.error}');
@@ -278,7 +279,8 @@ class _LoginScreenState extends State<LoginScreen>
             }
           }
         } else {
-          Logger.warning('LoginScreen', 'Token obtain failed: ${tokenResponse.error} (status ${tokenResponse.statusCode})');
+          Logger.warning('LoginScreen',
+              'Token obtain failed with status ${tokenResponse.statusCode}');
           setState(() {
             _isLoading = false;
           });

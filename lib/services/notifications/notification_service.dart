@@ -180,12 +180,12 @@ class NotificationService {
   static Future<void> checkPendingCallPayload() async {
     try {
       debugPrint(
-          'NotificationService: checkPendingCallPayload called, pendingCallPayload=$pendingCallPayload, isAppReady=$isAppReady');
+          'NotificationService: checking pending call, isAppReady=$isAppReady');
       if (pendingCallPayload != null) {
         final data = pendingCallPayload!;
         pendingCallPayload = null; // Очищаем сразу
         final callId = data['call_id']?.toString() ?? '';
-        debugPrint('NotificationService: found pending callId=$callId');
+        debugPrint('NotificationService: pending call found');
         if (callId.isNotEmpty) {
           // Ждём пока navigator станет доступен
           int attempts = 0;
@@ -228,7 +228,7 @@ class NotificationService {
     try {
       return await _messaging.getToken();
     } catch (e) {
-      debugPrint('NotificationService: Error getting token: $e');
+      debugPrint('NotificationService: Error getting token: ${e.runtimeType}');
       return null;
     }
   }
@@ -396,7 +396,7 @@ class NotificationService {
         try {
           final data = jsonDecode(response.payload!) as Map<String, dynamic>;
           final callId = data['call_id']?.toString() ?? '';
-          debugPrint('Notification Action: accept_call for callId=$callId');
+          debugPrint('Notification Action: accept_call');
           if (callId.isNotEmpty) {
             await _acceptCallWithNavigation(callId, data);
           }
@@ -412,7 +412,7 @@ class NotificationService {
         try {
           final data = jsonDecode(response.payload!) as Map<String, dynamic>;
           final callId = data['call_id']?.toString() ?? '';
-          debugPrint('Notification Action: decline_call for callId=$callId');
+          debugPrint('Notification Action: decline_call');
           if (callId.isNotEmpty) {
             final context = navigatorKey.currentContext;
             if (context != null) {
@@ -450,7 +450,8 @@ class NotificationService {
           _handleNotificationClick(data);
         }
       } catch (e) {
-        debugPrint('NotificationService: Tap payload decode error: $e');
+        debugPrint(
+            'NotificationService: Tap payload decode error: ${e.runtimeType}');
       }
     }
   }
@@ -518,7 +519,7 @@ class NotificationService {
   void _listenToCallKitEvents() {
     FlutterCallkitIncoming.onEvent.listen((event) async {
       if (event == null) return;
-      debugPrint('NotificationService: CallKit Event: $event');
+      debugPrint('NotificationService: CallKit event ${event.runtimeType}');
 
       String callId = '';
       if (event is CallEventActionCallAccept) {
