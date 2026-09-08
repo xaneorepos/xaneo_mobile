@@ -57,6 +57,10 @@ Map<String, dynamic> audioPayloadWithMetadata(
       'duration',
       'cover_url',
       'has_cover',
+      'blur_hash',
+      'placeholder_url',
+      'width',
+      'height',
     };
     for (final key in directKeys) {
       if (data[key] != null && data[key].toString().isNotEmpty) {
@@ -65,7 +69,9 @@ Map<String, dynamic> audioPayloadWithMetadata(
     }
     for (final key in const ['audio_metadata', 'attached_file_metadata']) {
       if (data[key] is Map) {
-        merged[key] = Map<String, dynamic>.from(data[key] as Map);
+        final nested = Map<String, dynamic>.from(data[key] as Map);
+        merged[key] = nested;
+        mergeFrom(nested);
       }
     }
   }

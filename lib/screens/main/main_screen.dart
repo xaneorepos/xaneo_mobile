@@ -25,6 +25,7 @@ import '../../services/notifications/notification_service.dart';
 import '../../services/update/update_service.dart';
 import '../../services/api/api_client.dart';
 import '../../services/crypto/crypto_service.dart';
+import '../../services/chat/presence_service.dart';
 import '../../models/update/app_version_info.dart';
 import '../../widgets/common/custom_update_toast.dart';
 import '../../widgets/common/device_auth_approval_modal.dart';
@@ -43,6 +44,8 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   late final PageController _pageController;
   Timer? _deviceAuthTimer;
+  StreamSubscription<Map<String, dynamic>>? _presenceEventsSubscription;
+  PresenceService? _presenceService;
   final Set<String> _handledDeviceAuthRequests = {};
   bool _deviceAuthDialogOpen = false;
   AppVersionInfo? _pendingUpdate;
@@ -61,10 +64,17 @@ class _MainScreenState extends State<MainScreen> {
         NotificationService.isAppReady = true;
         NotificationService.checkPendingCallPayload();
 
+        _presenceService = context.read<PresenceService>();
+        _presenceEventsSubscription = _presenceService!.events.listen(
+          _handlePresenceEvent,
+        );
+        _presenceService!.isConnected.addListener(
+          _handlePresenceConnectionChanged,
+        );
         _checkAppUpdate();
         _checkPendingDeviceAuth();
         _deviceAuthTimer = Timer.periodic(
-          const Duration(seconds: 4),
+          const Duration(seconds: 60),
           (_) => _checkPendingDeviceAuth(),
         );
       }
@@ -84,6 +94,10 @@ class _MainScreenState extends State<MainScreen> {
   void dispose() {
     NotificationService.isAppReady = false;
     _deviceAuthTimer?.cancel();
+    _presenceService?.isConnected.removeListener(
+      _handlePresenceConnectionChanged,
+    );
+    _presenceEventsSubscription?.cancel();
     try {
       context.read<CallManager>().removeListener(_handleCallStateChanged);
     } catch (_) {}
@@ -102,16 +116,47 @@ class _MainScreenState extends State<MainScreen> {
       for (final raw in requests) {
         if (raw is! Map) continue;
         final request = Map<String, dynamic>.from(raw);
-        final id = request['challenge_id']?.toString();
-        if (id == null || _handledDeviceAuthRequests.contains(id)) continue;
-        await _showDeviceAuthApproval(request);
+        if (!await _handleDeviceAuthRequest(request)) continue;
         break;
       }
     } catch (_) {}
   }
 
-  Future<void> _showDeviceAuthApproval(Map<String, dynamic> request) async {
-    if (!mounted) return;
+  void _handlePresenceConnectionChanged() {
+    if (_presenceService?.isConnected.value == true) {
+      unawaited(_checkPendingDeviceAuth());
+    }
+  }
+
+  void _handlePresenceEvent(Map<String, dynamic> event) {
+    if (event['type']?.toString() == 'device_auth_request') {
+      unawaited(_handleDeviceAuthRequest(event));
+    }
+  }
+
+  Future<bool> _handleDeviceAuthRequest(
+    Map<String, dynamic> request,
+  ) async {
+    if (!mounted || _deviceAuthDialogOpen) return false;
+    final challenge = request['challenge_id']?.toString();
+    if (challenge == null ||
+        challenge.isEmpty ||
+        _handledDeviceAuthRequests.contains(challenge)) {
+      return false;
+    }
+
+    _handledDeviceAuthRequests.add(challenge);
+    final handled = await _showDeviceAuthApproval(request);
+    if (!handled) {
+      _handledDeviceAuthRequests.remove(challenge);
+    } else if (mounted) {
+      unawaited(_checkPendingDeviceAuth());
+    }
+    return true;
+  }
+
+  Future<bool> _showDeviceAuthApproval(Map<String, dynamic> request) async {
+    if (!mounted) return false;
     _deviceAuthDialogOpen = true;
     final challenge = request['challenge_id']?.toString() ?? '';
     final device = request['device_name']?.toString();
@@ -140,13 +185,14 @@ class _MainScreenState extends State<MainScreen> {
         if (transfer != null) 'transfer_payload': transfer,
         if (approved == true && transfer == null) 'no_keys': true,
       });
-      _handledDeviceAuthRequests.add(challenge);
+      return true;
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Не удалось обработать запрос на вход')),
         );
       }
+      return false;
     } finally {
       _deviceAuthDialogOpen = false;
     }

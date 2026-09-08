@@ -954,6 +954,12 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
   late final GeneratedColumn<String> replyMarkup = GeneratedColumn<String>(
       'reply_markup', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _messageDataMeta =
+      const VerificationMeta('messageData');
+  @override
+  late final GeneratedColumn<String> messageData = GeneratedColumn<String>(
+      'message_data', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -972,7 +978,8 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
         replyToId,
         replyText,
         replyAuthorName,
-        replyMarkup
+        replyMarkup,
+        messageData
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1077,6 +1084,12 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
           replyMarkup.isAcceptableOrUnknown(
               data['reply_markup']!, _replyMarkupMeta));
     }
+    if (data.containsKey('message_data')) {
+      context.handle(
+          _messageDataMeta,
+          messageData.isAcceptableOrUnknown(
+              data['message_data']!, _messageDataMeta));
+    }
     return context;
   }
 
@@ -1120,6 +1133,8 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
           DriftSqlType.string, data['${effectivePrefix}reply_author_name']),
       replyMarkup: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}reply_markup']),
+      messageData: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}message_data']),
     );
   }
 
@@ -1147,6 +1162,7 @@ class Message extends DataClass implements Insertable<Message> {
   final String? replyText;
   final String? replyAuthorName;
   final String? replyMarkup;
+  final String? messageData;
   const Message(
       {required this.id,
       required this.serverMessageId,
@@ -1164,7 +1180,8 @@ class Message extends DataClass implements Insertable<Message> {
       this.replyToId,
       this.replyText,
       this.replyAuthorName,
-      this.replyMarkup});
+      this.replyMarkup,
+      this.messageData});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1204,6 +1221,9 @@ class Message extends DataClass implements Insertable<Message> {
     }
     if (!nullToAbsent || replyMarkup != null) {
       map['reply_markup'] = Variable<String>(replyMarkup);
+    }
+    if (!nullToAbsent || messageData != null) {
+      map['message_data'] = Variable<String>(messageData);
     }
     return map;
   }
@@ -1247,6 +1267,9 @@ class Message extends DataClass implements Insertable<Message> {
       replyMarkup: replyMarkup == null && nullToAbsent
           ? const Value.absent()
           : Value(replyMarkup),
+      messageData: messageData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(messageData),
     );
   }
 
@@ -1271,6 +1294,7 @@ class Message extends DataClass implements Insertable<Message> {
       replyText: serializer.fromJson<String?>(json['replyText']),
       replyAuthorName: serializer.fromJson<String?>(json['replyAuthorName']),
       replyMarkup: serializer.fromJson<String?>(json['replyMarkup']),
+      messageData: serializer.fromJson<String?>(json['messageData']),
     );
   }
   @override
@@ -1294,6 +1318,7 @@ class Message extends DataClass implements Insertable<Message> {
       'replyText': serializer.toJson<String?>(replyText),
       'replyAuthorName': serializer.toJson<String?>(replyAuthorName),
       'replyMarkup': serializer.toJson<String?>(replyMarkup),
+      'messageData': serializer.toJson<String?>(messageData),
     };
   }
 
@@ -1314,7 +1339,8 @@ class Message extends DataClass implements Insertable<Message> {
           Value<String?> replyToId = const Value.absent(),
           Value<String?> replyText = const Value.absent(),
           Value<String?> replyAuthorName = const Value.absent(),
-          Value<String?> replyMarkup = const Value.absent()}) =>
+          Value<String?> replyMarkup = const Value.absent(),
+          Value<String?> messageData = const Value.absent()}) =>
       Message(
         id: id ?? this.id,
         serverMessageId: serverMessageId ?? this.serverMessageId,
@@ -1338,6 +1364,7 @@ class Message extends DataClass implements Insertable<Message> {
             ? replyAuthorName.value
             : this.replyAuthorName,
         replyMarkup: replyMarkup.present ? replyMarkup.value : this.replyMarkup,
+        messageData: messageData.present ? messageData.value : this.messageData,
       );
   Message copyWithCompanion(MessagesCompanion data) {
     return Message(
@@ -1369,6 +1396,8 @@ class Message extends DataClass implements Insertable<Message> {
           : this.replyAuthorName,
       replyMarkup:
           data.replyMarkup.present ? data.replyMarkup.value : this.replyMarkup,
+      messageData:
+          data.messageData.present ? data.messageData.value : this.messageData,
     );
   }
 
@@ -1391,7 +1420,8 @@ class Message extends DataClass implements Insertable<Message> {
           ..write('replyToId: $replyToId, ')
           ..write('replyText: $replyText, ')
           ..write('replyAuthorName: $replyAuthorName, ')
-          ..write('replyMarkup: $replyMarkup')
+          ..write('replyMarkup: $replyMarkup, ')
+          ..write('messageData: $messageData')
           ..write(')'))
         .toString();
   }
@@ -1414,7 +1444,8 @@ class Message extends DataClass implements Insertable<Message> {
       replyToId,
       replyText,
       replyAuthorName,
-      replyMarkup);
+      replyMarkup,
+      messageData);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1435,7 +1466,8 @@ class Message extends DataClass implements Insertable<Message> {
           other.replyToId == this.replyToId &&
           other.replyText == this.replyText &&
           other.replyAuthorName == this.replyAuthorName &&
-          other.replyMarkup == this.replyMarkup);
+          other.replyMarkup == this.replyMarkup &&
+          other.messageData == this.messageData);
 }
 
 class MessagesCompanion extends UpdateCompanion<Message> {
@@ -1456,6 +1488,7 @@ class MessagesCompanion extends UpdateCompanion<Message> {
   final Value<String?> replyText;
   final Value<String?> replyAuthorName;
   final Value<String?> replyMarkup;
+  final Value<String?> messageData;
   const MessagesCompanion({
     this.id = const Value.absent(),
     this.serverMessageId = const Value.absent(),
@@ -1474,6 +1507,7 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     this.replyText = const Value.absent(),
     this.replyAuthorName = const Value.absent(),
     this.replyMarkup = const Value.absent(),
+    this.messageData = const Value.absent(),
   });
   MessagesCompanion.insert({
     this.id = const Value.absent(),
@@ -1493,6 +1527,7 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     this.replyText = const Value.absent(),
     this.replyAuthorName = const Value.absent(),
     this.replyMarkup = const Value.absent(),
+    this.messageData = const Value.absent(),
   })  : serverMessageId = Value(serverMessageId),
         chatId = Value(chatId),
         senderId = Value(senderId),
@@ -1516,6 +1551,7 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     Expression<String>? replyText,
     Expression<String>? replyAuthorName,
     Expression<String>? replyMarkup,
+    Expression<String>? messageData,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1535,6 +1571,7 @@ class MessagesCompanion extends UpdateCompanion<Message> {
       if (replyText != null) 'reply_text': replyText,
       if (replyAuthorName != null) 'reply_author_name': replyAuthorName,
       if (replyMarkup != null) 'reply_markup': replyMarkup,
+      if (messageData != null) 'message_data': messageData,
     });
   }
 
@@ -1555,7 +1592,8 @@ class MessagesCompanion extends UpdateCompanion<Message> {
       Value<String?>? replyToId,
       Value<String?>? replyText,
       Value<String?>? replyAuthorName,
-      Value<String?>? replyMarkup}) {
+      Value<String?>? replyMarkup,
+      Value<String?>? messageData}) {
     return MessagesCompanion(
       id: id ?? this.id,
       serverMessageId: serverMessageId ?? this.serverMessageId,
@@ -1574,6 +1612,7 @@ class MessagesCompanion extends UpdateCompanion<Message> {
       replyText: replyText ?? this.replyText,
       replyAuthorName: replyAuthorName ?? this.replyAuthorName,
       replyMarkup: replyMarkup ?? this.replyMarkup,
+      messageData: messageData ?? this.messageData,
     );
   }
 
@@ -1631,6 +1670,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     if (replyMarkup.present) {
       map['reply_markup'] = Variable<String>(replyMarkup.value);
     }
+    if (messageData.present) {
+      map['message_data'] = Variable<String>(messageData.value);
+    }
     return map;
   }
 
@@ -1653,7 +1695,8 @@ class MessagesCompanion extends UpdateCompanion<Message> {
           ..write('replyToId: $replyToId, ')
           ..write('replyText: $replyText, ')
           ..write('replyAuthorName: $replyAuthorName, ')
-          ..write('replyMarkup: $replyMarkup')
+          ..write('replyMarkup: $replyMarkup, ')
+          ..write('messageData: $messageData')
           ..write(')'))
         .toString();
   }
@@ -2770,6 +2813,7 @@ typedef $$MessagesTableCreateCompanionBuilder = MessagesCompanion Function({
   Value<String?> replyText,
   Value<String?> replyAuthorName,
   Value<String?> replyMarkup,
+  Value<String?> messageData,
 });
 typedef $$MessagesTableUpdateCompanionBuilder = MessagesCompanion Function({
   Value<int> id,
@@ -2789,6 +2833,7 @@ typedef $$MessagesTableUpdateCompanionBuilder = MessagesCompanion Function({
   Value<String?> replyText,
   Value<String?> replyAuthorName,
   Value<String?> replyMarkup,
+  Value<String?> messageData,
 });
 
 final class $$MessagesTableReferences
@@ -2869,6 +2914,9 @@ class $$MessagesTableFilterComposer
 
   ColumnFilters<String> get replyMarkup => $composableBuilder(
       column: $table.replyMarkup, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get messageData => $composableBuilder(
+      column: $table.messageData, builder: (column) => ColumnFilters(column));
 
   $$ChatsTableFilterComposer get chatId {
     final $$ChatsTableFilterComposer composer = $composerBuilder(
@@ -2952,6 +3000,9 @@ class $$MessagesTableOrderingComposer
   ColumnOrderings<String> get replyMarkup => $composableBuilder(
       column: $table.replyMarkup, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get messageData => $composableBuilder(
+      column: $table.messageData, builder: (column) => ColumnOrderings(column));
+
   $$ChatsTableOrderingComposer get chatId {
     final $$ChatsTableOrderingComposer composer = $composerBuilder(
         composer: this,
@@ -3030,6 +3081,9 @@ class $$MessagesTableAnnotationComposer
   GeneratedColumn<String> get replyMarkup => $composableBuilder(
       column: $table.replyMarkup, builder: (column) => column);
 
+  GeneratedColumn<String> get messageData => $composableBuilder(
+      column: $table.messageData, builder: (column) => column);
+
   $$ChatsTableAnnotationComposer get chatId {
     final $$ChatsTableAnnotationComposer composer = $composerBuilder(
         composer: this,
@@ -3091,6 +3145,7 @@ class $$MessagesTableTableManager extends RootTableManager<
             Value<String?> replyText = const Value.absent(),
             Value<String?> replyAuthorName = const Value.absent(),
             Value<String?> replyMarkup = const Value.absent(),
+            Value<String?> messageData = const Value.absent(),
           }) =>
               MessagesCompanion(
             id: id,
@@ -3110,6 +3165,7 @@ class $$MessagesTableTableManager extends RootTableManager<
             replyText: replyText,
             replyAuthorName: replyAuthorName,
             replyMarkup: replyMarkup,
+            messageData: messageData,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -3129,6 +3185,7 @@ class $$MessagesTableTableManager extends RootTableManager<
             Value<String?> replyText = const Value.absent(),
             Value<String?> replyAuthorName = const Value.absent(),
             Value<String?> replyMarkup = const Value.absent(),
+            Value<String?> messageData = const Value.absent(),
           }) =>
               MessagesCompanion.insert(
             id: id,
@@ -3148,6 +3205,7 @@ class $$MessagesTableTableManager extends RootTableManager<
             replyText: replyText,
             replyAuthorName: replyAuthorName,
             replyMarkup: replyMarkup,
+            messageData: messageData,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) =>

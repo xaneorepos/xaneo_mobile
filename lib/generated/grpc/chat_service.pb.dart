@@ -282,6 +282,16 @@ class MessageItem extends $pb.GeneratedMessage {
     $fixnum.Int64? timestamp,
     $core.bool? isEdited,
     $core.String? replyToId,
+    $core.String? signature,
+    $fixnum.Int64? epochId,
+    $fixnum.Int64? msgCounter,
+    $core.String? messageType,
+    $core.String? encryptionVersion,
+    $core.String? messageDataJson,
+    $core.String? imagesJson,
+    $core.String? attachedFileId,
+    $core.String? attachedFileJson,
+    $core.String? cryptoChatId,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -294,6 +304,16 @@ class MessageItem extends $pb.GeneratedMessage {
     if (timestamp != null) result.timestamp = timestamp;
     if (isEdited != null) result.isEdited = isEdited;
     if (replyToId != null) result.replyToId = replyToId;
+    if (signature != null) result.signature = signature;
+    if (epochId != null) result.epochId = epochId;
+    if (msgCounter != null) result.msgCounter = msgCounter;
+    if (messageType != null) result.messageType = messageType;
+    if (encryptionVersion != null) result.encryptionVersion = encryptionVersion;
+    if (messageDataJson != null) result.messageDataJson = messageDataJson;
+    if (imagesJson != null) result.imagesJson = imagesJson;
+    if (attachedFileId != null) result.attachedFileId = attachedFileId;
+    if (attachedFileJson != null) result.attachedFileJson = attachedFileJson;
+    if (cryptoChatId != null) result.cryptoChatId = cryptoChatId;
     return result;
   }
 
@@ -321,6 +341,16 @@ class MessageItem extends $pb.GeneratedMessage {
     ..aInt64(8, _omitFieldNames ? '' : 'timestamp')
     ..aOB(9, _omitFieldNames ? '' : 'isEdited')
     ..aOS(10, _omitFieldNames ? '' : 'replyToId')
+    ..aOS(11, _omitFieldNames ? '' : 'signature')
+    ..aInt64(12, _omitFieldNames ? '' : 'epochId')
+    ..aInt64(13, _omitFieldNames ? '' : 'msgCounter')
+    ..aOS(14, _omitFieldNames ? '' : 'messageType')
+    ..aOS(15, _omitFieldNames ? '' : 'encryptionVersion')
+    ..aOS(16, _omitFieldNames ? '' : 'messageDataJson')
+    ..aOS(17, _omitFieldNames ? '' : 'imagesJson')
+    ..aOS(18, _omitFieldNames ? '' : 'attachedFileId')
+    ..aOS(19, _omitFieldNames ? '' : 'attachedFileJson')
+    ..aOS(20, _omitFieldNames ? '' : 'cryptoChatId')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -431,6 +461,96 @@ class MessageItem extends $pb.GeneratedMessage {
   $core.bool hasReplyToId() => $_has(9);
   @$pb.TagNumber(10)
   void clearReplyToId() => clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get signature => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set signature($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasSignature() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearSignature() => clearField(11);
+
+  @$pb.TagNumber(12)
+  $fixnum.Int64 get epochId => $_getI64(11);
+  @$pb.TagNumber(12)
+  set epochId($fixnum.Int64 value) => $_setInt64(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasEpochId() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearEpochId() => clearField(12);
+
+  @$pb.TagNumber(13)
+  $fixnum.Int64 get msgCounter => $_getI64(12);
+  @$pb.TagNumber(13)
+  set msgCounter($fixnum.Int64 value) => $_setInt64(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasMsgCounter() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearMsgCounter() => clearField(13);
+
+  @$pb.TagNumber(14)
+  $core.String get messageType => $_getSZ(13);
+  @$pb.TagNumber(14)
+  set messageType($core.String value) => $_setString(13, value);
+  @$pb.TagNumber(14)
+  $core.bool hasMessageType() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearMessageType() => clearField(14);
+
+  @$pb.TagNumber(15)
+  $core.String get encryptionVersion => $_getSZ(14);
+  @$pb.TagNumber(15)
+  set encryptionVersion($core.String value) => $_setString(14, value);
+  @$pb.TagNumber(15)
+  $core.bool hasEncryptionVersion() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearEncryptionVersion() => clearField(15);
+
+  @$pb.TagNumber(16)
+  $core.String get messageDataJson => $_getSZ(15);
+  @$pb.TagNumber(16)
+  set messageDataJson($core.String value) => $_setString(15, value);
+  @$pb.TagNumber(16)
+  $core.bool hasMessageDataJson() => $_has(15);
+  @$pb.TagNumber(16)
+  void clearMessageDataJson() => clearField(16);
+
+  @$pb.TagNumber(17)
+  $core.String get imagesJson => $_getSZ(16);
+  @$pb.TagNumber(17)
+  set imagesJson($core.String value) => $_setString(16, value);
+  @$pb.TagNumber(17)
+  $core.bool hasImagesJson() => $_has(16);
+  @$pb.TagNumber(17)
+  void clearImagesJson() => clearField(17);
+
+  @$pb.TagNumber(18)
+  $core.String get attachedFileId => $_getSZ(17);
+  @$pb.TagNumber(18)
+  set attachedFileId($core.String value) => $_setString(17, value);
+  @$pb.TagNumber(18)
+  $core.bool hasAttachedFileId() => $_has(17);
+  @$pb.TagNumber(18)
+  void clearAttachedFileId() => clearField(18);
+
+  @$pb.TagNumber(19)
+  $core.String get attachedFileJson => $_getSZ(18);
+  @$pb.TagNumber(19)
+  set attachedFileJson($core.String value) => $_setString(18, value);
+  @$pb.TagNumber(19)
+  $core.bool hasAttachedFileJson() => $_has(18);
+  @$pb.TagNumber(19)
+  void clearAttachedFileJson() => clearField(19);
+
+  @$pb.TagNumber(20)
+  $core.String get cryptoChatId => $_getSZ(19);
+  @$pb.TagNumber(20)
+  set cryptoChatId($core.String value) => $_setString(19, value);
+  @$pb.TagNumber(20)
+  $core.bool hasCryptoChatId() => $_has(19);
+  @$pb.TagNumber(20)
+  void clearCryptoChatId() => clearField(20);
 }
 
 class ContactItem extends $pb.GeneratedMessage {

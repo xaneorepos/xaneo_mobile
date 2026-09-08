@@ -62,8 +62,6 @@ class WebRTCSignalingService {
       if (newToken != null && newToken.isNotEmpty) {
         token = newToken;
         isExpired = false;
-      } else {
-        _apiClient!.onSessionExpired?.call();
       }
     }
 
@@ -297,6 +295,13 @@ class WebRTCSignalingService {
       } else if (parsed is Map) {
         event = parsed.cast<String, dynamic>();
       } else {
+        return;
+      }
+
+      if (event['type'] == 'session_revoked') {
+        _manualDisconnect = true;
+        _reconnectTimer?.cancel();
+        _apiClient?.onSessionExpired?.call();
         return;
       }
 

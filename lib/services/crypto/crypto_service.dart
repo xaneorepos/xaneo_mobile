@@ -999,6 +999,44 @@ class CryptoService {
     return null;
   }
 
+  /// Сбрасывает только публично восстанавливаемые ключи конкретного чата.
+  /// Используется перед повторным шифрованием, когда сервер сменил epoch.
+  void invalidateChatKey(String chatId) {
+    _chatKeyCache.remove(chatId);
+    _groupEpochKeyCache.remove(chatId);
+    _groupCurrentEpochNumber.remove(chatId);
+    _groupEpochRetryAfter.remove(chatId);
+    _groupEpochEndpointOk.remove(chatId);
+    _lastSuccessfulDecryptKey.remove(chatId);
+  }
+
+  /// Подписывает ciphertext Ed25519-ключом устройства. Приватный ключ наружу
+  /// не передаётся; при старой сессии без signing key возвращается пустая строка.
+  Future<String> signMessage(String encryptedText) async {
+    final keys = _userKeys;
+    if (keys == null || encryptedText.isEmpty) return '';
+    var privateHex = keys['ed25519_private_key']?.toString() ?? '';
+    final publicHex = keys['ed25519_public_key']?.toString() ?? '';
+    if (privateHex.length == 128) privateHex = privateHex.substring(0, 64);
+    if (!RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(privateHex) ||
+        !RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(publicHex)) {
+      return '';
+    }
+    final keyPair = crypto.SimpleKeyPairData(
+      Uint8List.fromList(_hexToBytes(privateHex)),
+      publicKey: crypto.SimplePublicKey(
+        Uint8List.fromList(_hexToBytes(publicHex)),
+        type: crypto.KeyPairType.ed25519,
+      ),
+      type: crypto.KeyPairType.ed25519,
+    );
+    final signature = await crypto.Ed25519().sign(
+      utf8.encode(encryptedText),
+      keyPair: keyPair,
+    );
+    return _bytesToHex(Uint8List.fromList(signature.bytes));
+  }
+
   /// Получает серверный ключ чата (legacy ChatKey)
   Future<Uint8List?> _fetchLegacyChatKey(String chatId) async {
     final cached = _legacyChatKeyCache[chatId];

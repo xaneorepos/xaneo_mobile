@@ -3,6 +3,7 @@ import 'package:grpc/grpc.dart';
 import 'package:fixnum/fixnum.dart';
 import '../generated/grpc/chat_service.pbgrpc.dart';
 import '../generated/grpc/presence_service.pbgrpc.dart';
+import 'auth/token_storage.dart';
 
 class XaneoGrpcService {
   static final XaneoGrpcService _instance = XaneoGrpcService._internal();
@@ -16,6 +17,21 @@ class XaneoGrpcService {
   PresenceServiceClient? _presenceClient;
 
   bool _isInitialized = false;
+  final TokenStorage _tokenStorage = TokenStorage();
+
+  CallOptions _callOptions(Duration timeout) {
+    return CallOptions(
+      timeout: timeout,
+      providers: [
+        (metadata, _) async {
+          final token = await _tokenStorage.getAccessToken();
+          if (token != null && token.isNotEmpty) {
+            metadata['authorization'] = 'Bearer $token';
+          }
+        },
+      ],
+    );
+  }
 
   void init({
     String host = '127.0.0.1',
@@ -69,7 +85,10 @@ class XaneoGrpcService {
       ..beforeMessageId = beforeMessageId;
 
     print('🚀 [gRPC Stream] Requesting chat history');
-    return _chatClient!.getMessageHistory(req);
+    return _chatClient!.getMessageHistory(
+      req,
+      options: _callOptions(const Duration(seconds: 15)),
+    );
   }
 
   /// Fast Mark As Read via gRPC
@@ -81,13 +100,19 @@ class XaneoGrpcService {
         ..chatId = chatId
         ..userId = userId;
 
-      final res = await _chatClient!
-          .markAsRead(req)
-          .timeout(const Duration(seconds: 2));
+      final res = await _chatClient!.markAsRead(
+        req,
+        options: _callOptions(const Duration(seconds: 2)),
+      );
       print('📖 [gRPC ACK] Marked messages as read: count=${res.markedCount}');
       return res.success;
+    } on GrpcError catch (e) {
+      final category =
+          e.code == StatusCode.unauthenticated ? 'Auth' : 'Unavailable';
+      print('⚠️ [gRPC $category] markAsRead fallback to REST/WS: $e');
+      return false;
     } catch (e) {
-      print('⚠️ [gRPC Offline] markAsRead fallback to REST/WS: $e');
+      print('⚠️ [gRPC Error] markAsRead fallback to REST/WS: $e');
       return false;
     }
   }
@@ -104,9 +129,10 @@ class XaneoGrpcService {
         ..chatId = chatId
         ..timestamp = Int64(DateTime.now().millisecondsSinceEpoch);
 
-      final res = await _presenceClient!
-          .sendPresence(req)
-          .timeout(const Duration(seconds: 2));
+      final res = await _presenceClient!.sendPresence(
+        req,
+        options: _callOptions(const Duration(seconds: 2)),
+      );
       return res.success;
     } catch (e) {
       print('⚠️ [gRPC Offline] sendPresence fallback to WebSocket: $e');
@@ -123,7 +149,10 @@ class XaneoGrpcService {
       ..userId = userId
       ..contactIds.addAll(contactIds);
 
-    return _presenceClient!.streamPresenceUpdates(req);
+    return _presenceClient!.streamPresenceUpdates(
+      req,
+      options: _callOptions(const Duration(minutes: 30)),
+    );
   }
 
   void dispose() {

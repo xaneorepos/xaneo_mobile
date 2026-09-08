@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
@@ -135,8 +136,11 @@ class ApiClient {
       final session = await _tokenStorage.captureRefreshSession();
       final refreshToken =
           session?.refreshToken ?? await _tokenStorage.getRefreshToken();
-      if (refreshToken == null) {
+      if (refreshToken == null || refreshToken.isEmpty) {
         _resolvePendingRequests(null);
+        // There is no credential capable of restoring this session. Notify
+        // once from the refresh owner; queued callers receive the same result.
+        onSessionExpired?.call();
         return null;
       }
 
@@ -175,7 +179,17 @@ class ApiClient {
 
       _resolvePendingRequests(null);
       return null;
-    } catch (e) {
+    } on DioException catch (e) {
+      _resolvePendingRequests(null);
+      final statusCode = e.response?.statusCode;
+      // Only an explicit rejection of the refresh credential is a logout.
+      // Timeouts, offline starts, TLS failures and 5xx responses must leave
+      // the locally stored session intact so a later retry can recover it.
+      if (statusCode == 400 || statusCode == 401 || statusCode == 403) {
+        onSessionExpired?.call();
+      }
+      return null;
+    } catch (_) {
       _resolvePendingRequests(null);
       return null;
     } finally {
@@ -241,9 +255,6 @@ class _AuthInterceptor extends Interceptor {
         } catch (e) {
           return handler.next(err);
         }
-      } else {
-        // Refresh failed, meaning session is expired
-        _apiClient.onSessionExpired?.call();
       }
     }
 
@@ -309,20 +320,5 @@ class _LoggingInterceptor extends Interceptor {
       }
     }
     handler.next(err);
-  }
-}
-
-/// Класс для Completer (нужен для ожидания обновления токена)
-class Completer<T> {
-  final _future = <Future<T>>[];
-  T? _value;
-  bool _isCompleted = false;
-
-  Future<T> get future =>
-      _future.isEmpty ? Future.value(_value as T) : _future.first;
-
-  void complete([T? value]) {
-    _value = value;
-    _isCompleted = true;
   }
 }

@@ -5003,6 +5003,41 @@
       "fallback_ru": "Поиск чатов...",
       "description": "Web localization key messenger.forward.searchPlaceholder"
     },
+    "messenger.forward.typePersonal": {
+      "scope": "web", "type": "text", "placeholders": [], "max_length": 4096,
+      "security_critical": false, "fallback_ru": "Личный",
+      "description": "Forward target type: personal chat"
+    },
+    "messenger.forward.typeGroup": {
+      "scope": "web", "type": "text", "placeholders": [], "max_length": 4096,
+      "security_critical": false, "fallback_ru": "Группа",
+      "description": "Forward target type: group"
+    },
+    "messenger.forward.typeChannel": {
+      "scope": "web", "type": "text", "placeholders": [], "max_length": 4096,
+      "security_critical": false, "fallback_ru": "Канал",
+      "description": "Forward target type: channel"
+    },
+    "messenger.forward.empty": {
+      "scope": "web", "type": "text", "placeholders": [], "max_length": 4096,
+      "security_critical": false, "fallback_ru": "Нет доступных чатов",
+      "description": "Empty state for forward targets"
+    },
+    "messenger.forward.loadError": {
+      "scope": "web", "type": "text", "placeholders": [], "max_length": 4096,
+      "security_critical": false, "fallback_ru": "Не удалось загрузить чаты",
+      "description": "Error shown when forward targets cannot be loaded"
+    },
+    "messenger.forward.sendError": {
+      "scope": "web", "type": "text", "placeholders": [], "max_length": 4096,
+      "security_critical": false, "fallback_ru": "Не удалось переслать сообщение",
+      "description": "Error shown when a message cannot be forwarded"
+    },
+    "messenger.message.forwardedFrom": {
+      "scope": "web", "type": "text", "placeholders": [], "max_length": 4096,
+      "security_critical": false, "fallback_ru": "переслано от",
+      "description": "Forwarded message source label"
+    },
     "messenger.call.return": {
       "scope": "web",
       "type": "text",

@@ -88,18 +88,40 @@ const MessageItem$json = {
     {'1': 'timestamp', '3': 8, '4': 1, '5': 3, '10': 'timestamp'},
     {'1': 'is_edited', '3': 9, '4': 1, '5': 8, '10': 'isEdited'},
     {'1': 'reply_to_id', '3': 10, '4': 1, '5': 9, '10': 'replyToId'},
+    {'1': 'signature', '3': 11, '4': 1, '5': 9, '10': 'signature'},
+    {'1': 'epoch_id', '3': 12, '4': 1, '5': 3, '10': 'epochId'},
+    {'1': 'msg_counter', '3': 13, '4': 1, '5': 3, '10': 'msgCounter'},
+    {'1': 'message_type', '3': 14, '4': 1, '5': 9, '10': 'messageType'},
+    {
+      '1': 'encryption_version',
+      '3': 15,
+      '4': 1,
+      '5': 9,
+      '10': 'encryptionVersion'
+    },
+    {
+      '1': 'message_data_json',
+      '3': 16,
+      '4': 1,
+      '5': 9,
+      '10': 'messageDataJson'
+    },
+    {'1': 'images_json', '3': 17, '4': 1, '5': 9, '10': 'imagesJson'},
+    {'1': 'attached_file_id', '3': 18, '4': 1, '5': 9, '10': 'attachedFileId'},
+    {
+      '1': 'attached_file_json',
+      '3': 19,
+      '4': 1,
+      '5': 9,
+      '10': 'attachedFileJson'
+    },
+    {'1': 'crypto_chat_id', '3': 20, '4': 1, '5': 9, '10': 'cryptoChatId'},
   ],
 };
 
 /// Descriptor for `MessageItem`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List messageItemDescriptor = $convert.base64Decode(
-    'CgtNZXNzYWdlSXRlbRIOCgJpZBgBIAEoCVICaWQSFwoHY2hhdF9pZBgCIAEoCVIGY2hhdElkEh'
-    'sKCXNlbmRlcl9pZBgDIAEoCVIIc2VuZGVySWQSJwoPc2VuZGVyX3VzZXJuYW1lGAQgASgJUg5z'
-    'ZW5kZXJVc2VybmFtZRIqChFzZW5kZXJfYXZhdGFyX3VybBgFIAEoCVIPc2VuZGVyQXZhdGFyVX'
-    'JsEisKEWVuY3J5cHRlZF9jb250ZW50GAYgASgMUhBlbmNyeXB0ZWRDb250ZW50EiMKDXBsYWlu'
-    'X2NvbnRlbnQYByABKAlSDHBsYWluQ29udGVudBIcCgl0aW1lc3RhbXAYCCABKANSCXRpbWVzdG'
-    'FtcBIbCglpc19lZGl0ZWQYCSABKAhSCGlzRWRpdGVkEh4KC3JlcGx5X3RvX2lkGAogASgJUgly'
-    'ZXBseVRvSWQ=');
+    'CgtNZXNzYWdlSXRlbRIOCgJpZBgBIAEoCVICaWQSFwoHY2hhdF9pZBgCIAEoCVIGY2hhdElkEhsKCXNlbmRlcl9pZBgDIAEoCVIIc2VuZGVySWQSJwoPc2VuZGVyX3VzZXJuYW1lGAQgASgJUg5zZW5kZXJVc2VybmFtZRIqChFzZW5kZXJfYXZhdGFyX3VybBgFIAEoCVIPc2VuZGVyQXZhdGFyVXJsEisKEWVuY3J5cHRlZF9jb250ZW50GAYgASgMUhBlbmNyeXB0ZWRDb250ZW50EiMKDXBsYWluX2NvbnRlbnQYByABKAlSDHBsYWluQ29udGVudBIcCgl0aW1lc3RhbXAYCCABKANSCXRpbWVzdGFtcBIbCglpc19lZGl0ZWQYCSABKAhSCGlzRWRpdGVkEh4KC3JlcGx5X3RvX2lkGAogASgJUglyZXBseVRvSWQSHAoJc2lnbmF0dXJlGAsgASgJUglzaWduYXR1cmUSGQoIZXBvY2hfaWQYDCABKANSB2Vwb2NoSWQSHwoLbXNnX2NvdW50ZXIYDSABKANSCm1zZ0NvdW50ZXISIQoMbWVzc2FnZV90eXBlGA4gASgJUgttZXNzYWdlVHlwZRItChJlbmNyeXB0aW9uX3ZlcnNpb24YDyABKAlSEWVuY3J5cHRpb25WZXJzaW9uEioKEW1lc3NhZ2VfZGF0YV9qc29uGBAgASgJUg9tZXNzYWdlRGF0YUpzb24SHwoLaW1hZ2VzX2pzb24YESABKAlSCmltYWdlc0pzb24SKAoQYXR0YWNoZWRfZmlsZV9pZBgSIAEoCVIOYXR0YWNoZWRGaWxlSWQSLAoSYXR0YWNoZWRfZmlsZV9qc29uGBMgASgJUhBhdHRhY2hlZEZpbGVKc29uEiQKDmNyeXB0b19jaGF0X2lkGBQgASgJUgxjcnlwdG9DaGF0SWQ=');
 
 @$core.Deprecated('Use contactItemDescriptor instead')
 const ContactItem$json = {

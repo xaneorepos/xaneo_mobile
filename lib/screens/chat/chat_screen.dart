@@ -37,6 +37,8 @@ import '../../utils/avatar_resolver.dart';
 import '../../widgets/common/chat_info_modal.dart';
 import '../../widgets/common/chat_context_menu.dart';
 import '../../widgets/common/base_custom_modal.dart';
+import '../../widgets/common/forward_message_modal.dart';
+import '../../widgets/common/blur_hash_placeholder.dart';
 import '../../widgets/common/compress_image_modal.dart';
 import '../../widgets/common/confirm_action_modal.dart';
 import '../../widgets/common/music_playlist_modal.dart';
@@ -70,6 +72,16 @@ String? _parseReplyField(dynamic val) {
   return str;
 }
 
+String? _encodeMessageData(dynamic value) {
+  if (value == null) return null;
+  if (value is String) {
+    final normalized = value.trim();
+    return normalized.isEmpty ? null : normalized;
+  }
+  if (value is Map) return jsonEncode(value);
+  return null;
+}
+
 bool _areSameChat(String? id1, String? id2) {
   if (id1 == null || id2 == null) return false;
   if (id1 == id2) return true;
@@ -95,6 +107,23 @@ bool _areSameChat(String? id1, String? id2) {
   }
 
   return norm(s1) == norm(s2);
+}
+
+bool _messageAllowsUserActions(Message message) {
+  const blockedTypes = {
+    'system',
+    'user_joined',
+    'user_joined_group',
+    'user_left',
+    'user_left_group',
+    'user_left_channel',
+    'user_invited_group',
+    'user_invited_channel',
+    'user_subscribed_channel',
+    'user_unsubscribed_channel',
+    'call',
+  };
+  return !blockedTypes.contains(message.messageType?.toLowerCase());
 }
 
 class _VoicePlaybackState {
@@ -809,6 +838,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             replyToId: Value(m.replyToId),
             replyText: Value(newReplyText),
             replyAuthorName: Value(m.replyAuthorName),
+            messageData: Value(m.messageData),
           ));
         }
       }
@@ -943,6 +973,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 'mime_type': fType,
                 'file_url': fUrl,
                 'blur_hash': img['blur_hash']?.toString(),
+                'placeholder_url': img['placeholder_url']?.toString(),
+                'width': img['width'],
+                'height': img['height'],
               });
             }
           }
@@ -1016,6 +1049,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               'file_size': fSize,
               'mime_type': fType,
               'file_url': fUrl,
+              'blur_hash': first['blur_hash']?.toString(),
+              'placeholder_url': first['placeholder_url']?.toString(),
+              'width': first['width'],
+              'height': first['height'],
             });
           }
         }
@@ -1229,6 +1266,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ? jsonEncode(item['votes_by_option'])
               : null;
           final itemMessageData = item['message_data'];
+          final messageDataVal = _encodeMessageData(itemMessageData);
           final replyMarkupVal = (itemMessageData is Map &&
                   itemMessageData['reply_markup'] != null)
               ? jsonEncode(itemMessageData['reply_markup'])
@@ -1267,6 +1305,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               replyText: Value(replyTextVal),
               replyAuthorName: Value(replyAuthorNameVal),
               replyMarkup: Value(replyMarkupVal),
+              messageData: Value(messageDataVal),
             ),
           );
         }
@@ -1829,6 +1868,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ? jsonEncode(item['votes_by_option'])
               : null;
           final itemMessageData = item['message_data'];
+          final messageDataVal = _encodeMessageData(itemMessageData);
           final replyMarkupVal = (itemMessageData is Map &&
                   itemMessageData['reply_markup'] != null)
               ? jsonEncode(itemMessageData['reply_markup'])
@@ -1868,6 +1908,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               replyText: Value(replyTextVal),
               replyAuthorName: Value(replyAuthorNameVal),
               replyMarkup: Value(replyMarkupVal),
+              messageData: Value(messageDataVal),
             ),
           );
         }
@@ -2197,6 +2238,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ? jsonEncode(event['votes_by_option'])
           : null;
       final eventMessageData = event['message_data'];
+      final messageDataVal = _encodeMessageData(eventMessageData);
       final replyMarkupVal =
           (eventMessageData is Map && eventMessageData['reply_markup'] != null)
               ? jsonEncode(eventMessageData['reply_markup'])
@@ -2299,6 +2341,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             replyText: Value(replyTextVal),
             replyAuthorName: Value(replyAuthorNameVal),
             replyMarkup: Value(replyMarkupVal),
+            messageData: Value(messageDataVal),
           ),
         );
       }
@@ -5515,14 +5558,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     senderGradient: senderGradient,
                     reactions: _messageReactions[msg.serverMessageId] ?? [],
                     myId: currentUser?.id?.toString(),
-                    onToggleReaction: (emoji) => _toggleReaction(msg, emoji),
-                    onLongPress: (messageToOptions) =>
-                        _showMessageContextMenu(messageToOptions),
-                    onReply: (messageToReply) {
-                      setState(() {
-                        _replyingToMessage = messageToReply;
-                      });
-                    },
+                    onToggleReaction: _messageAllowsUserActions(msg)
+                        ? (emoji) => _toggleReaction(msg, emoji)
+                        : null,
+                    onLongPress: _messageAllowsUserActions(msg)
+                        ? (messageToOptions) =>
+                            _showMessageContextMenu(messageToOptions)
+                        : null,
+                    onReply: _messageAllowsUserActions(msg)
+                        ? (messageToReply) {
+                            setState(() {
+                              _replyingToMessage = messageToReply;
+                            });
+                          }
+                        : null,
                     onTapReplyQuote: (replyServerId) {
                       _scrollToReplyMessage(replyServerId);
                     },
@@ -6987,6 +7036,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _toggleReaction(Message message, String emoji) {
+    if (!_messageAllowsUserActions(message)) return;
     final currentUser = context.read<AuthProvider>().user;
     final myId = currentUser?.id;
     if (currentUser == null || myId == null) return;
@@ -7079,6 +7129,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _showMessageContextMenu(Message message) {
+    if (!_messageAllowsUserActions(message)) return;
     final myReactionEmojis = _getMyReactionEmojis(message);
 
     ChatMessageContextMenuModal.show(
@@ -7091,11 +7142,138 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _replyingToMessage = msg;
         });
       },
+      onForward: (msg) => Future<void>.delayed(
+        Duration.zero,
+        () => _showForwardMessageModal(msg),
+      ),
       onShowFullEmojiPicker: (msg) => _showFullEmojiPicker(msg),
     );
   }
 
+  Future<List<Map<String, dynamic>>> _loadForwardTargets() async {
+    final response = await context.read<ApiClient>().get(
+          '/chats/',
+          queryParameters: const {'purpose': 'forward', 'limit': 100},
+          options: Options(
+              validateStatus: (status) => status != null && status < 500),
+        );
+    if (response.statusCode != 200 || response.data is! Map) {
+      throw StateError('forward_targets_failed');
+    }
+    final rawTargets = (response.data as Map)['chats'];
+    if (rawTargets is! List) return const [];
+    return rawTargets
+        .whereType<Map>()
+        .map((target) => Map<String, dynamic>.from(target))
+        .toList();
+  }
+
+  Future<void> _showForwardMessageModal(Message message) async {
+    if (!_messageAllowsUserActions(message)) return;
+
+    if (!mounted) return;
+    await ForwardMessageModal.show(
+      context: context,
+      loadTargets: _loadForwardTargets,
+      onForward: (target, showAttribution) =>
+          _forwardMessage(message, target, showAttribution),
+    );
+  }
+
+  Future<void> _forwardMessage(
+    Message message,
+    Map<String, dynamic> target,
+    bool showAttribution,
+  ) async {
+    final messageId = message.serverMessageId;
+    final targetChatId = target['chat_id']?.toString() ?? '';
+    if (messageId.isEmpty || targetChatId.isEmpty) {
+      throw StateError('invalid_forward_target');
+    }
+
+    final api = context.read<ApiClient>();
+    final crypto = context.read<CryptoService>();
+    final sourceResponse = await api.get(
+      '/messages/forward/',
+      queryParameters: {'message_id': messageId},
+      options:
+          Options(validateStatus: (status) => status != null && status < 500),
+    );
+    if (sourceResponse.statusCode != 200 || sourceResponse.data is! Map) {
+      throw StateError('forward_source_failed');
+    }
+    final source = Map<String, dynamic>.from(sourceResponse.data as Map);
+    var plaintext = source['bot_plaintext']?.toString() ?? message.textContent;
+    if (plaintext.isEmpty &&
+        source['attached_file'] is Map &&
+        (source['images'] is! List || (source['images'] as List).isEmpty)) {
+      final file = Map<String, dynamic>.from(source['attached_file'] as Map);
+      plaintext = jsonEncode({
+        'type': 'file',
+        'file_id': file['file_id'],
+        'file_type': file['file_type'],
+        'file_name': file['file_name'],
+        'file_size': file['file_size'],
+        'duration': file['duration'],
+        'mime_type': file['mime_type'],
+        'uploaded_at': file['uploaded_at'],
+      });
+    }
+
+    Future<({String encryptedText, int? epochId})> encryptTarget() async {
+      int? epochId;
+      if (targetChatId.startsWith('group_') ||
+          targetChatId.startsWith('channel_')) {
+        crypto.invalidateChatKey(targetChatId);
+        final epochResponse = await api.get(
+          '/xsec2/group/$targetChatId/epoch/current/',
+          options: Options(
+              validateStatus: (status) => status != null && status < 500),
+        );
+        if (epochResponse.statusCode != 200 || epochResponse.data is! Map) {
+          throw StateError('missing_target_epoch');
+        }
+        final epoch = Map<String, dynamic>.from(epochResponse.data as Map);
+        final rawId = epoch['epoch_id'] ?? epoch['id'] ?? epoch['epoch_number'];
+        epochId = int.tryParse(rawId?.toString() ?? '');
+      }
+      final encryptedText =
+          await crypto.encryptMessage(plaintext, targetChatId);
+      if (encryptedText == null) throw StateError('missing_target_key');
+      return (encryptedText: encryptedText, epochId: epochId);
+    }
+
+    var encrypted = await encryptTarget();
+    var signature = await crypto.signMessage(encrypted.encryptedText);
+    Future<Response<dynamic>> send() => api.post(
+          '/messages/forward/',
+          data: {
+            'message_id': messageId,
+            'target_chat_id': targetChatId,
+            'show_attribution': showAttribution,
+            'encrypted_text': encrypted.encryptedText,
+            'signature': signature,
+            'target_epoch_id': encrypted.epochId,
+          },
+          options: Options(
+              validateStatus: (status) => status != null && status < 500),
+        );
+
+    var response = await send();
+    if (response.statusCode == 409) {
+      encrypted = await encryptTarget();
+      signature = await crypto.signMessage(encrypted.encryptedText);
+      response = await send();
+    }
+    if (response.statusCode == null ||
+        response.statusCode! < 200 ||
+        response.statusCode! >= 300) {
+      throw StateError('forward_failed');
+    }
+  }
+
   void _showFullEmojiPicker(Message message) {
+    if (!_messageAllowsUserActions(message)) return;
     final myReactionEmojis = _getMyReactionEmojis(message);
 
     FullEmojiPickerModal.show(
@@ -7721,22 +7899,69 @@ class MessageBubble extends StatelessWidget {
     return parsedMap;
   }
 
-  Widget _buildImagePlaceholder({
+  Map<String, dynamic>? _forwardedFrom() {
+    final raw = message.messageData;
+    if (raw == null || raw.trim().isEmpty) return null;
+    final messageData = _decodeJsonMap(raw);
+    final forwarded = messageData?['forwarded_from'];
+    if (forwarded is! Map) return null;
+    return Map<String, dynamic>.from(forwarded);
+  }
+
+  Widget _buildForwardedHeader(
+    BuildContext context,
+    String authorName,
+    Color foreground,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            ForwardModalStrings.of(context).forwardedFrom,
+            style: TextStyle(
+              color: foreground.withValues(alpha: 0.78),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              height: 1.1,
+              fontFamily: AppStyles.fontFamily,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            authorName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              height: 1.15,
+              fontFamily: AppStyles.fontFamily,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImagePlaceholder(
+    BuildContext context, {
+    String? blurHash,
     double? width,
     double? height,
   }) {
     return SizedBox(
       width: width,
       height: height,
-      child: const ColoredBox(
-        color: Color(0xFF242428),
-        child: Center(
-          child: Icon(
-            Icons.image_outlined,
-            color: Colors.white30,
-            size: 30,
-          ),
-        ),
+      child: BlurHashPlaceholder(
+        hash: blurHash,
+        fallbackColor: context.isDarkTheme
+            ? const Color(0xFF242428)
+            : const Color(0xFFE8E8EC),
+        iconColor: context.isDarkTheme ? Colors.white30 : Colors.black26,
       ),
     );
   }
@@ -7815,6 +8040,13 @@ class MessageBubble extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _fitReplyBubbleToContent({
+    required bool enabled,
+    required Widget child,
+  }) {
+    return enabled ? IntrinsicWidth(child: child) : child;
   }
 
   Widget _buildCollageWidget(BuildContext context, List<dynamic> filesList,
@@ -8012,7 +8244,10 @@ class MessageBubble extends StatelessWidget {
                   width: double.infinity,
                   height: double.infinity,
                   errorBuilder: (context, error, stackTrace) =>
-                      _buildImagePlaceholder(),
+                      _buildImagePlaceholder(
+                    context,
+                    blurHash: fileData['blur_hash']?.toString(),
+                  ),
                 )
               : Image.network(
                   absoluteUrl,
@@ -8030,9 +8265,13 @@ class MessageBubble extends StatelessWidget {
                           color: Colors.white54, size: 24),
                     ),
                   ),
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return _buildImagePlaceholder();
+                  frameBuilder:
+                      (context, child, frame, wasSynchronouslyLoaded) {
+                    if (wasSynchronouslyLoaded || frame != null) return child;
+                    return _buildImagePlaceholder(
+                      context,
+                      blurHash: fileData['blur_hash']?.toString(),
+                    );
                   },
                 );
         }
@@ -8650,6 +8889,11 @@ class MessageBubble extends StatelessWidget {
     final bubbleForeground = defaultBubble && !context.isDarkTheme
         ? context.xaneoTextPrimary
         : Colors.white;
+    final forwardedFrom = _forwardedFrom();
+    final forwardedAuthorName =
+        forwardedFrom?['original_author_name']?.toString().trim() ?? '';
+    final showsForwardedFrom = forwardedFrom?['show_attribution'] == true &&
+        forwardedAuthorName.isNotEmpty;
     final bodyStyle = TextStyle(
       color: bubbleForeground,
       fontSize: appearance.chatFontSize,
@@ -8860,8 +9104,10 @@ class MessageBubble extends StatelessWidget {
         final hasReply = _parseReplyField(message.replyToId) != null ||
             _parseReplyField(message.replyText) != null ||
             _parseReplyField(message.replyAuthorName) != null;
-        isOnlyMedia =
-            isOnlyFile && !hasReply && (isImage || isVideo || isVideoMessage);
+        isOnlyMedia = isOnlyFile &&
+            !hasReply &&
+            !showsForwardedFrom &&
+            (isImage || isVideo || isVideoMessage);
 
         if (fileData['type'] == 'todo_list') {
           attachmentWidget = TodoListWidget(
@@ -8991,6 +9237,24 @@ class MessageBubble extends StatelessWidget {
             ),
           );
         } else if (isImage) {
+          double? mediaDimension(dynamic value) {
+            if (value is num && value > 0) return value.toDouble();
+            final parsed = double.tryParse(value?.toString() ?? '');
+            return parsed != null && parsed > 0 ? parsed : null;
+          }
+
+          final sourceWidth = mediaDimension(fileData['width']);
+          final sourceHeight = mediaDimension(fileData['height']);
+          final hasDimensions = sourceWidth != null && sourceHeight != null;
+          final aspectRatio =
+              hasDimensions ? sourceWidth / sourceHeight : 26 / 15;
+          var previewWidth = 260.0;
+          var previewHeight = previewWidth / aspectRatio;
+          if (previewHeight > 280) {
+            previewHeight = 280;
+            previewWidth = previewHeight * aspectRatio;
+          }
+          final blurHash = fileData['blur_hash']?.toString();
           attachmentWidget = GestureDetector(
             onTap: () => _showFullScreenImage(
               context,
@@ -9004,8 +9268,8 @@ class MessageBubble extends StatelessWidget {
               margin: isOnlyMedia
                   ? EdgeInsets.zero
                   : const EdgeInsets.only(bottom: 8),
-              width: 260,
-              constraints: const BoxConstraints(maxHeight: 280),
+              width: previewWidth,
+              height: previewHeight,
               decoration: isOnlyMedia
                   ? null
                   : BoxDecoration(
@@ -9023,12 +9287,15 @@ class MessageBubble extends StatelessWidget {
                       child: hasLocalFile
                           ? Image.file(
                               localFile!,
-                              width: 260,
+                              width: previewWidth,
+                              height: previewHeight,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
                                   _buildImagePlaceholder(
-                                width: 260,
-                                height: 120,
+                                context,
+                                blurHash: blurHash,
+                                width: previewWidth,
+                                height: previewHeight,
                               ),
                             )
                           : Image.network(
@@ -9037,22 +9304,29 @@ class MessageBubble extends StatelessWidget {
                               headers: jwtToken != null
                                   ? {'Authorization': 'Bearer $jwtToken'}
                                   : null,
-                              width: 260,
+                              width: previewWidth,
+                              height: previewHeight,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
                                 debugPrint(
                                     'IMAGE PREVIEW LOAD ERROR: ${error.runtimeType}');
                                 return _buildImagePlaceholder(
-                                  width: 260,
-                                  height: 120,
+                                  context,
+                                  blurHash: blurHash,
+                                  width: previewWidth,
+                                  height: previewHeight,
                                 );
                               },
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
+                              frameBuilder: (context, child, frame,
+                                  wasSynchronouslyLoaded) {
+                                if (wasSynchronouslyLoaded || frame != null) {
+                                  return child;
+                                }
                                 return _buildImagePlaceholder(
-                                  width: 260,
-                                  height: 150,
+                                  context,
+                                  blurHash: blurHash,
+                                  width: previewWidth,
+                                  height: previewHeight,
                                 );
                               },
                             ),
@@ -9273,6 +9547,9 @@ class MessageBubble extends StatelessWidget {
     final senderNameColor = isChannel
         ? const Color(0xFF60A5FA)
         : _getSenderNameColor(senderRealName, senderGradient);
+    final showsReplyQuote = _parseReplyField(message.replyToId) != null ||
+        _parseReplyField(message.replyText) != null ||
+        _parseReplyField(message.replyAuthorName) != null;
 
     return Align(
       alignment: effectiveIsMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -9305,115 +9582,153 @@ class MessageBubble extends StatelessWidget {
                   constraints: BoxConstraints(
                     maxWidth: MediaQuery.sizeOf(context).width * 0.70,
                   ),
-                  child: GestureDetector(
-                    onTap: () => onReply?.call(message),
-                    onLongPress: () => onLongPress?.call(message),
-                    child: Container(
-                      padding: isOnlyMedia
-                          ? EdgeInsets.zero
-                          : const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: isOnlyMedia || bubbleResolution.gradient != null
-                            ? Colors.transparent
-                            : (bubbleResolution.solidColor ??
-                                (effectiveIsMe
-                                    ? context.xaneoOverlay(0.12)
-                                    : context.xaneoOverlay(0.04))),
-                        gradient:
-                            isOnlyMedia ? null : bubbleResolution.gradient,
-                        borderRadius:
-                            effectiveIsMe ? _myCorners : _otherCorners,
-                        border: isOnlyMedia
-                            ? null
-                            : Border.all(color: context.xaneoDivider),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (showGroupSenderInfo ||
-                              showChannelSenderHeader) ...[
-                            Text(
-                              displayName,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                                color: senderNameColor,
+                  child: _fitReplyBubbleToContent(
+                    enabled: showsReplyQuote && attachmentWidget == null,
+                    child: GestureDetector(
+                      onTap: () => onReply?.call(message),
+                      onLongPress: () => onLongPress?.call(message),
+                      child: Container(
+                        padding: isOnlyMedia
+                            ? EdgeInsets.zero
+                            : const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color:
+                              isOnlyMedia || bubbleResolution.gradient != null
+                                  ? Colors.transparent
+                                  : (bubbleResolution.solidColor ??
+                                      (effectiveIsMe
+                                          ? context.xaneoOverlay(0.12)
+                                          : context.xaneoOverlay(0.04))),
+                          gradient:
+                              isOnlyMedia ? null : bubbleResolution.gradient,
+                          borderRadius:
+                              effectiveIsMe ? _myCorners : _otherCorners,
+                          border: isOnlyMedia
+                              ? null
+                              : Border.all(color: context.xaneoDivider),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (showsForwardedFrom)
+                              _buildForwardedHeader(
+                                context,
+                                forwardedAuthorName,
+                                bubbleForeground,
                               ),
-                            ),
-                            const SizedBox(height: 3),
-                          ],
-                          if (_parseReplyField(message.replyToId) != null ||
-                              _parseReplyField(message.replyText) != null ||
-                              _parseReplyField(message.replyAuthorName) != null)
-                            _buildReplyQuote(context),
-                          if (attachmentWidget != null) attachmentWidget,
-                          if (reactions.isNotEmpty) ...[
-                            IntrinsicWidth(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  if (displayContent.isNotEmpty)
+                            if (showGroupSenderInfo ||
+                                showChannelSenderHeader) ...[
+                              Text(
+                                displayName,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: senderNameColor,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                            ],
+                            if (_parseReplyField(message.replyToId) != null ||
+                                _parseReplyField(message.replyText) != null ||
+                                _parseReplyField(message.replyAuthorName) !=
+                                    null)
+                              _buildReplyQuote(context),
+                            if (attachmentWidget != null) attachmentWidget,
+                            if (reactions.isNotEmpty) ...[
+                              IntrinsicWidth(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (displayContent.isNotEmpty)
+                                      FormattedText(
+                                        content: displayContent,
+                                        baseStyle: bodyStyle,
+                                      ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Flexible(
+                                          child: _buildReactionsRow(context),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(bottom: 1),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                _formatTime(message.timestamp),
+                                                style: timeStyle,
+                                              ),
+                                              if (effectiveIsMe) ...[
+                                                const SizedBox(width: 4),
+                                                _buildMessageStatusIcon(message,
+                                                    color: timeStyle.color),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ] else ...[
+                              if (attachmentWidget == null &&
+                                  !showGroupSenderInfo &&
+                                  !showChannelSenderHeader &&
+                                  _parseReplyField(message.replyToId) == null &&
+                                  _parseReplyField(message.replyText) == null &&
+                                  _parseReplyField(message.replyAuthorName) ==
+                                      null &&
+                                  displayContent.isNotEmpty &&
+                                  !isOnlyMedia)
+                                Wrap(
+                                  alignment: WrapAlignment.end,
+                                  crossAxisAlignment: WrapCrossAlignment.end,
+                                  children: [
                                     FormattedText(
                                       content: displayContent,
                                       baseStyle: bodyStyle,
                                     ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Flexible(
-                                        child: _buildReactionsRow(context),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Padding(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 1),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              _formatTime(message.timestamp),
-                                              style: timeStyle,
-                                            ),
-                                            if (effectiveIsMe) ...[
-                                              const SizedBox(width: 4),
-                                              _buildMessageStatusIcon(message,
-                                                  color: timeStyle.color),
-                                            ],
+                                    const SizedBox(width: 8),
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 1),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            _formatTime(message.timestamp),
+                                            style: timeStyle,
+                                          ),
+                                          if (effectiveIsMe) ...[
+                                            const SizedBox(width: 4),
+                                            _buildMessageStatusIcon(message,
+                                                color: timeStyle.color),
                                           ],
-                                        ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ] else ...[
-                            if (attachmentWidget == null &&
-                                !showGroupSenderInfo &&
-                                !showChannelSenderHeader &&
-                                _parseReplyField(message.replyToId) == null &&
-                                _parseReplyField(message.replyText) == null &&
-                                _parseReplyField(message.replyAuthorName) ==
-                                    null &&
-                                displayContent.isNotEmpty &&
-                                !isOnlyMedia)
-                              Wrap(
-                                alignment: WrapAlignment.end,
-                                crossAxisAlignment: WrapCrossAlignment.end,
-                                children: [
+                                    ),
+                                  ],
+                                )
+                              else ...[
+                                if (displayContent.isNotEmpty)
                                   FormattedText(
                                     content: displayContent,
                                     baseStyle: bodyStyle,
                                   ),
-                                  const SizedBox(width: 8),
+                                if (!isOnlyMedia)
                                   Padding(
-                                    padding: const EdgeInsets.only(bottom: 1),
+                                    padding: const EdgeInsets.only(top: 2),
                                     child: Row(
-                                      mainAxisSize: MainAxisSize.min,
+                                      mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
                                         Text(
                                           _formatTime(message.timestamp),
@@ -9427,35 +9742,10 @@ class MessageBubble extends StatelessWidget {
                                       ],
                                     ),
                                   ),
-                                ],
-                              )
-                            else ...[
-                              if (displayContent.isNotEmpty)
-                                FormattedText(
-                                  content: displayContent,
-                                  baseStyle: bodyStyle,
-                                ),
-                              if (!isOnlyMedia)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        _formatTime(message.timestamp),
-                                        style: timeStyle,
-                                      ),
-                                      if (effectiveIsMe) ...[
-                                        const SizedBox(width: 4),
-                                        _buildMessageStatusIcon(message,
-                                            color: timeStyle.color),
-                                      ],
-                                    ],
-                                  ),
-                                ),
+                              ],
                             ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -11179,6 +11469,7 @@ class ChatMessageContextMenuModal extends BaseCustomModal {
   final Set<String> myReactionEmojis;
   final void Function(String emoji) onSelectEmoji;
   final void Function(Message message) onReply;
+  final void Function(Message message) onForward;
   final void Function(Message message) onShowFullEmojiPicker;
 
   const ChatMessageContextMenuModal({
@@ -11187,6 +11478,7 @@ class ChatMessageContextMenuModal extends BaseCustomModal {
     required this.myReactionEmojis,
     required this.onSelectEmoji,
     required this.onReply,
+    required this.onForward,
     required this.onShowFullEmojiPicker,
   });
 
@@ -11196,6 +11488,7 @@ class ChatMessageContextMenuModal extends BaseCustomModal {
     required Set<String> myReactionEmojis,
     required void Function(String emoji) onSelectEmoji,
     required void Function(Message message) onReply,
+    required void Function(Message message) onForward,
     required void Function(Message message) onShowFullEmojiPicker,
   }) {
     return BaseCustomModal.show<void>(
@@ -11206,6 +11499,7 @@ class ChatMessageContextMenuModal extends BaseCustomModal {
         myReactionEmojis: myReactionEmojis,
         onSelectEmoji: onSelectEmoji,
         onReply: onReply,
+        onForward: onForward,
         onShowFullEmojiPicker: onShowFullEmojiPicker,
       ),
     );
@@ -11320,6 +11614,22 @@ class _ChatMessageContextMenuModalState
           onTap: () {
             Navigator.pop(context);
             widget.onReply(widget.message);
+          },
+        ),
+        ListTile(
+          leading: FaIcon(
+            FontAwesomeIcons.share,
+            size: 16,
+            color: context.xaneoTextSecondary,
+          ),
+          title: Text(
+            AppLocalizations.of(context)?.forward ??
+                RuntimeTranslations.instance.resolveByText('Переслать'),
+            style: TextStyle(color: context.xaneoTextPrimary, fontSize: 15),
+          ),
+          onTap: () {
+            Navigator.pop(context);
+            widget.onForward(widget.message);
           },
         ),
         if (widget.message.textContent.isNotEmpty)

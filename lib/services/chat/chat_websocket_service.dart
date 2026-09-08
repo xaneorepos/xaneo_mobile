@@ -87,7 +87,6 @@ class ChatWebSocketService {
           debugPrint('WS: token successfully refreshed');
         } else {
           debugPrint('WS: token refresh failed (returned null or empty)');
-          _apiClient!.onSessionExpired?.call();
         }
       } else {
         debugPrint(
@@ -289,9 +288,22 @@ class ChatWebSocketService {
     try {
       final parsed = raw is String ? jsonDecode(raw) : raw;
       if (parsed is Map<String, dynamic>) {
+        if (parsed['type'] == 'session_revoked') {
+          _manualDisconnect = true;
+          _reconnectTimer?.cancel();
+          _apiClient?.onSessionExpired?.call();
+          return;
+        }
         _eventsController.add(parsed);
       } else if (parsed is Map) {
-        _eventsController.add(parsed.cast<String, dynamic>());
+        final event = parsed.cast<String, dynamic>();
+        if (event['type'] == 'session_revoked') {
+          _manualDisconnect = true;
+          _reconnectTimer?.cancel();
+          _apiClient?.onSessionExpired?.call();
+          return;
+        }
+        _eventsController.add(event);
       }
     } catch (e) {
       debugPrint('WS: failed to parse event: $e');

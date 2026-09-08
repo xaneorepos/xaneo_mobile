@@ -134,6 +134,25 @@ class _NotificationLoginPanelState extends State<NotificationLoginPanel> {
         _busy = false;
         _step = 2;
       });
+      final l10n = AppLocalizations.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_outline, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  l10n?.authNotificationConfirmSubtitle ??
+                      'Continue on an authorized device.',
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF16A34A),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       _timer ??=
           Timer.periodic(const Duration(milliseconds: 1500), (_) => _poll());
       await _poll();

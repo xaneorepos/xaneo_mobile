@@ -31,4 +31,8 @@ class Messages extends Table {
   // Support for bot inline keyboards
   TextColumn get replyMarkup =>
       text().nullable()(); // JSON string: {"inline_keyboard": [[{...}]]}
+
+  // Server-side metadata such as forwarded_from. It is intentionally kept
+  // separate from encrypted message content and survives local cache reloads.
+  TextColumn get messageData => text().nullable()();
 }
