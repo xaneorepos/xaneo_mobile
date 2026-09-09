@@ -107,6 +107,58 @@ class GroupChannelService {
     }
   }
 
+  Future<Map<String, dynamic>?> getCommunityDetails({
+    required String chatId,
+    required bool isGroup,
+  }) async {
+    try {
+      final id = chatId.replaceFirst('group_', '').replaceFirst('channel_', '');
+      final resource = isGroup ? 'groups' : 'channels';
+      final response = await _apiClient.get('/$resource/$id/');
+      if (response.statusCode == 200 && response.data is Map) {
+        return Map<String, dynamic>.from(response.data as Map);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error loading community settings: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> updateCommunity({
+    required String chatId,
+    required bool isGroup,
+    required Map<String, dynamic> data,
+    File? avatarFile,
+  }) async {
+    try {
+      final id = chatId.replaceFirst('group_', '').replaceFirst('channel_', '');
+      final resource = isGroup ? 'groups' : 'channels';
+      dynamic body = data;
+      if (avatarFile != null) {
+        body = FormData.fromMap({
+          ...data,
+          'avatar': await MultipartFile.fromFile(
+            avatarFile.path,
+            filename: avatarFile.path.split(Platform.pathSeparator).last,
+          ),
+        });
+      }
+      final response =
+          await _apiClient.dio.patch('/$resource/$id/', data: body);
+      if (response.statusCode != null &&
+          response.statusCode! >= 200 &&
+          response.statusCode! < 300 &&
+          response.data is Map) {
+        return Map<String, dynamic>.from(response.data as Map);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error saving community settings: $e');
+      return null;
+    }
+  }
+
   /// Вступить в группу (POST /api/groups/{id}/join/)
   Future<bool> joinGroup(int groupId, {String? inviteCode}) async {
     try {

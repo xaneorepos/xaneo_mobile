@@ -1191,6 +1191,8 @@ class _ChatListScreenState extends State<ChatListScreen>
     if (!mounted || action == null) return;
 
     switch (action) {
+      case ChatContextAction.settings:
+        break;
       case ChatContextAction.pin:
         await _setPinned(chat, !chat.isPinned);
       case ChatContextAction.archive:

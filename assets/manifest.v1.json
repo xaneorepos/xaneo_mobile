@@ -7367,6 +7367,168 @@
       "fallback_ru": "Редактировать канал",
       "description": "Web localization key messenger.editChat.editChannelTitle"
     },
+    "messenger.editChat.settingsGroup": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Настройки группы",
+      "description": "Group settings title"
+    },
+    "messenger.editChat.settingsChannel": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Настройки канала",
+      "description": "Channel settings title"
+    },
+    "messenger.editChat.avatarHint": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Нажмите на иконку, чтобы изменить изображение",
+      "description": "Avatar editing hint"
+    },
+    "messenger.editChat.groupName": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Название группы",
+      "description": "Group name field label"
+    },
+    "messenger.editChat.channelName": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Название канала",
+      "description": "Channel name field label"
+    },
+    "messenger.editChat.inviteOnly": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Только по приглашению",
+      "description": "Private chat access description"
+    },
+    "messenger.editChat.publicJoin": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Любой может найти и присоединиться",
+      "description": "Public group access description"
+    },
+    "messenger.editChat.publicSubscribe": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Любой может найти и подписаться",
+      "description": "Public channel access description"
+    },
+    "messenger.editChat.nickname": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Никнейм",
+      "description": "Public chat nickname field label"
+    },
+    "messenger.editChat.nameRequired": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Название не может быть пустым",
+      "description": "Empty chat name validation error"
+    },
+    "messenger.editChat.publicNicknameRequired": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Для публичного чата нужен никнейм",
+      "description": "Missing public chat nickname validation error"
+    },
+    "messenger.editChat.saveFailed": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Не удалось сохранить настройки",
+      "description": "Chat settings save error"
+    },
+    "messenger.admin.managePermissions": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Менять расширенные настройки",
+      "description": "Advanced settings administrator permission"
+    },
+    "messenger.reactions.chooseAvailable": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Выбрать доступные реакции",
+      "description": "Reaction picker action"
+    },
+    "messenger.slowMode.interval": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Интервал между сообщениями участников",
+      "description": "Slow mode interval field label"
+    },
+    "messenger.time.secondShort": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "сек",
+      "description": "Short seconds unit"
+    },
+    "messenger.time.minuteShort": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "мин",
+      "description": "Short minutes unit"
+    },
+    "messenger.time.hourShort": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "час",
+      "description": "Short hours unit"
+    },
     "messenger.common.disabledPlural": {
       "scope": "web",
       "type": "text",

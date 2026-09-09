@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
+import '../../l10n/community_settings_localizations.dart';
 import '../../styles/app_styles.dart';
 
 import 'base_custom_modal.dart';
 
-enum ChatContextAction { pin, archive, mute, clearHistory, delete }
+enum ChatContextAction { settings, pin, archive, mute, clearHistory, delete }
 
 class ChatContextMenu extends BaseCustomModal {
   const ChatContextMenu({
@@ -14,12 +15,16 @@ class ChatContextMenu extends BaseCustomModal {
     required this.isArchived,
     required this.isMuted,
     required this.canDelete,
+    required this.canEditCommunity,
+    required this.isGroup,
   });
 
   final bool isPinned;
   final bool isArchived;
   final bool isMuted;
   final bool canDelete;
+  final bool canEditCommunity;
+  final bool isGroup;
 
   static Future<ChatContextAction?> show({
     required BuildContext context,
@@ -27,6 +32,8 @@ class ChatContextMenu extends BaseCustomModal {
     required bool isArchived,
     required bool isMuted,
     required bool canDelete,
+    bool canEditCommunity = false,
+    bool isGroup = false,
   }) {
     return BaseCustomModal.show<ChatContextAction>(
       context: context,
@@ -35,6 +42,8 @@ class ChatContextMenu extends BaseCustomModal {
         isArchived: isArchived,
         isMuted: isMuted,
         canDelete: canDelete,
+        canEditCommunity: canEditCommunity,
+        isGroup: isGroup,
       ),
     );
   }
@@ -51,6 +60,16 @@ class _ChatContextMenuState extends BaseCustomModalState<ChatContextMenu> {
   Widget buildContent(BuildContext context, ScrollController scrollController) {
     final l10n = AppLocalizations.of(context)!;
     final actions = <_ChatMenuEntry>[
+      if (widget.canEditCommunity)
+        _ChatMenuEntry(
+          action: ChatContextAction.settings,
+          icon: FontAwesomeIcons.pen,
+          label: CommunitySettingsLocalizations.of(context).text(
+            widget.isGroup
+                ? 'messenger.editChat.settingsGroup'
+                : 'messenger.editChat.settingsChannel',
+          ),
+        ),
       if (!widget.isArchived)
         _ChatMenuEntry(
           action: ChatContextAction.pin,

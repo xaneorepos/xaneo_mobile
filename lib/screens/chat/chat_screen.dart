@@ -54,6 +54,7 @@ import '../../utils/local_proxy.dart';
 import 'package:record/record.dart';
 import 'widgets/todo_poll_widgets.dart';
 import '../../widgets/common/create_poll_todo_modals.dart';
+import '../../widgets/common/edit_community_modal.dart';
 import 'package:camera/camera.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/video_message_player.dart';
@@ -62,6 +63,7 @@ import '../../providers/playback_provider.dart';
 import '../../widgets/voice_waveform_slider.dart';
 import '../../widgets/emoji_picker_panel.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
+import 'package:xaneo/l10n/community_settings_localizations.dart';
 import '../../services/runtime_translations.dart';
 
 /// Immutable state class для оптимизации Selector
@@ -342,8 +344,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final Set<String> _animatedMessageIds = {};
   final Set<String> _messagesToAnimate = {};
   bool _isOwner = false;
+  bool _isCommunityAdmin = false;
   bool _isMember = true;
   bool _canWrite = true;
+  Timer? _slowModeTimer;
+  DateTime? _slowModeEndsAt;
   bool _isJoining = false;
   bool _isEphemeralPreview = false;
   String? _chatName;
@@ -452,6 +457,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _typingRepeatTimer?.cancel();
     _typingStopTimer?.cancel();
     _typingTimer?.cancel();
+    _slowModeTimer?.cancel();
     for (final timer in _typingTimers.values) {
       timer.cancel();
     }
@@ -623,8 +629,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     // 3. Connect to WebSocket for E2EE updates
-    await _chatWebSocketService.connect(widget.chat.id);
     _wsEventsSub = _chatWebSocketService.events.listen(_handleWsEvent);
+    await _chatWebSocketService.connect(widget.chat.id);
 
     // 4. Mark messages as read since the chat is open
     _markChatAsRead();
@@ -1943,6 +1949,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _handleWsEvent(Map<String, dynamic> event) async {
     final type = event['type']?.toString();
+    if (type == 'slow_mode_activated') {
+      _startSlowModeTimer(event['duration_seconds']);
+      return;
+    }
+
     if (type == 'user_typing' || type == 'typing') {
       final userId =
           event['user_id']?.toString() ?? event['username']?.toString();
@@ -3083,6 +3094,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty && _attachments.isEmpty) return;
+
+    if (_isSlowModeActive) {
+      _showSlowModeBlockedMessage();
+      return;
+    }
 
     if (_attachments.any((a) => a.status == 'error')) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -4870,7 +4886,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               isEncrypted: widget.chat.isEncrypted,
               lastMessageType: widget.chat.lastMessageType,
             );
-            final targetMsgId = await ChatInfoModal.show(context, currentChat);
+            final targetMsgId = await ChatInfoModal.show(
+              context,
+              currentChat,
+              onOpenSettings: widget.chat.isGroup || widget.chat.isChannel
+                  ? _openCommunitySettings
+                  : null,
+            );
             if (targetMsgId != null && mounted) {
               _scrollToMessage(targetMsgId);
             }
@@ -5125,6 +5147,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     // 4. Группы
     if (chat.isGroup) {
+      final currentValue = _otherUser?['group_calls_enabled'];
+      if (currentValue != null) {
+        return currentValue == true ||
+            currentValue == 1 ||
+            currentValue.toString().toLowerCase() == 'true';
+      }
       return widget.chat.groupCallsEnabled;
     }
 
@@ -6050,6 +6078,104 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  int get _slowModeRemainingSeconds {
+    final endsAt = _slowModeEndsAt;
+    if (endsAt == null) return 0;
+    final milliseconds = endsAt.difference(DateTime.now()).inMilliseconds;
+    if (milliseconds <= 0) return 0;
+    return (milliseconds / 1000).ceil();
+  }
+
+  bool get _isSlowModeActive => _slowModeRemainingSeconds > 0;
+
+  String get _slowModeTimeLabel {
+    final remaining = _slowModeRemainingSeconds;
+    final minutes = remaining ~/ 60;
+    final seconds = remaining % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  void _startSlowModeTimer(dynamic rawDurationSeconds) {
+    final durationSeconds = rawDurationSeconds is num
+        ? rawDurationSeconds.toInt()
+        : int.tryParse(rawDurationSeconds?.toString() ?? '') ?? 0;
+
+    _slowModeTimer?.cancel();
+    if (durationSeconds <= 0) {
+      if (mounted) setState(() => _slowModeEndsAt = null);
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _slowModeEndsAt = DateTime.now().add(
+          Duration(seconds: durationSeconds),
+        );
+      });
+    }
+
+    _slowModeTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_slowModeRemainingSeconds <= 0) {
+        timer.cancel();
+        setState(() => _slowModeEndsAt = null);
+      } else {
+        setState(() {});
+      }
+    });
+  }
+
+  void _showSlowModeBlockedMessage() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            CommunitySettingsLocalizations.of(context).text(
+              'messenger.errors.slowModeWait',
+              params: {'time': _slowModeTimeLabel},
+            ),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
+  Widget _buildSlowModeIndicator() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const FaIcon(
+            FontAwesomeIcons.clock,
+            size: 11,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            _slowModeTimeLabel,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInputArea(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
@@ -6283,6 +6409,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   suffixIcon: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (_isSlowModeActive) ...[
+                        _buildSlowModeIndicator(),
+                        const SizedBox(width: 4),
+                      ],
                       if (_botCommands.isNotEmpty) ...[
                         Tooltip(
                           message: 'Команды бота',
@@ -6312,12 +6442,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(22),
-                          onTap: _showAttachmentMenu,
+                          onTap: _isSlowModeActive
+                              ? _showSlowModeBlockedMessage
+                              : _showAttachmentMenu,
                           child: Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: FaIcon(
                               FontAwesomeIcons.plus,
-                              color: Colors.white.withValues(alpha: 0.65),
+                              color: Colors.white.withValues(
+                                alpha: _isSlowModeActive ? 0.28 : 0.65,
+                              ),
                               size: 18,
                             ),
                           ),
@@ -6343,26 +6477,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               child: hasText
                                   ? GestureDetector(
                                       key: const ValueKey('send'),
-                                      onTap: _sendMessage,
+                                      onTap: _isSlowModeActive
+                                          ? _showSlowModeBlockedMessage
+                                          : _sendMessage,
                                       child: Container(
                                         width: 38,
                                         height: 38,
                                         decoration: BoxDecoration(
-                                          color: Colors.white,
+                                          color: _isSlowModeActive
+                                              ? Colors.white.withValues(
+                                                  alpha: 0.12,
+                                                )
+                                              : Colors.white,
                                           shape: BoxShape.circle,
                                           boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.2),
-                                              blurRadius: 10,
-                                              offset: const Offset(0, 3),
-                                            ),
+                                            if (!_isSlowModeActive)
+                                              BoxShadow(
+                                                color: Colors.white
+                                                    .withValues(alpha: 0.2),
+                                                blurRadius: 10,
+                                                offset: const Offset(0, 3),
+                                              ),
                                           ],
                                         ),
-                                        child: const Center(
+                                        child: Center(
                                           child: FaIcon(
                                             FontAwesomeIcons.arrowUp,
-                                            color: Colors.black,
+                                            color: _isSlowModeActive
+                                                ? Colors.white.withValues(
+                                                    alpha: 0.3,
+                                                  )
+                                                : Colors.black,
                                             size: 16,
                                           ),
                                         ),
@@ -6370,56 +6515,70 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                     )
                                   : GestureDetector(
                                       key: const ValueKey('mic_video_toggle'),
-                                      onLongPressStart: (_) async {
-                                        _isHoldingButton = true;
-                                        if (_isVoiceMode) {
-                                          await _startRecording();
-                                        } else {
-                                          await _startVideoRecording();
-                                        }
-                                      },
-                                      onLongPressMoveUpdate: (details) {
-                                        if (_isVoiceMode && _isRecording) {
-                                          setState(() {
-                                            _dragOffset = details
-                                                .offsetFromOrigin.dx
-                                                .clamp(-120.0, 0.0);
-                                          });
-                                          if (_dragOffset < -100) {
-                                            _isHoldingButton = false;
-                                            _cancelRecording();
-                                          }
-                                        } else if (!_isVoiceMode &&
-                                            _isRecordingVideo) {
-                                          setState(() {
-                                            _dragOffset = details
-                                                .offsetFromOrigin.dx
-                                                .clamp(-120.0, 0.0);
-                                          });
-                                          if (_dragOffset < -100) {
-                                            _isHoldingButton = false;
-                                            _cancelVideoRecording();
-                                          }
-                                        }
-                                      },
-                                      onLongPressEnd: (_) async {
-                                        _isHoldingButton = false;
-                                        if (_isVoiceMode && _isRecording) {
-                                          await _stopAndSendRecording();
-                                        } else if (!_isVoiceMode &&
-                                            _isRecordingVideo) {
-                                          await _stopAndSendVideoRecording();
-                                        }
-                                      },
-                                      onLongPressCancel: () async {
-                                        _isHoldingButton = false;
-                                        if (_isVoiceMode) {
-                                          await _cancelRecording();
-                                        } else {
-                                          await _cancelVideoRecording();
-                                        }
-                                      },
+                                      onLongPressStart: _isSlowModeActive
+                                          ? null
+                                          : (_) async {
+                                              _isHoldingButton = true;
+                                              if (_isVoiceMode) {
+                                                await _startRecording();
+                                              } else {
+                                                await _startVideoRecording();
+                                              }
+                                            },
+                                      onLongPressMoveUpdate: _isSlowModeActive
+                                          ? null
+                                          : (details) {
+                                              if (_isVoiceMode &&
+                                                  _isRecording) {
+                                                setState(() {
+                                                  _dragOffset = details
+                                                      .offsetFromOrigin.dx
+                                                      .clamp(-120.0, 0.0);
+                                                });
+                                                if (_dragOffset < -100) {
+                                                  _isHoldingButton = false;
+                                                  _cancelRecording();
+                                                }
+                                              } else if (!_isVoiceMode &&
+                                                  _isRecordingVideo) {
+                                                setState(() {
+                                                  _dragOffset = details
+                                                      .offsetFromOrigin.dx
+                                                      .clamp(-120.0, 0.0);
+                                                });
+                                                if (_dragOffset < -100) {
+                                                  _isHoldingButton = false;
+                                                  _cancelVideoRecording();
+                                                }
+                                              }
+                                            },
+                                      onLongPressEnd: _isSlowModeActive
+                                          ? null
+                                          : (_) async {
+                                              _isHoldingButton = false;
+                                              if (_isVoiceMode &&
+                                                  _isRecording) {
+                                                await _stopAndSendRecording();
+                                              } else if (!_isVoiceMode &&
+                                                  _isRecordingVideo) {
+                                                await _stopAndSendVideoRecording();
+                                              }
+                                            },
+                                      onLongPressCancel: _isSlowModeActive
+                                          ? null
+                                          : () async {
+                                              _isHoldingButton = false;
+                                              if (_isVoiceMode) {
+                                                await _cancelRecording();
+                                              } else {
+                                                await _cancelVideoRecording();
+                                              }
+                                            },
                                       onTap: () {
+                                        if (_isSlowModeActive) {
+                                          _showSlowModeBlockedMessage();
+                                          return;
+                                        }
                                         setState(() {
                                           _isVoiceMode = !_isVoiceMode;
                                         });
@@ -6436,11 +6595,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                 ? 42
                                                 : 38,
                                         decoration: BoxDecoration(
-                                          color: (_isRecording ||
-                                                  _isRecordingVideo)
-                                              ? Colors.red
-                                              : Colors.white
-                                                  .withValues(alpha: 0.1),
+                                          color: _isSlowModeActive
+                                              ? Colors.white.withValues(
+                                                  alpha: 0.06,
+                                                )
+                                              : (_isRecording ||
+                                                      _isRecordingVideo)
+                                                  ? Colors.red
+                                                  : Colors.white
+                                                      .withValues(alpha: 0.1),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Center(
@@ -6476,7 +6639,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                               key: ValueKey(_isVoiceMode
                                                   ? 'mic'
                                                   : 'video'),
-                                              color: Colors.white,
+                                              color: Colors.white.withValues(
+                                                alpha:
+                                                    _isSlowModeActive ? 0.3 : 1,
+                                              ),
                                               size: (_isRecording ||
                                                       _isRecordingVideo)
                                                   ? 18
@@ -6704,6 +6870,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
           final isOwner =
               data['is_creator'] == true || data['is_owner'] == true;
+          final isCommunityAdmin = data['is_admin'] == true;
           final isMember = data['is_member'] == true ||
               data['is_joined'] == true ||
               data['is_subscribed'] == true ||
@@ -6725,6 +6892,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           existingOtherUser['user_profiles'] = _userProfiles;
           existingOtherUser['is_member'] = isMember;
           existingOtherUser['can_write'] = canWrite;
+          existingOtherUser['avatar_url'] = fetchedAvatar;
+          existingOtherUser['avatar_gradient'] = fetchedGradient;
+          if (data['group_calls_enabled'] != null) {
+            existingOtherUser['group_calls_enabled'] =
+                data['group_calls_enabled'];
+          }
           if (data['description'] != null) {
             existingOtherUser['description'] = data['description'];
           }
@@ -6756,6 +6929,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             setState(() {
               _otherUser = existingOtherUser;
               _isOwner = isOwner;
+              _isCommunityAdmin = isCommunityAdmin;
               _isMember = isMember;
               _canWrite = canWrite;
               _isEphemeralPreview = !isMember;
@@ -6800,10 +6974,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       isArchived: widget.chat.isArchived,
       isMuted: _isChatMuted,
       canDelete: !widget.chat.isFavorites,
+      canEditCommunity: (widget.chat.isGroup || widget.chat.isChannel) &&
+          (_isOwner || _isCommunityAdmin),
+      isGroup: widget.chat.isGroup,
     );
     if (!mounted || action == null) return;
 
     switch (action) {
+      case ChatContextAction.settings:
+        await _openCommunitySettings();
       case ChatContextAction.pin:
         await _setCurrentChatPinned(!_isChatPinned);
       case ChatContextAction.archive:
@@ -6941,7 +7120,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             (AppLocalizations.of(context)?.ochistitIstoriyu_837a ?? 'Fallback'),
       ));
     } else if (widget.chat.isChannel) {
-      if (_isOwner) {
+      if (_isOwner || _isCommunityAdmin) {
+        items.add(buildItem(
+          value: 'edit',
+          icon: FontAwesomeIcons.pen,
+          text: CommunitySettingsLocalizations.of(
+            context,
+          ).text('messenger.editChat.settingsChannel'),
+        ));
         items.add(buildItem(
           value: 'clear',
           icon: FontAwesomeIcons.trash,
@@ -6973,7 +7159,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ));
       }
     } else if (widget.chat.isGroup) {
-      if (_isOwner) {
+      if (_isOwner || _isCommunityAdmin) {
         items.add(buildItem(
           value: 'edit',
           icon: FontAwesomeIcons.pen,
@@ -7312,19 +7498,44 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         );
         break;
       case 'edit':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text((AppLocalizations.of(context)
-                    ?.redaktirovanieGruppyVremennoNedostupnoV_05d0 ??
-                'Fallback')),
-            backgroundColor: Color(0xFF1E1E22),
-          ),
-        );
+        _openCommunitySettings();
         break;
       case 'leave':
         _confirmLeaveGroup();
         break;
     }
+  }
+
+  Future<void> _openCommunitySettings() async {
+    final service = GroupChannelService(apiClient: context.read<ApiClient>());
+    final result = widget.chat.isGroup
+        ? await EditGroupModal.show(
+            context: context,
+            groupChannelService: service,
+            localChatRepo: _localChatRepo,
+            chat: widget.chat,
+          )
+        : await EditChannelModal.show(
+            context: context,
+            groupChannelService: service,
+            localChatRepo: _localChatRepo,
+            chat: widget.chat,
+          );
+    if (!mounted || result == null) return;
+    setState(() {
+      _chatName = result['name']?.toString() ?? _chatName;
+      _otherUser = {
+        ...?_otherUser,
+        'description': result['description'],
+        'username': result['username'],
+        'group_calls_enabled': result['group_calls_enabled'],
+        'discussion_group_id': result['discussion_group_id'],
+        'discussion_group_name': result['discussion_group_name'],
+        'avatar_url': result['avatar_url'] ?? result['avatar'],
+        'avatar_gradient': result['avatar_gradient'],
+      };
+    });
+    await _fetchChatDetails();
   }
 
   Future<void> _confirmClearHistory() async {

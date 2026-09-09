@@ -125,6 +125,8 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
     if (!mounted || action == null) return;
 
     switch (action) {
+      case ChatContextAction.settings:
+        break;
       case ChatContextAction.archive:
         await _unarchiveChat(chat);
       case ChatContextAction.mute:

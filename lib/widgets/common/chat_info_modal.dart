@@ -23,23 +23,30 @@ import '../../utils/chat_name_localizer.dart';
 import 'avatar_widget.dart';
 import 'base_custom_modal.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
+import '../../l10n/community_settings_localizations.dart';
 import '../../services/runtime_translations.dart';
 import '../../styles/app_styles.dart';
 
 /// Модалка информации о чате (собеседник, группа, канал, бот, избранное).
 class ChatInfoModal extends BaseCustomModal {
   final ChatModel chat;
+  final Future<void> Function()? onOpenSettings;
 
   const ChatInfoModal({
     super.key,
     required this.chat,
+    this.onOpenSettings,
   });
 
   /// Вспомогательный статический метод для показа модалки
-  static Future<String?> show(BuildContext context, ChatModel chat) {
+  static Future<String?> show(
+    BuildContext context,
+    ChatModel chat, {
+    Future<void> Function()? onOpenSettings,
+  }) {
     return BaseCustomModal.show<String>(
       context: context,
-      child: ChatInfoModal(chat: chat),
+      child: ChatInfoModal(chat: chat, onOpenSettings: onOpenSettings),
       // Сам контент уже использует DraggableScrollableSheet.
       // Второй drag от ModalBottomSheet создавал конкурирующие gesture arena.
       enableDrag: false,
@@ -59,6 +66,7 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
   int _selectedTabIndex = 0;
   int? _localChatId;
   bool _loadingChatId = true;
+  bool _canEditCommunity = false;
   String? _accessToken;
 
   // Разложенные по категориям вложения. Считаются ОДИН раз на каждое обновление
@@ -105,6 +113,8 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
         });
       }
 
+      _loadCommunityPermissions();
+
       if (id != null) {
         _subscribeToMessages(repo, id);
         // Не запускаем дешифровку 300 сообщений в тот же кадр,
@@ -121,6 +131,24 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
         });
       }
     }
+  }
+
+  Future<void> _loadCommunityPermissions() async {
+    if (!widget.chat.isGroup && !widget.chat.isChannel) return;
+    final apiClient = context.read<ApiClient>();
+    final resource = widget.chat.isGroup ? 'groups' : 'channels';
+    final communityId =
+        widget.chat.id.replaceFirst('group_', '').replaceFirst('channel_', '');
+    try {
+      final response = await apiClient.get('/$resource/$communityId/');
+      final data = response.data;
+      if (!mounted || data is! Map) return;
+      setState(() {
+        _canEditCommunity = data['is_creator'] == true ||
+            data['is_owner'] == true ||
+            data['is_admin'] == true;
+      });
+    } catch (_) {}
   }
 
   /// Подписка на сообщения чата создаётся ровно один раз.
@@ -865,54 +893,117 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
 
   Widget _buildProfileHeader(BuildContext context, Color primaryGlowColor) {
     final chat = widget.chat;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    final settingsLabel = CommunitySettingsLocalizations.of(context).text(
+      chat.isGroup
+          ? 'messenger.editChat.settingsGroup'
+          : 'messenger.editChat.settingsChannel',
+    );
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
-        Center(
-          child: Hero(
-            tag: 'chat_avatar_${chat.id}',
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: primaryGlowColor.withOpacity(0.24),
-                    blurRadius: 36,
-                    spreadRadius: 4,
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Hero(
+                tag: 'chat_avatar_${chat.id}',
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryGlowColor.withOpacity(0.24),
+                        blurRadius: 36,
+                        spreadRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: AvatarWidget(
+                    avatar: chat.avatar,
+                    avatarGradient: chat.avatarGradient,
+                    hasAvatar: chat.avatar != null && chat.avatar!.isNotEmpty,
+                    username: localizedChatName(context, chat),
+                    size: 96,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Hero(
+              tag: 'chat_name_${chat.id}',
+              child: Material(
+                color: Colors.transparent,
+                child: Text(
+                  localizedChatName(context, chat),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: context.xaneoTextPrimary,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Center(child: _buildStatusWidget()),
+          ],
+        ),
+        if (_canEditCommunity && widget.onOpenSettings != null)
+          PositionedDirectional(
+            top: 0,
+            end: 0,
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: PopupMenuButton<String>(
+                tooltip: settingsLabel,
+                position: PopupMenuPosition.under,
+                padding: EdgeInsets.zero,
+                color: context.xaneoSurface,
+                surfaceTintColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: context.xaneoDivider),
+                ),
+                icon: Icon(
+                  Icons.more_vert_rounded,
+                  size: 18,
+                  color: context.xaneoTextSecondary,
+                ),
+                onSelected: (_) {
+                  Navigator.of(context).pop();
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    widget.onOpenSettings?.call();
+                  });
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem<String>(
+                    value: 'settings',
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.edit_rounded,
+                          size: 15,
+                          color: context.xaneoTextSecondary,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          settingsLabel,
+                          style: TextStyle(
+                            color: context.xaneoTextPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              child: AvatarWidget(
-                avatar: chat.avatar,
-                avatarGradient: chat.avatarGradient,
-                hasAvatar: chat.avatar != null && chat.avatar!.isNotEmpty,
-                username: localizedChatName(context, chat),
-                size: 96,
-              ),
             ),
           ),
-        ),
-        const SizedBox(height: 18),
-        Hero(
-          tag: 'chat_name_${chat.id}',
-          child: Material(
-            color: Colors.transparent,
-            child: Text(
-              localizedChatName(context, chat),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: context.xaneoTextPrimary,
-                letterSpacing: -0.5,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Center(
-          child: _buildStatusWidget(),
-        ),
       ],
     );
   }
