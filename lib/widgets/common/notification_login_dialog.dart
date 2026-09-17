@@ -43,16 +43,16 @@ class _NotificationLoginPanelState extends State<NotificationLoginPanel> {
   int _step = 0; // request, bot code, approval, password
   bool _busy = false;
   String? _error;
-  bool _emailFallbackAvailable = false;
   bool _passwordFallbackAvailable = false;
-  bool _canUseEmail = false;
-  bool _emailFallbackSent = false;
-  String? _maskedEmail;
-  int _emailFallbackRemaining = 60;
   int _passwordFallbackRemaining = 120;
   bool _obscurePassword = true;
+  String? _passwordHint;
+  bool _passwordHintLoading = false;
 
   ApiClient get _api => context.read<ApiClient>();
+
+  String _text(String ru, String en) =>
+      Localizations.localeOf(context).languageCode == 'ru' ? ru : en;
 
   @override
   void initState() {
@@ -66,6 +66,8 @@ class _NotificationLoginPanelState extends State<NotificationLoginPanel> {
     setState(() {
       _busy = true;
       _error = null;
+      _passwordHint = null;
+      _passwordHintLoading = false;
     });
     try {
       final pair = await crypto.X25519().newKeyPair();
@@ -197,16 +199,8 @@ class _NotificationLoginPanelState extends State<NotificationLoginPanel> {
       if (status != 'approved') {
         if (!mounted) return;
         final remaining = data['password_fallback_remaining'];
-        final elapsed = data['seconds_elapsed'];
         setState(() {
-          _emailFallbackAvailable = data['allow_email_fallback'] == true;
           _passwordFallbackAvailable = data['allow_password_fallback'] == true;
-          _canUseEmail = data['can_use_email'] == true;
-          _emailFallbackSent = data['email_fallback_sent'] == true;
-          _maskedEmail = data['email_masked']?.toString();
-          if (elapsed is num) {
-            _emailFallbackRemaining = (60 - elapsed).clamp(0, 60).toInt();
-          }
           if (remaining is num) {
             _passwordFallbackRemaining = remaining.ceil().clamp(0, 120);
           }
@@ -257,46 +251,41 @@ class _NotificationLoginPanelState extends State<NotificationLoginPanel> {
     }
   }
 
-  Future<void> _sendEmailFallback() async {
-    if (!_emailFallbackAvailable || !_canUseEmail || _busy) return;
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final response =
-          await _api.post('/auth/notification-login/fallback-email/', data: {
-        'challenge_id': _challenge,
-        'poll_secret': _pollSecret,
-      });
-      if (!mounted) return;
-      final data = Map<String, dynamic>.from(response.data as Map);
-      setState(() {
-        _busy = false;
-        _emailFallbackSent = true;
-        _maskedEmail = data['email_masked']?.toString() ?? _maskedEmail;
-        _code.clear();
-        _error = null;
-      });
-    } catch (_) {
-      if (mounted) {
-        final l10n = AppLocalizations.of(context);
-        setState(() {
-          _busy = false;
-          _error = l10n?.authNotificationErrorEmailFailed ??
-              'Failed to send code to email. Please try again later.';
-        });
-      }
-    }
-  }
-
   void _openPasswordFallback() {
     _timer?.cancel();
     setState(() {
       _step = 3;
       _error = null;
+      _passwordHint = null;
+      _passwordHintLoading = false;
       _password.clear();
     });
+  }
+
+  Future<void> _showPasswordHint() async {
+    final challenge = _challenge;
+    final secret = _pollSecret;
+    if (challenge == null || secret == null || _passwordHintLoading) return;
+    setState(() => _passwordHintLoading = true);
+    try {
+      final response = await _api.post(
+        '/auth/notification-login/password-hint/',
+        data: {'challenge_id': challenge, 'poll_secret': secret},
+      );
+      if (!mounted || challenge != _challenge) return;
+      final data = Map<String, dynamic>.from(response.data as Map);
+      setState(() {
+        _passwordHintLoading = false;
+        _passwordHint = data['hint']?.toString() ?? '';
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _passwordHintLoading = false;
+          _error = _text('Не удалось получить подсказку', 'Could not load hint');
+        });
+      }
+    }
   }
 
   Future<void> _loginWithPassword() async {
@@ -454,42 +443,11 @@ class _NotificationLoginPanelState extends State<NotificationLoginPanel> {
               ),
               const SizedBox(height: 10),
               Text(
-                _emailFallbackSent && _maskedEmail != null
-                    ? (l10n?.authNotificationCodeSentToEmail(_maskedEmail!) ??
-                        'Code sent to $_maskedEmail')
-                    : (l10n?.authNotificationBotSource ??
-                        'The code is sent from "Xaneo Notifications".'),
+                l10n?.authNotificationBotSource ??
+                    'The code is sent from "Xaneo Notifications".',
                 style: AppStyles.bodyMuted.copyWith(fontSize: 12),
               ),
               const SizedBox(height: 16),
-              if (_emailFallbackAvailable) ...[
-                Text(
-                  l10n?.authNotificationNoBotAccess ?? 'No access to the bot?',
-                  style: AppStyles.bodyMedium,
-                ),
-                const SizedBox(height: 4),
-                if (_canUseEmail)
-                  TextButton(
-                    onPressed: _busy ? null : _sendEmailFallback,
-                    child: Text(_emailFallbackSent
-                        ? (l10n?.authNotificationResendCodeViaEmail ??
-                            'Resend code to email')
-                        : (l10n?.authNotificationGetCodeViaEmail ??
-                            'Get code via email')),
-                  )
-                else
-                  Text(
-                    l10n?.authNotificationEmailUnavailable ??
-                        'Email code unavailable: no verified email on this account.',
-                    style: AppStyles.bodyMuted.copyWith(fontSize: 12),
-                  ),
-              ] else
-                Text(
-                  l10n?.authNotificationEmailAvailableIn(
-                          _emailFallbackRemaining) ??
-                      'Email code will be available in $_emailFallbackRemaining sec.',
-                  style: AppStyles.bodyMuted.copyWith(fontSize: 12),
-                ),
               if (_passwordFallbackAvailable)
                 TextButton(
                   onPressed: _busy ? null : _openPasswordFallback,
@@ -532,6 +490,18 @@ class _NotificationLoginPanelState extends State<NotificationLoginPanel> {
               ),
               onSubmitted: (_) => _loginWithPassword(),
             ),
+          if (_step == 3) ...[
+            TextButton(
+              onPressed: _passwordHintLoading ? null : _showPasswordHint,
+              child: Text(_passwordHintLoading
+                  ? _text('Загрузка подсказки…', 'Loading hint…')
+                  : _text('Показать подсказку к паролю', 'Show password hint')),
+            ),
+            if (_passwordHint != null)
+              Text(_passwordHint!.isEmpty
+                  ? _text('Подсказка не задана', 'No hint set')
+                  : _passwordHint!),
+          ],
           if (_error != null)
             Padding(
                 padding: const EdgeInsets.only(top: 12),

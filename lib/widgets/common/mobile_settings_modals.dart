@@ -1537,6 +1537,58 @@ class _MobileSecurityModalState
     }
   }
 
+  Future<void> _terminateAllSessions() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(_text('Завершить все сеансы и быстрые входы',
+            'End all sessions and quick logins')),
+        content: Text(_text(
+            'Все устройства выйдут из аккаунта. Сохранённый быстрый вход также перестанет работать.',
+            'All devices will be signed out. Saved quick logins will stop working too.')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(MaterialLocalizations.of(dialogContext).cancelButtonLabel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(_text('Завершить', 'End sessions')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _isBusy = true;
+      _error = null;
+    });
+    final auth = context.read<AuthProvider>();
+    try {
+      final response = await context.read<ApiClient>().delete('/security/sessions/');
+      final data = response.data is Map
+          ? Map<String, dynamic>.from(response.data as Map)
+          : <String, dynamic>{};
+      if (data['success'] != true) {
+        throw StateError(data['error']?.toString() ?? 'Failed to terminate sessions');
+      }
+      final storage = auth.authService.tokenStorage;
+      final accountKey = await storage.getActiveAccountKey();
+      try {
+        if (accountKey != null) {
+          await storage.removeAccount(accountKey);
+        }
+      } finally {
+        await auth.logout();
+      }
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (mounted) setState(() => _error = _requestError(error));
+    } finally {
+      if (mounted) setState(() => _isBusy = false);
+    }
+  }
+
   @override
   Widget buildContent(BuildContext context, ScrollController scrollController) {
     final l10n = AppLocalizations.of(context);
@@ -1646,6 +1698,13 @@ class _MobileSecurityModalState
                 style: TextStyle(color: context.xaneoTextMuted))
           else
             ..._sessions.map(_sessionTile),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _isBusy ? null : _terminateAllSessions,
+            icon: const Icon(Icons.phonelink_erase_rounded, size: 18),
+            label: Text(_text('Завершить все сеансы и быстрые входы',
+                'End all sessions and quick logins')),
+          ),
         ],
       ],
     );
