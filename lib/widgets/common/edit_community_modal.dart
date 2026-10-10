@@ -424,7 +424,7 @@ class _CommunitySettingsFormState extends State<_CommunitySettingsForm> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      fontFamily: AppStyles.fontFamily,
+                      fontFamily: null,
                     ),
                   ),
           ),
@@ -491,14 +491,14 @@ class _CommunitySettingsFormState extends State<_CommunitySettingsForm> {
                 color: context.xaneoTextPrimary,
                 fontSize: 19,
                 fontWeight: FontWeight.w600,
-                fontFamily: AppStyles.fontFamily,
+                fontFamily: null,
                 letterSpacing: -.4)),
         const SizedBox(height: 2),
         Text(l10n.text('messenger.editChat.avatarHint'),
             style: const TextStyle(
                 color: Color(0xFF999999),
                 fontSize: 12.5,
-                fontFamily: AppStyles.fontFamily,
+                fontFamily: null,
                 letterSpacing: -.2)),
       ])),
     ]);
@@ -575,12 +575,12 @@ class _CommunitySettingsFormState extends State<_CommunitySettingsForm> {
                         color: context.xaneoTextPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
-                        fontFamily: AppStyles.fontFamily)),
+                        fontFamily: null)),
                 Text(subtitle,
                     style: const TextStyle(
                         color: Color(0xFF888888),
                         fontSize: 12,
-                        fontFamily: AppStyles.fontFamily)),
+                        fontFamily: null)),
               ])),
           Switch.adaptive(
               value: value,

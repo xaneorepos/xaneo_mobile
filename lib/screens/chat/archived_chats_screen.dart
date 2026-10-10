@@ -325,7 +325,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: context.xaneoTextPrimary,
-                    fontFamily: AppStyles.fontFamily,
+                    fontFamily: null,
                     letterSpacing: -0.5,
                   ),
                 ),

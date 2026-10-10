@@ -10,6 +10,7 @@ import 'package:web_socket_channel/status.dart' as ws_status;
 import '../../config/app_config.dart';
 import '../auth/token_storage.dart';
 import '../api/api_client.dart';
+import '../notifications/notification_service.dart';
 
 class WebRTCSignalingService {
   final TokenStorage _tokenStorage;
@@ -209,6 +210,7 @@ class WebRTCSignalingService {
   }
 
   void acceptCall(String callId) {
+    if (NotificationService().sendCallAnswer(callId)) return;
     send({
       'type': 'call_answer',
       'call_id': callId,

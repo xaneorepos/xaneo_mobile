@@ -554,7 +554,7 @@ Widget _header(BuildContext context, String title) {
           fontWeight: FontWeight.bold,
           letterSpacing: 1.2,
           color: context.xaneoTextSecondary,
-          fontFamily: 'Inter',
+          fontFamily: null,
         ),
       ),
       IconButton(

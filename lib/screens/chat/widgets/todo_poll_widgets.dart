@@ -75,7 +75,7 @@ class TodoListWidget extends StatelessWidget {
                     color: foreground,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    fontFamily: AppStyles.fontFamily,
+                    fontFamily: null,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -140,7 +140,7 @@ class TodoListWidget extends StatelessWidget {
                           decoration:
                               isCompleted ? TextDecoration.lineThrough : null,
                           decorationColor: muted,
-                          fontFamily: AppStyles.fontFamily,
+                          fontFamily: null,
                         ),
                       ),
                     ),
@@ -267,7 +267,7 @@ class PollWidget extends StatelessWidget {
               color: foreground,
               fontSize: 15.5,
               fontWeight: FontWeight.w600,
-              fontFamily: AppStyles.fontFamily,
+              fontFamily: null,
             ),
           ),
           const SizedBox(height: 4),
@@ -280,7 +280,7 @@ class PollWidget extends StatelessWidget {
             style: TextStyle(
               color: muted,
               fontSize: 10.5,
-              fontFamily: AppStyles.fontFamily,
+              fontFamily: null,
             ),
           ),
           const SizedBox(height: 12),
@@ -378,13 +378,13 @@ class PollWidget extends StatelessWidget {
                                         ? Duration.zero
                                         : const Duration(milliseconds: 250),
                                 curve: Curves.easeOutCubic,
-                                style: TextStyle(
+                                style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                                   color: foreground,
                                   fontSize: 13.5,
                                   fontWeight: isSelected
                                       ? FontWeight.w500
                                       : FontWeight.w400,
-                                  fontFamily: AppStyles.fontFamily,
+                                  fontFamily: null,
                                 ),
                                 child: Text(optionText),
                               ),
@@ -396,11 +396,11 @@ class PollWidget extends StatelessWidget {
                                   ? Duration.zero
                                   : const Duration(milliseconds: 250),
                               curve: Curves.easeOutCubic,
-                              style: TextStyle(
+                              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                                 color: isSelected ? foreground : muted,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                fontFamily: AppStyles.fontFamily,
+                                fontFamily: null,
                               ),
                               child: Text(percentText),
                             ),
@@ -422,7 +422,7 @@ class PollWidget extends StatelessWidget {
             style: TextStyle(
               color: muted,
               fontSize: 11,
-              fontFamily: AppStyles.fontFamily,
+              fontFamily: null,
             ),
           ),
         ],

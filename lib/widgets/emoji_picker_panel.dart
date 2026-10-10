@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../l10n/emoji_picker_localizations.dart';
+
 const _recentEmojiKey = 'xaneo_recent_message_emojis';
 const _accentColor = Color(0xFF6366F1);
 
@@ -21,13 +23,13 @@ class _EmojiItem {
   final String category;
 
   factory _EmojiItem.fromJson(Map<String, dynamic> json) => _EmojiItem(
-        emoji: json['emoji']?.toString() ?? '',
-        name: json['name']?.toString() ?? '',
-        keywords: (json['keywords'] as List<dynamic>? ?? const [])
-            .map((value) => value.toString())
-            .toList(growable: false),
-        category: json['category']?.toString() ?? 'Symbols',
-      );
+    emoji: json['emoji']?.toString() ?? '',
+    name: json['name']?.toString() ?? '',
+    keywords: (json['keywords'] as List<dynamic>? ?? const [])
+        .map((value) => value.toString())
+        .toList(growable: false),
+    category: json['category']?.toString() ?? 'Symbols',
+  );
 
   bool matches(String query) {
     final normalized = query.toLowerCase();
@@ -46,16 +48,16 @@ class _EmojiCategory {
 }
 
 const _categories = <_EmojiCategory>[
-  _EmojiCategory('recent', '🕐', 'Недавние'),
-  _EmojiCategory('Smileys & Emotion', '😀', 'Смайлы'),
-  _EmojiCategory('People & Body', '👋', 'Люди'),
-  _EmojiCategory('Animals & Nature', '🐱', 'Животные'),
-  _EmojiCategory('Food & Drink', '🍕', 'Еда'),
-  _EmojiCategory('Activities', '⚽', 'Активности'),
-  _EmojiCategory('Travel & Places', '🚗', 'Путешествия'),
-  _EmojiCategory('Objects', '💡', 'Объекты'),
-  _EmojiCategory('Symbols', '❤️', 'Символы'),
-  _EmojiCategory('Flags', '🏳️', 'Флаги'),
+  _EmojiCategory('recent', '🕐', 'messenger.emoji.category.recent'),
+  _EmojiCategory('Smileys & Emotion', '😀', 'messenger.emoji.category.smileys'),
+  _EmojiCategory('People & Body', '👋', 'messenger.emoji.category.people'),
+  _EmojiCategory('Animals & Nature', '🐱', 'messenger.emoji.category.animals'),
+  _EmojiCategory('Food & Drink', '🍕', 'messenger.emoji.category.food'),
+  _EmojiCategory('Activities', '⚽', 'messenger.emoji.category.activities'),
+  _EmojiCategory('Travel & Places', '🚗', 'messenger.emoji.category.travel'),
+  _EmojiCategory('Objects', '💡', 'messenger.emoji.category.objects'),
+  _EmojiCategory('Symbols', '❤️', 'messenger.emoji.category.symbols'),
+  _EmojiCategory('Flags', '🏳️', 'messenger.emoji.category.flags'),
 ];
 
 class EmojiPickerPanel extends StatefulWidget {
@@ -120,8 +122,21 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
 
   List<_EmojiItem> get _visibleItems {
     if (_query.isNotEmpty) {
+      final strings = EmojiPickerLocalizations.of(context);
+      final query = _query.toLowerCase();
+      final matchingCategories = _categories
+          .where(
+            (category) =>
+                strings.text(category.label).toLowerCase().contains(query),
+          )
+          .map((category) => category.id)
+          .toSet();
       return _items
-          .where((item) => item.matches(_query))
+          .where(
+            (item) =>
+                item.matches(_query) ||
+                matchingCategories.contains(item.category),
+          )
           .toList(growable: false);
     }
     if (_category == 'recent') {
@@ -157,8 +172,9 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final background =
-        widget.isDark ? const Color(0xFF1A1A1A) : const Color(0xFFFDFDFD);
+    final background = widget.isDark
+        ? const Color(0xFF1A1A1A)
+        : const Color(0xFFFDFDFD);
     final muted = widget.isDark ? Colors.white54 : Colors.black54;
     final border = widget.isDark
         ? Colors.white.withValues(alpha: 0.10)
@@ -166,6 +182,7 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
     final surface = widget.isDark
         ? Colors.white.withValues(alpha: 0.06)
         : Colors.black.withValues(alpha: 0.045);
+    final strings = EmojiPickerLocalizations.of(context);
     final visibleItems = _visibleItems;
 
     return Material(
@@ -188,10 +205,13 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
                 ),
                 decoration: InputDecoration(
                   isDense: true,
-                  hintText: 'Поиск эмодзи...',
+                  hintText: strings.text('messenger.emoji.searchPlaceholder'),
                   hintStyle: TextStyle(color: muted),
-                  prefixIcon:
-                      Icon(Icons.search_rounded, color: muted, size: 19),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    color: muted,
+                    size: 19,
+                  ),
                   suffixIcon: _query.isEmpty
                       ? null
                       : IconButton(
@@ -199,8 +219,11 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
                             _searchController.clear();
                             setState(() => _query = '');
                           },
-                          icon:
-                              Icon(Icons.close_rounded, color: muted, size: 17),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: muted,
+                            size: 17,
+                          ),
                         ),
                   filled: true,
                   fillColor: surface,
@@ -221,60 +244,62 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : visibleItems.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Text(
-                              _category == 'recent' && _query.isEmpty
-                                  ? 'Недавние эмодзи появятся здесь'
-                                  : 'Ничего не найдено',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: muted, fontSize: 13),
-                            ),
-                          ),
-                        )
-                      : LayoutBuilder(
-                          builder: (context, constraints) {
-                            final columns = constraints.maxWidth < 350 ? 7 : 8;
-                            return GridView.builder(
-                              padding: const EdgeInsets.all(10),
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          _category == 'recent' && _query.isEmpty
+                              ? strings.text('messenger.emoji.recentEmpty')
+                              : strings.text('messenger.emoji.notFound'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: muted, fontSize: 13),
+                        ),
+                      ),
+                    )
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth < 350 ? 7 : 8;
+                        return GridView.builder(
+                          padding: const EdgeInsets.all(10),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: columns,
                                 mainAxisSpacing: 3,
                                 crossAxisSpacing: 3,
                               ),
-                              itemCount: visibleItems.length,
-                              itemBuilder: (context, index) {
-                                final item = visibleItems[index];
-                                return InkWell(
-                                  borderRadius: BorderRadius.circular(8),
-                                  onTap: () => _select(item),
-                                  child: Center(
-                                    child: Text(
-                                      item.emoji,
-                                      style: const TextStyle(fontSize: 25),
-                                    ),
-                                  ),
-                                );
-                              },
+                          itemCount: visibleItems.length,
+                          itemBuilder: (context, index) {
+                            final item = visibleItems[index];
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () => _select(item),
+                              child: Center(
+                                child: Text(
+                                  item.emoji,
+                                  style: const TextStyle(fontSize: 25),
+                                ),
+                              ),
                             );
                           },
-                        ),
+                        );
+                      },
+                    ),
             ),
             Divider(height: 1, color: border),
             SizedBox(
               height: 46,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 itemCount: _categories.length,
                 itemBuilder: (context, index) {
                   final category = _categories[index];
                   final selected = _query.isEmpty && _category == category.id;
                   return Tooltip(
-                    message: category.label,
+                    message: strings.text(category.label),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(10),
                       onTap: () {

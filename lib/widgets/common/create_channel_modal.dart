@@ -252,7 +252,7 @@ class _CreateChannelModalState
                       color: context.xaneoTextPrimary,
                       fontSize: 19,
                       fontWeight: FontWeight.w600,
-                      fontFamily: AppStyles.fontFamily,
+                      fontFamily: null,
                       letterSpacing: -0.4,
                     ),
                   ),
@@ -264,7 +264,7 @@ class _CreateChannelModalState
                     style: TextStyle(
                       color: Color(0xFF999999),
                       fontSize: 12.5,
-                      fontFamily: AppStyles.fontFamily,
+                      fontFamily: null,
                       letterSpacing: -0.2,
                     ),
                   ),
@@ -362,7 +362,7 @@ class _CreateChannelModalState
                         color: context.xaneoTextPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
-                        fontFamily: AppStyles.fontFamily,
+                        fontFamily: null,
                       ),
                     ),
                     Text(
@@ -376,7 +376,7 @@ class _CreateChannelModalState
                       style: const TextStyle(
                         color: Color(0xFF888888),
                         fontSize: 12,
-                        fontFamily: AppStyles.fontFamily,
+                        fontFamily: null,
                       ),
                     ),
                   ],
@@ -435,7 +435,7 @@ class _CreateChannelModalState
             style: const TextStyle(
               color: Color(0xFFFF5555),
               fontSize: 13,
-              fontFamily: AppStyles.fontFamily,
+              fontFamily: null,
             ),
           ),
         ],
@@ -472,7 +472,7 @@ class _CreateChannelModalState
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      fontFamily: AppStyles.fontFamily,
+                      fontFamily: null,
                     ),
                   ),
           ),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'base_call_screen.dart';
+import '../../styles/app_styles.dart';
 import '../../services/webrtc/call_manager.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
 
@@ -28,7 +28,8 @@ class _GroupActiveCallScreenState
           Navigator.of(context).pop();
         }
       });
-      return const Scaffold(backgroundColor: Colors.black);
+      return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor);
     }
 
     final groupName = callManager.targetName ??
@@ -36,7 +37,7 @@ class _GroupActiveCallScreenState
     final isConnected = callManager.state == CallState.connected;
 
     return Scaffold(
-      backgroundColor: Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           // ==========================================
@@ -112,11 +113,11 @@ class _GroupActiveCallScreenState
               size: 96,
             ),
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           Text(
             groupName,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: context.xaneoTextPrimary,
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
@@ -126,7 +127,7 @@ class _GroupActiveCallScreenState
             (AppLocalizations.of(context)?.podklyuchenieKVeschaniyu_038b ??
                 'Fallback'),
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: context.xaneoTextSecondary,
               fontSize: 13,
             ),
           ),
@@ -202,12 +203,12 @@ class _GroupActiveCallScreenState
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        color: context.xaneoSurface,
+        borderRadius: BorderRadius.circular(context.xaneoRadius(16)),
+        border: Border.all(color: context.xaneoDivider),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.25),
+            color: Colors.black.withValues(alpha: 0.25),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -219,7 +220,7 @@ class _GroupActiveCallScreenState
           // Заглушка с аватаркой участника
           Positioned.fill(
             child: Container(
-              color: const Color(0xFF151D2A),
+              color: context.xaneoSurfaceElevated,
               child: Center(
                 child: BaseCallAvatar(
                   avatar: avatar,
@@ -243,7 +244,7 @@ class _GroupActiveCallScreenState
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: context.xaneoSurface.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Row(
@@ -251,8 +252,8 @@ class _GroupActiveCallScreenState
                     children: [
                       Text(
                         name,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: context.xaneoTextPrimary,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                         ),
@@ -263,14 +264,14 @@ class _GroupActiveCallScreenState
                           padding: const EdgeInsets.symmetric(
                               horizontal: 3, vertical: 1),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF3B82F6),
+                            color: context.xaneoButtonBackground,
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: Text(
                             (AppLocalizations.of(context)?.vy_479c ??
                                 'Fallback'),
                             style: TextStyle(
-                                color: Colors.white,
+                                color: context.xaneoButtonForeground,
                                 fontSize: 8,
                                 fontWeight: FontWeight.bold),
                           ),
@@ -283,12 +284,15 @@ class _GroupActiveCallScreenState
                   Container(
                     padding: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444).withOpacity(0.9),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .error
+                          .withValues(alpha: 0.9),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.mic_off_rounded,
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.onError,
                       size: 12,
                     ),
                   ),

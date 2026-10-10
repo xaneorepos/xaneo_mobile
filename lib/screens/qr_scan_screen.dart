@@ -219,7 +219,7 @@ class _QrScanScreenState extends State<QrScanScreen>
         SnackBar(
           content: Text(
             'Ошибка: ${e.toString().replaceAll('Exception: ', '')}',
-            style: const TextStyle(color: Colors.white, fontFamily: 'Inter'),
+            style: const TextStyle(color: Colors.white, fontFamily: null),
           ),
           backgroundColor: const Color(0xFF27272A),
           behavior: SnackBarBehavior.floating,
@@ -259,7 +259,7 @@ class _QrScanScreenState extends State<QrScanScreen>
             color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            fontFamily: 'Inter',
+            fontFamily: null,
           ),
         ),
         actions: _cameraStarted
@@ -298,7 +298,7 @@ class _QrScanScreenState extends State<QrScanScreen>
                 style: const TextStyle(
                   color: Color(0xFFA1A1AA),
                   fontSize: 14,
-                  fontFamily: 'Inter',
+                  fontFamily: null,
                 ),
               ),
             ),
@@ -409,7 +409,7 @@ class _QrScanScreenState extends State<QrScanScreen>
                                       color: Colors.white,
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
-                                      fontFamily: 'Inter',
+                                      fontFamily: null,
                                     ),
                                   ),
                                 ],
@@ -434,7 +434,7 @@ class _QrScanScreenState extends State<QrScanScreen>
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w500,
-                                    fontFamily: 'Inter',
+                                    fontFamily: null,
                                   ),
                                 ),
                               ],

@@ -17,7 +17,7 @@ class MainActivity : AudioServiceActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        updateLauncherIcon()
+        if (packageName == "net.xaneo") updateLauncherIcon()
     }
 
     private fun updateLauncherIcon() {
@@ -47,6 +47,25 @@ class MainActivity : AudioServiceActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "net.xaneo/notification_connection")
+            .setMethodCallHandler { call, result ->
+                val intent = Intent(this, NotificationConnectionService::class.java)
+                try {
+                    when (call.method) {
+                        "start" -> {
+                            androidx.core.content.ContextCompat.startForegroundService(this, intent)
+                            result.success(null)
+                        }
+                        "stop" -> {
+                            stopService(intent)
+                            result.success(null)
+                        }
+                        else -> result.notImplemented()
+                    }
+                } catch (e: Exception) {
+                    result.error("BACKGROUND_CONNECTION", e.javaClass.simpleName, null)
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "installApk") {
                 val filePath = call.argument<String>("filePath")

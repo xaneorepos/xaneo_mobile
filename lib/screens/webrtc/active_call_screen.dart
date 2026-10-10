@@ -4,6 +4,7 @@ import 'package:livekit_client/livekit_client.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
+import '../../styles/app_styles.dart';
 import '../../services/webrtc/call_manager.dart';
 import '../../widgets/common/avatar_widget.dart';
 import '../../services/chat/chat_local_repository.dart';
@@ -104,13 +105,14 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
           }
         }
       });
-      return const Scaffold(backgroundColor: Colors.black);
+      return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor);
     }
 
     final isVideo = callManager.callType == 'video';
 
     return Scaffold(
-      backgroundColor: Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           // 1. Основной фон или видеопоток собеседника
@@ -146,8 +148,9 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
               height: 160,
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white24, width: 1.5),
+                  borderRadius: BorderRadius.circular(context.xaneoRadius(16)),
+                  border:
+                      Border.all(color: context.xaneoOverlay(0.24), width: 1.5),
                   boxShadow: const [
                     BoxShadow(
                       color: Colors.black45,
@@ -157,7 +160,7 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
                   ],
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(context.xaneoRadius(14)),
                   child: VideoTrackRenderer(
                     callManager.localVideoTrack!,
                     fit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
@@ -172,42 +175,35 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
             top: 60,
             left: 24,
             right: 150, // чтобы не накладываться на локальное видео
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  callManager.targetName ??
-                      (AppLocalizations.of(context)?.polzovatel_f154 ??
-                          'Fallback'),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black54,
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: context.xaneoSurface.withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(context.xaneoRadius(16)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    callManager.targetName ??
+                        (AppLocalizations.of(context)?.polzovatel_f154 ??
+                            'Fallback'),
+                    style: TextStyle(
+                      color: context.xaneoTextPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _getStatusText(callManager.state),
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 14,
-                    shadows: const [
-                      Shadow(
-                        color: Colors.black54,
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
+                  const SizedBox(height: 4),
+                  Text(
+                    _getStatusText(callManager.state),
+                    style: TextStyle(
+                      color: context.xaneoTextSecondary,
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -219,9 +215,9 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
               decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: Colors.white10, width: 0.5),
+                color: context.xaneoSurface.withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(context.xaneoRadius(30)),
+                border: Border.all(color: context.xaneoDivider, width: 0.5),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -305,7 +301,7 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
                   height: 140 + (callingAnimationController.value * 60),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF3B82F6).withValues(
+                    color: context.xaneoAccent.withValues(
                         alpha: 0.1 * (1 - callingAnimationController.value)),
                   ),
                 ),
@@ -322,11 +318,11 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
             size: 130,
           ),
         ),
-        SizedBox(height: 48),
+        const SizedBox(height: 48),
         Text(
           (AppLocalizations.of(context)?.ozhidanieOtveta_a984 ?? 'Fallback'),
           style: TextStyle(
-            color: Colors.white70,
+            color: context.xaneoTextSecondary,
             fontSize: 15,
             fontWeight: FontWeight.w400,
           ),
@@ -348,12 +344,12 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
             username: callManager.targetName ?? 'User',
             size: 140,
           ),
-          SizedBox(height: 32),
+          const SizedBox(height: 32),
           Text(
             (AppLocalizations.of(context)?.razgovorPoAudiosvyazi_3ed7 ??
                 'Fallback'),
             style: TextStyle(
-              color: Colors.white70,
+              color: context.xaneoTextSecondary,
               fontSize: 15,
               fontWeight: FontWeight.w400,
             ),
@@ -375,12 +371,16 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
         height: 52,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: isActive ? Colors.white24 : const Color(0xFFEF4444),
+          color: isActive
+              ? context.xaneoButtonBackground
+              : context.xaneoSurfaceElevated,
         ),
         child: Center(
           child: FaIcon(
             icon,
-            color: Colors.white,
+            color: isActive
+                ? context.xaneoButtonForeground
+                : context.xaneoTextMuted,
             size: 18,
           ),
         ),
@@ -394,10 +394,10 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
       child: Container(
         width: 56,
         height: 56,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Color(0xFFEF4444),
-          boxShadow: [
+          color: Theme.of(context).colorScheme.error,
+          boxShadow: const [
             BoxShadow(
               color: Colors.black38,
               blurRadius: 10,
@@ -405,10 +405,10 @@ class _ActiveCallScreenState extends BaseCallScreenState<ActiveCallScreen> {
             ),
           ],
         ),
-        child: const Center(
+        child: Center(
           child: FaIcon(
             FontAwesomeIcons.phoneSlash,
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.onError,
             size: 20,
           ),
         ),

@@ -535,7 +535,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                             fontWeight: FontWeight.w600,
                             letterSpacing: 1.5 * scale,
                             color: isDark ? Colors.white38 : Colors.black38,
-                            fontFamily: 'Inter',
+                            fontFamily: null,
                           ),
                         ),
                         GestureDetector(
@@ -609,7 +609,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                                 : Colors.black87,
                                             fontSize: 13.5 * scale,
                                             fontWeight: FontWeight.w600,
-                                            fontFamily: 'Inter',
+                                            fontFamily: null,
                                           ),
                                         ),
                                         SizedBox(height: 2 * scale),
@@ -621,7 +621,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                                 ? Colors.white38
                                                 : Colors.black38,
                                             fontSize: 11.5 * scale,
-                                            fontFamily: 'Inter',
+                                            fontFamily: null,
                                           ),
                                         ),
                                       ],
@@ -694,7 +694,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                                 : Colors.black87,
                                             fontSize: 13.5 * scale,
                                             fontWeight: FontWeight.w600,
-                                            fontFamily: 'Inter',
+                                            fontFamily: null,
                                           ),
                                         ),
                                         SizedBox(height: 2 * scale),
@@ -706,7 +706,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                                 ? Colors.white38
                                                 : Colors.black38,
                                             fontSize: 11.5 * scale,
-                                            fontFamily: 'Inter',
+                                            fontFamily: null,
                                           ),
                                         ),
                                       ],
@@ -948,21 +948,42 @@ class _MessengerScreenState extends State<MessengerScreen> {
     final s2 = id2.toString().trim();
     if (s1 == s2) return true;
 
-    if (s1.startsWith('personal_') && s2.startsWith('personal_')) {
-      final parts1 = s1.replaceFirst('personal_', '').split('_');
-      final parts2 = s2.replaceFirst('personal_', '').split('_');
-      if (parts1.length == 2 && parts2.length == 2) {
-        return (parts1[0] == parts2[0] && parts1[1] == parts2[1]) ||
-            (parts1[0] == parts2[1] && parts1[1] == parts2[0]);
+    if (s1.startsWith('personal_') || s2.startsWith('personal_')) {
+      if (s1.startsWith('personal_') && s2.startsWith('personal_')) {
+        final parts1 = s1.replaceFirst('personal_', '').split('_');
+        final parts2 = s2.replaceFirst('personal_', '').split('_');
+        if (parts1.length == 2 && parts2.length == 2) {
+          return (parts1[0] == parts2[0] && parts1[1] == parts2[1]) ||
+              (parts1[0] == parts2[1] && parts1[1] == parts2[0]);
+        }
       }
+      return false;
+    }
+
+    if (s1.startsWith('favorites_') || s2.startsWith('favorites_')) {
+      return s1 == s2;
+    }
+
+    final isGroup1 = s1.startsWith('group_');
+    final isGroup2 = s2.startsWith('group_');
+    final isChannel1 = s1.startsWith('channel_');
+    final isChannel2 = s2.startsWith('channel_');
+
+    // A group chat and a channel must NEVER be considered the same chat
+    if ((isGroup1 && isChannel2) || (isChannel1 && isGroup2)) {
+      return false;
     }
 
     String norm(String s) {
       if (s.startsWith('group_')) return s.replaceFirst('group_', '');
       if (s.startsWith('channel_')) return s.replaceFirst('channel_', '');
-      if (s.startsWith('favorites_')) return s.replaceFirst('favorites_', '');
       return s;
     }
+
+    if (isGroup1 && !isGroup2 && !RegExp(r'^\d+$').hasMatch(s2)) return false;
+    if (isGroup2 && !isGroup1 && !RegExp(r'^\d+$').hasMatch(s1)) return false;
+    if (isChannel1 && !isChannel2 && !RegExp(r'^\d+$').hasMatch(s2)) return false;
+    if (isChannel2 && !isChannel1 && !RegExp(r'^\d+$').hasMatch(s1)) return false;
 
     return norm(s1) == norm(s2);
   }
@@ -970,6 +991,11 @@ class _MessengerScreenState extends State<MessengerScreen> {
   Future<void> _handleWebSocketMessage(
       Map<String, dynamic> data, String activeChatId) async {
     final type = data['type'] as String?;
+
+    if (data['is_channel_comment'] == true &&
+        _selectedChat?['chat_type'] == 'channel') {
+      return;
+    }
 
     if (type == 'encrypted_message' ||
         type == 'todo_list_message' ||
@@ -1466,7 +1492,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                         fontWeight: FontWeight.w500,
                         fontSize: 13.5 * scale,
                         color: isDark ? Colors.white : Colors.black87,
-                        fontFamily: 'Inter',
+                        fontFamily: null,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -1476,7 +1502,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                       style: TextStyle(
                         fontSize: 11 * scale,
                         color: isDark ? Colors.white30 : Colors.black38,
-                        fontFamily: 'Inter',
+                        fontFamily: null,
                       ),
                     ),
                   ],
@@ -1498,7 +1524,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                       fontSize: 10 * scale,
                       fontWeight: FontWeight.w600,
                       color: isDark ? Colors.white : Colors.black87,
-                      fontFamily: 'Inter',
+                      fontFamily: null,
                     ),
                   ),
                 ),
@@ -2894,7 +2920,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                             fontWeight: FontWeight.w600,
                             letterSpacing: 1.5 * scale,
                             color: isDark ? Colors.white38 : Colors.black38,
-                            fontFamily: 'Inter',
+                            fontFamily: null,
                           ),
                         ),
                         GestureDetector(
@@ -2978,7 +3004,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                         color: isDark
                                             ? Colors.white
                                             : Colors.black87,
-                                        fontFamily: 'Inter',
+                                        fontFamily: null,
                                       ),
                                     ),
                                     if (username.isNotEmpty) ...[
@@ -2990,7 +3016,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                           color: isDark
                                               ? Colors.white38
                                               : Colors.black45,
-                                          fontFamily: 'Inter',
+                                          fontFamily: null,
                                         ),
                                       ),
                                     ],
@@ -3106,7 +3132,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                             fontWeight: FontWeight.w600,
                             letterSpacing: 1.5 * scale,
                             color: isDark ? Colors.white38 : Colors.black38,
-                            fontFamily: 'Inter',
+                            fontFamily: null,
                           ),
                         ),
                         GestureDetector(
@@ -3152,7 +3178,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                     fontWeight: FontWeight.w700,
                                     color:
                                         isDark ? Colors.white : Colors.black87,
-                                    fontFamily: 'Inter',
+                                    fontFamily: null,
                                   ),
                                 ),
                                 SizedBox(height: 3 * scale),
@@ -3164,7 +3190,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                     color: isDark
                                         ? Colors.white38
                                         : Colors.black45,
-                                    fontFamily: 'Inter',
+                                    fontFamily: null,
                                   ),
                                 ),
                               ],
@@ -3261,7 +3287,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                             fontWeight: FontWeight.w600,
                             letterSpacing: 1.5 * scale,
                             color: isDark ? Colors.white38 : Colors.black38,
-                            fontFamily: 'Inter',
+                            fontFamily: null,
                           ),
                         ),
                         GestureDetector(
@@ -3307,7 +3333,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                     fontWeight: FontWeight.w700,
                                     color:
                                         isDark ? Colors.white : Colors.black87,
-                                    fontFamily: 'Inter',
+                                    fontFamily: null,
                                   ),
                                 ),
                                 SizedBox(height: 3 * scale),
@@ -3319,7 +3345,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                     color: isDark
                                         ? Colors.white38
                                         : Colors.black45,
-                                    fontFamily: 'Inter',
+                                    fontFamily: null,
                                   ),
                                 ),
                               ],
@@ -3410,7 +3436,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                             fontWeight: FontWeight.w600,
                             letterSpacing: 1.5 * scale,
                             color: isDark ? Colors.white38 : Colors.black38,
-                            fontFamily: 'Inter',
+                            fontFamily: null,
                           ),
                         ),
                         GestureDetector(
@@ -3466,7 +3492,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                     fontWeight: FontWeight.w700,
                                     color:
                                         isDark ? Colors.white : Colors.black87,
-                                    fontFamily: 'Inter',
+                                    fontFamily: null,
                                   ),
                                 ),
                                 SizedBox(height: 4 * scale),
@@ -3479,7 +3505,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                     color: isDark
                                         ? Colors.white38
                                         : Colors.black45,
-                                    fontFamily: 'Inter',
+                                    fontFamily: null,
                                   ),
                                 ),
                               ],
@@ -3550,7 +3576,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
             style: TextStyle(
               fontSize: 12 * scale,
               color: isDark ? Colors.white38 : Colors.black38,
-              fontFamily: 'Inter',
+              fontFamily: null,
             ),
           ),
         ),
@@ -3639,7 +3665,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                         fontWeight: FontWeight.w500,
                         height: 1.35,
                         color: isDark ? Colors.white : Colors.black87,
-                        fontFamily: 'Inter',
+                        fontFamily: null,
                       ),
                     ),
                     SizedBox(height: 2 * scale),
@@ -3648,7 +3674,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                       style: TextStyle(
                         fontSize: 10.5 * scale,
                         color: isDark ? Colors.white38 : Colors.black38,
-                        fontFamily: 'Inter',
+                        fontFamily: null,
                       ),
                     ),
                   ],
@@ -3945,7 +3971,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                             : (isDark
                                                 ? Colors.white38
                                                 : Colors.black38),
-                                        fontFamily: 'Inter',
+                                        fontFamily: null,
                                       ),
                                     ),
                                   ),
@@ -4019,7 +4045,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                             style: TextStyle(
                               fontSize: 11 * scale,
                               color: isDark ? Colors.white38 : Colors.black38,
-                              fontFamily: 'Inter',
+                              fontFamily: null,
                             ),
                           ),
                         ],
@@ -4065,7 +4091,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                             color: isDark
                                                 ? Colors.white70
                                                 : Colors.black87,
-                                            fontFamily: 'Inter',
+                                            fontFamily: null,
                                           ),
                                         ),
                                       ),
@@ -4167,7 +4193,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 1.5 * scale,
                                 color: isDark ? Colors.white38 : Colors.black38,
-                                fontFamily: 'Inter',
+                                fontFamily: null,
                               ),
                             ),
                             GestureDetector(
@@ -4301,7 +4327,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                                                 ? Colors.white70
                                                                 : Colors
                                                                     .black87,
-                                                            fontFamily: 'Inter',
+                                                            fontFamily: null,
                                                           ),
                                                         ),
                                                         if (acc.firstName !=
@@ -4321,8 +4347,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                                                       .white38
                                                                   : Colors
                                                                       .black38,
-                                                              fontFamily:
-                                                                  'Inter',
+                                                              fontFamily: null,
                                                             ),
                                                           ),
                                                         ],
@@ -4415,7 +4440,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                             style: TextStyle(
                                               fontWeight: FontWeight.w500,
                                               fontSize: 12 * scale,
-                                              fontFamily: 'Inter',
+                                              fontFamily: null,
                                             ),
                                           ),
                                         ),
@@ -4434,7 +4459,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                                 ? Colors.white38
                                                 : Colors.black38,
                                             fontSize: 11 * scale,
-                                            fontFamily: 'Inter',
+                                            fontFamily: null,
                                           ),
                                         ),
                                       ),
@@ -4714,7 +4739,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                             style: TextStyle(
                               color: isDark ? Colors.white38 : Colors.black38,
                               fontSize: 13 * scale,
-                              fontFamily: 'Inter',
+                              fontFamily: null,
                             ),
                           ),
                         )
@@ -5740,7 +5765,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                             style: TextStyle(
                               fontSize: 11 * scale,
                               color: const Color(0xFF2563EB),
-                              fontFamily: 'Inter',
+                              fontFamily: null,
                             ),
                           ),
                         ],
@@ -5753,7 +5778,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                           color: chatType == 'personal' && isOnline && !isBot
                               ? Colors.green
                               : (isDark ? Colors.white38 : Colors.black38),
-                          fontFamily: 'Inter',
+                          fontFamily: null,
                         ),
                       ),
                   ],
@@ -6043,7 +6068,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                   fontSize: 17 * scale,
                   fontWeight: FontWeight.w700,
                   color: primaryTextColor,
-                  fontFamily: 'Inter',
+                  fontFamily: null,
                   letterSpacing: -0.2,
                 ),
                 textAlign: TextAlign.center,
@@ -6057,7 +6082,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                   fontSize: 13 * scale,
                   height: 1.4,
                   color: secondaryTextColor,
-                  fontFamily: 'Inter',
+                  fontFamily: null,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -6090,7 +6115,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                         fontSize: 11 * scale,
                         fontWeight: FontWeight.w600,
                         color: primaryTextColor,
-                        fontFamily: 'Inter',
+                        fontFamily: null,
                       ),
                     ),
                   ],
@@ -7222,7 +7247,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                         style: TextStyle(
                           fontSize: 14 * scale,
                           fontWeight: FontWeight.w600,
-                          fontFamily: 'Inter',
+                          fontFamily: null,
                           color: fgColor,
                         ),
                       ),
@@ -8200,7 +8225,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                   : (isDark ? Colors.white : Colors.black87),
               fontSize: 15.5 * scale,
               fontWeight: FontWeight.w600,
-              fontFamily: 'Inter',
+              fontFamily: null,
             ),
           ),
           SizedBox(height: 2),
@@ -8213,7 +8238,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                   ? Colors.white54
                   : (isDark ? Colors.white38 : Colors.black45),
               fontSize: 10.5 * scale,
-              fontFamily: 'Inter',
+              fontFamily: null,
             ),
           ),
           const SizedBox(height: 12),
@@ -8326,7 +8351,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                   fontWeight: isSelected
                                       ? FontWeight.w500
                                       : FontWeight.w400,
-                                  fontFamily: 'Inter',
+                                  fontFamily: null,
                                 ),
                                 child: Text(optionText),
                               ),
@@ -8343,7 +8368,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                         : Colors.black54),
                                 fontSize: 12 * scale,
                                 fontWeight: FontWeight.w500,
-                                fontFamily: 'Inter',
+                                fontFamily: null,
                               ),
                               child: Text(percentText),
                             ),
@@ -8366,7 +8391,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                   ? Colors.white54
                   : (isDark ? Colors.white38 : Colors.black45),
               fontSize: 11 * scale,
-              fontFamily: 'Inter',
+              fontFamily: null,
             ),
           ),
         ],
@@ -9429,7 +9454,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 1.5 * scale,
                                 color: isDark ? Colors.white38 : Colors.black38,
-                                fontFamily: 'Inter',
+                                fontFamily: null,
                               ),
                             ),
                             GestureDetector(
@@ -9726,7 +9751,7 @@ class _MessengerScreenState extends State<MessengerScreen> {
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 1.5 * scale,
                                 color: isDark ? Colors.white38 : Colors.black38,
-                                fontFamily: 'Inter',
+                                fontFamily: null,
                               ),
                             ),
                             GestureDetector(
@@ -9994,7 +10019,7 @@ class _InitialsPainter extends CustomPainter {
           color: color,
           fontSize: fontSize,
           fontWeight: FontWeight.bold,
-          fontFamily: 'Inter',
+          fontFamily: null,
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -10491,7 +10516,7 @@ class _MusicMessageBubblePlayerState extends State<_MusicMessageBubblePlayer> {
                             color: foreground,
                             fontSize: 13 * scale,
                             fontWeight: FontWeight.w600,
-                            fontFamily: 'Inter',
+                            fontFamily: null,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -10502,7 +10527,7 @@ class _MusicMessageBubblePlayerState extends State<_MusicMessageBubblePlayer> {
                           style: TextStyle(
                             color: muted,
                             fontSize: 10.5 * scale,
-                            fontFamily: 'Inter',
+                            fontFamily: null,
                           ),
                         ),
                       ],
@@ -10590,7 +10615,7 @@ class _MusicMessageBubblePlayerState extends State<_MusicMessageBubblePlayer> {
                     style: TextStyle(
                       color: muted,
                       fontSize: 10 * scale,
-                      fontFamily: 'Inter',
+                      fontFamily: null,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -10783,7 +10808,7 @@ class _TopAudioPlaybackBar extends StatelessWidget {
                         color: Colors.white,
                         fontSize: 13 * scale,
                         fontWeight: FontWeight.w600,
-                        fontFamily: 'Inter',
+                        fontFamily: null,
                       ),
                     ),
                     if (subtitle.isNotEmpty) ...[
@@ -10795,7 +10820,7 @@ class _TopAudioPlaybackBar extends StatelessWidget {
                         style: TextStyle(
                           color: const Color(0xFFB0B0B0),
                           fontSize: 10.5 * scale,
-                          fontFamily: 'Inter',
+                          fontFamily: null,
                         ),
                       ),
                     ],
@@ -11496,7 +11521,7 @@ class _VideoMessageMockBubbleState extends State<_VideoMessageMockBubble> {
               style: TextStyle(
                 color: Colors.white.withOpacity(0.7),
                 fontSize: 11,
-                fontFamily: 'Inter',
+                fontFamily: null,
               ),
             ),
           ),

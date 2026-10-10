@@ -924,7 +924,11 @@ class CryptoService {
 
       final theirKeyData = await fetchUserPublicKey(otherUserId);
       if (theirKeyData == null) {
-        return null;
+        // Deleted bot accounts no longer expose a public key, but their
+        // authorized chat can still have a server-managed legacy key.
+        final legacyKey = await _fetchLegacyChatKey(chatId);
+        if (legacyKey != null) _chatKeyCache[chatId] = legacyKey;
+        return legacyKey;
       }
 
       // Бот — запрашиваем ключ чата с сервера (XSEC-1)
@@ -1606,6 +1610,8 @@ class CryptoService {
   /// Расшифровывает сообщение
   Future<String?> decryptMessage(String encryptedBase64, String chatId) async {
     if (encryptedBase64.isEmpty) return null;
+    // Open system notices and old bot messages are also stored in this field.
+    if (!isEncryptedMessage(encryptedBase64)) return encryptedBase64;
 
     final cacheKey = '$chatId:${encryptedBase64.trim()}';
     if (_decryptedMessageCache.containsKey(cacheKey)) {
@@ -1966,8 +1972,25 @@ class CryptoService {
   /// Расшифровывает сообщение для списка чатов
   /// (обёртка для совместимости с существующим кодом)
   Future<String?> decryptChatMessage(
-      String encryptedBase64, String chatId) async {
-    return decryptMessage(encryptedBase64, chatId);
+      String encryptedBase64, String chatId, {Map<String, dynamic>? message}) async {
+    if (message?['encryption_version'] == 'BOT_GRPC') return encryptedBase64;
+    return decryptMessage(encryptedBase64, decryptionChatIdForMessage(chatId, message));
+  }
+
+  /// Channel posts mirrored into a discussion group retain the channel cipher.
+  static String decryptionChatIdForMessage(
+      String chatId, Map<String, dynamic>? message) {
+    if (message == null || message['message_type'] != 'channel_post_mirror') {
+      return chatId;
+    }
+    final details = message['message_data'];
+    final rawChannelId = details is Map
+        ? details['channel_id']
+        : message['channel_id'];
+    final channelId = int.tryParse(rawChannelId?.toString() ?? '');
+    return channelId != null && channelId > 0
+        ? 'channel_$channelId'
+        : chatId;
   }
 
   /// Проверяет, является ли строка зашифрованным сообщением

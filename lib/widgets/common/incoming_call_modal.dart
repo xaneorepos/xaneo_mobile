@@ -105,7 +105,7 @@ class _IncomingCallModalState extends BaseCustomModalState<IncomingCallModal>
 
     return SingleChildScrollView(
       controller: scrollController,
-      physics: NeverScrollableScrollPhysics(),
+      physics: const NeverScrollableScrollPhysics(),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -172,20 +172,22 @@ class _IncomingCallModalState extends BaseCustomModalState<IncomingCallModal>
                           height: 60,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Color(0xFFEF4444),
+                            color: Theme.of(context).colorScheme.error,
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFFEF4444)
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .error
                                     .withValues(alpha: 0.3),
                                 blurRadius: 12,
                                 spreadRadius: 2,
                               ),
                             ],
                           ),
-                          child: const Center(
+                          child: Center(
                             child: FaIcon(
                               FontAwesomeIcons.phoneSlash,
-                              color: Colors.white,
+                              color: Theme.of(context).colorScheme.onError,
                               size: 18,
                             ),
                           ),
@@ -225,10 +227,10 @@ class _IncomingCallModalState extends BaseCustomModalState<IncomingCallModal>
                           height: 60,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Color(0xFF10B981),
+                            color: context.xaneoButtonBackground,
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF10B981)
+                                color: context.xaneoButtonBackground
                                     .withValues(alpha: 0.3),
                                 blurRadius: 12,
                                 spreadRadius: 2,
@@ -240,7 +242,7 @@ class _IncomingCallModalState extends BaseCustomModalState<IncomingCallModal>
                               isVideo
                                   ? FontAwesomeIcons.video
                                   : FontAwesomeIcons.phone,
-                              color: Colors.white,
+                              color: context.xaneoButtonForeground,
                               size: 18,
                             ),
                           ),

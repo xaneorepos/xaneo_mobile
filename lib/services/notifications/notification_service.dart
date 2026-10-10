@@ -1,20 +1,19 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
-import 'package:flutter_callkit_incoming/entities/android_params.dart';
 import 'package:flutter_callkit_incoming/entities/ios_params.dart';
 import 'package:flutter_callkit_incoming/entities/call_event.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../providers/auth_provider.dart';
 import '../../models/message_color_presets.dart';
 import '../../services/chat/chat_local_repository.dart';
 import '../../models/chat/chat_model.dart';
@@ -26,8 +25,9 @@ import '../../widgets/common/premium_page_route.dart';
 import '../../services/auth/token_storage.dart';
 import '../../services/api/api_client.dart';
 import '../../services/crypto/crypto_service.dart';
+import '../../config/app_config.dart';
 
-class NotificationService {
+class NotificationService with WidgetsBindingObserver {
   static const _notificationStylePreference = 'appearance_notification_style';
 
   static Future<bool> _usesRavenNotificationStyle() async {
@@ -47,7 +47,12 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  FirebaseMessaging get _messaging => FirebaseMessaging.instance;
+  static const _backgroundConnectionPreference = 'background_connection_enabled';
+  WebSocket? _socket;
+  static const _connectionChannel = MethodChannel('net.xaneo/notification_connection');
+  bool _backgroundServiceRunning = false;
+  static int _nextMessageId = DateTime.now().millisecondsSinceEpoch % 2000000000;
+  final bool _listenEnabled = true;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
@@ -61,21 +66,12 @@ class NotificationService {
 
   /// Хранилище в памяти для быстрого перенаправления звонка при холодном старте
   static Map<String, dynamic>? pendingCallPayload;
+  static final Map<String, String> _callKitIds = {};
 
   Future<void> initialize() async {
     if (_initialized) return;
 
-    // 1. Инициализация Firebase
-    try {
-      await Firebase.initializeApp();
-    } catch (e) {
-      debugPrint('NotificationService: Firebase init error: $e');
-    }
-
-    // 2. Настройка фонового обработчика
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-    // 3. Инициализация локальных уведомлений
+    // Настройка локальных уведомлений.
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosInit = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -90,31 +86,15 @@ class NotificationService {
 
     // Создаём каналы уведомлений
     await _ensureNotificationChannels();
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
 
-    // 4. Запрос разрешений
-    await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    );
-
-    // 5. Передний план (Foreground)
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      _handleForegroundMessage(message);
-    });
-
-    // 6. Клик при свернутом приложении (Resume)
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      _handleNotificationClick(message.data);
-    });
-
-    // 7. Клик при закрытом приложении (Launch)
-    _messaging.getInitialMessage().then((RemoteMessage? message) {
-      if (message != null) {
-        _handleNotificationClick(message.data);
-      }
-    });
+    WidgetsBinding.instance.addObserver(this);
+    Connectivity().onConnectivityChanged.listen((_) => _socket?.close());
+    await _syncBackgroundService();
+    unawaited(_listenToNotifications());
 
     // 8. Проверяем уведомление, которое запустило приложение
     await _checkLaunchNotification();
@@ -124,6 +104,96 @@ class NotificationService {
 
     _initialized = true;
     debugPrint('NotificationService: Initialized successfully');
+  }
+
+  Future<void> _listenToNotifications() async {
+    var retries = 0;
+    while (_listenEnabled) {
+      try {
+        final enabled = (await SharedPreferences.getInstance())
+            .getBool(_backgroundConnectionPreference) ?? true;
+        final token = await TokenStorage().getAccessToken();
+        final accountKey = await TokenStorage().getActiveAccountKey();
+        if (!enabled || token == null || token.isEmpty) {
+          await _syncBackgroundService();
+          _socket?.close();
+          await Future.delayed(const Duration(seconds: 5));
+          continue;
+        }
+        final origin = Uri.parse(AppConfig.serverOrigin);
+        final uri = origin.replace(scheme: origin.scheme == 'https' ? 'wss' : 'ws',
+            path: '/ws/notifications/');
+        final socket = await WebSocket.connect(uri.toString(),
+            headers: {'Authorization': 'Bearer $token'})
+            .timeout(const Duration(seconds: 10));
+        _socket = socket;
+        retries = 0;
+        socket.pingInterval = const Duration(seconds: 30);
+        final accountWatch = Timer.periodic(const Duration(seconds: 15), (_) async {
+          if (await TokenStorage().getAccessToken() != token) socket.close();
+        });
+        try {
+          await for (final frame in socket) {
+            if (frame is String) {
+              // Decryption or notification errors must not block the socket or calls.
+              unawaited(handleNotificationFrame(frame, token, accountKey: accountKey));
+            }
+          }
+        } finally {
+          accountWatch.cancel();
+        }
+      } catch (error) {
+        debugPrint('Notification socket: ${error.runtimeType}');
+      } finally {
+        _socket?.close();
+        _socket = null;
+      }
+      retries = (retries + 1).clamp(0, 6);
+      await Future.delayed(Duration(seconds: min(60, 1 << retries)));
+    }
+  }
+
+  @visibleForTesting
+  Future<void> handleNotificationFrame(String frame, String token, {String? accountKey}) async {
+    try {
+      if (!await _matchesSession(token, accountKey)) return;
+      await _handlePushBytes(Uint8List.fromList(utf8.encode(frame)), token, accountKey);
+    } catch (error) {
+      debugPrint('Notification event failed: ${error.runtimeType}');
+    }
+  }
+
+  static Future<bool> _matchesSession(String token, String? accountKey) async {
+    final storage = TokenStorage();
+    final currentToken = await storage.getAccessToken();
+    if (currentToken == null || currentToken.isEmpty) return false;
+    // Refreshing the JWT must not discard a notification for the same account.
+    return accountKey == null
+        ? currentToken == token
+        : await storage.getActiveAccountKey() == accountKey;
+  }
+
+  Future<void> _syncBackgroundService() async {
+    if (!Platform.isAndroid) return;
+    final enabled = (await SharedPreferences.getInstance())
+        .getBool(_backgroundConnectionPreference) ?? true;
+    final token = await TokenStorage().getAccessToken();
+    final shouldRun = enabled && token != null && token.isNotEmpty;
+    if (shouldRun == _backgroundServiceRunning) return;
+    try {
+      await _connectionChannel.invokeMethod<void>(shouldRun ? 'start' : 'stop');
+      _backgroundServiceRunning = shouldRun;
+    } on PlatformException catch (error) {
+      // Android can reject a start from the background; retry on resume.
+      debugPrint('Notification background service: ${error.code}');
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_syncBackgroundService());
+    }
   }
 
   // ─── Каналы уведомлений ───────────────────────────────────────────
@@ -222,25 +292,28 @@ class NotificationService {
     }
   }
 
-  // ─── FCM Token ────────────────────────────────────────────────────
+  Future<void> setBackgroundConnectionEnabled(bool enabled) async {
+    await (await SharedPreferences.getInstance())
+        .setBool(_backgroundConnectionPreference, enabled);
+    if (!enabled) await _socket?.close();
+    await _syncBackgroundService();
+  }
 
-  Future<String?> getDeviceToken() async {
-    try {
-      return await _messaging.getToken();
-    } catch (e) {
-      debugPrint('NotificationService: Error getting token: ${e.runtimeType}');
-      return null;
-    }
+  Future<void> reconnect() async {
+    await _socket?.close();
+    await _syncBackgroundService();
+  }
+
+  bool sendCallAnswer(String callId) {
+    final socket = _socket;
+    if (socket == null || socket.readyState != WebSocket.open) return false;
+    socket.add(jsonEncode({
+      'type': 'call_answer', 'call_id': callId, 'answer': 'livekit',
+    }));
+    return true;
   }
 
   // ─── Foreground сообщения ─────────────────────────────────────────
-
-  void _handleForegroundMessage(RemoteMessage message) async {
-    // В режиме переднего плана (Foreground) системные всплывающие уведомления НЕ показываются.
-    // Все обновления списка чатов и сообщений осуществляются исключительно в реальном времени через WebSocket.
-    debugPrint(
-        'NotificationService: Message push received in foreground, ignoring banner in favor of WebSocket');
-  }
 
   // ─── Локальные уведомления ────────────────────────────────────────
 
@@ -294,6 +367,28 @@ class NotificationService {
 
     final callerName = data['caller_name'] ?? 'Пользователь';
     final callId = data['call_id'] ?? '';
+
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final random = Random.secure();
+      final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      final hex = bytes.map((value) => value.toRadixString(16).padLeft(2, '0')).join();
+      final uuid = '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+          '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+      _callKitIds[uuid] = callId.toString();
+      await FlutterCallkitIncoming.showCallkitIncoming(CallKitParams(
+        id: uuid,
+        nameCaller: callerName.toString(),
+        appName: 'Xaneo',
+        handle: 'Xaneo',
+        type: data['call_type'] == 'video' ? 1 : 0,
+        duration: 30000,
+        extra: data,
+        ios: const IOSParams(handleType: 'generic', supportsVideo: true),
+      ));
+      return;
+    }
 
     final List<int> vibratePattern = [
       0,
@@ -534,6 +629,20 @@ class NotificationService {
 
       if (callId.isEmpty) return;
 
+      if (event is CallEventActionCallAccept ||
+          event is CallEventActionCallDecline ||
+          event is CallEventActionCallEnded) {
+        final params = event is CallEventActionCallAccept
+            ? event.callKitParams
+            : event is CallEventActionCallDecline
+                ? event.callKitParams
+                : (event as CallEventActionCallEnded).callKitParams;
+        callId = params.extra?['call_id']?.toString() ??
+            _callKitIds[callId] ?? callId;
+      } else {
+        callId = _callKitIds[callId] ?? callId;
+      }
+
       final context = navigatorKey.currentContext;
       debugPrint(
           'NotificationService: CallKit Event mapping: callId=$callId, context=$context');
@@ -598,7 +707,7 @@ class NotificationService {
   // ─── Background message handler ───────────────────────────────────
 
   static Future<void> _handleBackgroundMessage(
-      Map<String, dynamic> data) async {
+      Map<String, dynamic> data, String token, String? accountKey) async {
     final chatId = data['chat_id']?.toString() ?? '';
     final senderName = data['sender_name']?.toString() ?? 'Сообщение';
     final encryptedText = data['encrypted_text']?.toString() ?? '';
@@ -606,16 +715,11 @@ class NotificationService {
     String displayBody = 'Новое зашифрованное сообщение';
     if (encryptedText.isNotEmpty) {
       try {
-        final tokenStorage = TokenStorage();
-        final apiClient = ApiClient(tokenStorage: tokenStorage);
-        final crypto = CryptoService(apiClient: apiClient);
-        await crypto.init();
-        final decrypted = await crypto.decryptMessage(encryptedText, chatId);
-        if (decrypted != null && decrypted.isNotEmpty) {
-          displayBody = decrypted;
-        }
+        displayBody = await NotificationService()._decryptOrFallback(encryptedText, chatId)
+            .timeout(const Duration(seconds: 4),
+                onTimeout: () => 'Новое зашифрованное сообщение');
       } catch (e) {
-        debugPrint('FCM Background: Error decrypting message: $e');
+        debugPrint('Push: Error decrypting message: $e');
       }
     }
 
@@ -649,8 +753,11 @@ class NotificationService {
       presentSound: true,
     );
 
+    // Never show a decrypted result belonging to a session that was switched out.
+    if (!await _matchesSession(token, accountKey)) return;
+    _nextMessageId = (_nextMessageId + 1) % 2000000000;
     await localNotifications.show(
-      id: DateTime.now().millisecond,
+      id: _nextMessageId,
       title: senderName,
       body: displayBody,
       notificationDetails:
@@ -660,18 +767,22 @@ class NotificationService {
   }
 }
 
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  if (kReleaseMode) {
-    debugPrint = (String? message, {int? wrapWidth}) {};
+Future<void> _handlePushBytes(Uint8List bytes, String token, String? accountKey) async {
+  final dynamic decoded;
+  try {
+    decoded = jsonDecode(utf8.decode(bytes));
+  } catch (_) {
+    return;
   }
-  await Firebase.initializeApp();
-  final data = message.data;
+  if (decoded is! Map<String, dynamic>) return;
+  final Map<String, dynamic> data = decoded;
   final type = data['type']?.toString();
 
   if (type == 'call') {
     await NotificationService._showIncomingCallNotification(data);
   } else if (type == 'message') {
-    await NotificationService._handleBackgroundMessage(data);
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      await NotificationService._handleBackgroundMessage(data, token, accountKey);
+    }
   }
 }

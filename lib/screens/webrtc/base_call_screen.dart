@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import '../../styles/app_styles.dart';
 import '../../services/webrtc/call_manager.dart';
 import '../../config/app_config.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
@@ -61,7 +62,7 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T>
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: Color(0xFF10B981),
+                  color: context.xaneoButtonBackground,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -71,8 +72,8 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T>
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: context.xaneoTextPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -80,7 +81,7 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T>
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: context.xaneoTextSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -91,8 +92,8 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T>
           if (onMinimize != null)
             IconButton(
               onPressed: onMinimize,
-              icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                  color: Colors.white, size: 28),
+              icon: Icon(Icons.keyboard_arrow_down_rounded,
+                  color: context.xaneoTextPrimary, size: 28),
               tooltip:
                   (AppLocalizations.of(context)?.svernut_ca9f ?? 'Fallback'),
             ),
@@ -122,12 +123,12 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withOpacity(0.85),
-            borderRadius: BorderRadius.circular(36),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            color: context.xaneoSurface.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(context.xaneoRadius(36)),
+            border: Border.all(color: context.xaneoDivider),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.4),
+                color: Colors.black.withValues(alpha: 0.4),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
@@ -143,7 +144,7 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T>
                     ? FontAwesomeIcons.volumeHigh
                     : FontAwesomeIcons.volumeOff,
                 isActive: isSpeakerOn,
-                activeColor: const Color(0xFF3B82F6),
+                activeColor: context.xaneoAccent,
               ),
               const SizedBox(width: 12),
               // Микрофон
@@ -153,7 +154,7 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T>
                     ? FontAwesomeIcons.microphone
                     : FontAwesomeIcons.microphoneSlash,
                 isActive: isMicOn,
-                activeColor: const Color(0xFF3B82F6),
+                activeColor: context.xaneoAccent,
               ),
               const SizedBox(width: 12),
               // Камера
@@ -163,7 +164,7 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T>
                     ? FontAwesomeIcons.video
                     : FontAwesomeIcons.videoSlash,
                 isActive: isCamOn,
-                activeColor: const Color(0xFF3B82F6),
+                activeColor: context.xaneoAccent,
               ),
               if (isCamOn) ...[
                 const SizedBox(width: 12),
@@ -172,7 +173,7 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T>
                   onTap: onSwitchCamera,
                   icon: FontAwesomeIcons.cameraRotate,
                   isActive: false,
-                  activeColor: const Color(0xFF3B82F6),
+                  activeColor: context.xaneoAccent,
                 ),
               ],
               const SizedBox(width: 16),
@@ -200,18 +201,20 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T>
         height: 44,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: isActive ? activeColor.withOpacity(0.25) : Colors.white12,
+          color: isActive
+              ? activeColor.withValues(alpha: 0.25)
+              : context.xaneoOverlay(0.12),
           border: Border.all(
             color: isActive
-                ? activeColor.withOpacity(0.6)
-                : Colors.white.withOpacity(0.08),
+                ? activeColor.withValues(alpha: 0.6)
+                : context.xaneoDivider,
             width: 1,
           ),
         ),
         child: Center(
           child: FaIcon(
             icon,
-            color: isActive ? activeColor : Colors.white70,
+            color: isActive ? activeColor : context.xaneoTextSecondary,
             size: 18,
           ),
         ),
@@ -226,10 +229,10 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T>
       child: Container(
         width: 48,
         height: 48,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Color(0xFFEF4444),
-          boxShadow: [
+          color: Theme.of(context).colorScheme.error,
+          boxShadow: const [
             BoxShadow(
               color: Colors.black26,
               blurRadius: 8,
@@ -237,10 +240,10 @@ abstract class BaseCallScreenState<T extends BaseCallScreen> extends State<T>
             ),
           ],
         ),
-        child: const Center(
+        child: Center(
           child: Icon(
             Icons.call_end_rounded,
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.onError,
             size: 22,
           ),
         ),
@@ -284,16 +287,19 @@ class BaseCallAvatar extends StatelessWidget {
           height: size,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) =>
-              _buildInitials(initials),
+              _buildInitials(context, initials),
         ),
       );
     }
 
-    return _buildInitials(initials);
+    return _buildInitials(context, initials);
   }
 
-  Widget _buildInitials(String initials) {
-    List<Color> colors = [const Color(0xFF2563EB), const Color(0xFF1D4ED8)];
+  Widget _buildInitials(BuildContext context, String initials) {
+    List<Color> colors = [
+      context.xaneoButtonBackground,
+      context.xaneoButtonBackground
+    ];
     if (avatarGradient != null && avatarGradient!.contains('|')) {
       try {
         final parts = avatarGradient!.split('|');
@@ -319,7 +325,9 @@ class BaseCallAvatar extends StatelessWidget {
         child: Text(
           initials,
           style: TextStyle(
-            color: Colors.white,
+            color: colors.first.computeLuminance() > 0.5
+                ? Colors.black
+                : Colors.white,
             fontSize: size * 0.4,
             fontWeight: FontWeight.bold,
           ),

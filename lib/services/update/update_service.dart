@@ -58,6 +58,9 @@ class UpdateService {
 
   /// Проверить наличие доступных обновлений
   Future<AppVersionInfo?> checkForUpdates({bool force = false}) async {
+    // Public releases use the production package ID and cannot update Beta.
+    if (AppConfig.isLocalBuild) return null;
+
     final prefs = await SharedPreferences.getInstance();
 
     if (!force) {
@@ -204,9 +207,10 @@ class UpdateService {
           'UpdateService: Launching installer via FileProvider content URI...');
 
       // На Android 7.0+ (API 24+) использование file:// вызывает FileUriExposedException.
-      // Используем валидный Content URI через зарегистрированный FileProvider (net.xaneo.fileprovider).
+      // Используем FileProvider текущего пакета (включая net.xaneo.beta).
+      final packageName = (await PackageInfo.fromPlatform()).packageName;
       final contentUri = Uri.parse(
-          'content://net.xaneo.fileprovider/external/Download/Xaneo/xaneo_update.apk');
+          'content://$packageName.fileprovider/external/Download/Xaneo/xaneo_update.apk');
 
       try {
         final launched =
@@ -220,7 +224,7 @@ class UpdateService {
       // Запасная попытка через URI кэша
       try {
         final cacheContentUri = Uri.parse(
-            'content://net.xaneo.fileprovider/cache/xaneo_update.apk');
+            'content://$packageName.fileprovider/cache/xaneo_update.apk');
         final launchedCache = await launchUrl(cacheContentUri,
             mode: LaunchMode.externalApplication);
         print(

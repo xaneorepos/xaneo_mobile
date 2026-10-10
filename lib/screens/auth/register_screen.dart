@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -9,13 +10,17 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_config.dart';
+import '../../models/auth/api_error.dart';
+import '../../models/auth/auth_response.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/common/themed_cupertino_date_picker.dart';
 import '../../styles/app_styles.dart';
 import '../../widgets/common/auth_settings_modal.dart';
 import '../../widgets/common/auth_theme_toggle_button.dart';
 import '../../widgets/common/avatar_cropper.dart';
 import '../../widgets/common/six_digit_code_input.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
+import '../../l10n/phone_auth_localizations.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -31,21 +36,25 @@ class _RegisterScreenState extends State<RegisterScreen>
   static final Uri _personalDataPolicyUri =
       Uri.parse('https://xaneo.ru/support/#personal-data-policy');
 
-  // Steps (new order):
+  // Steps:
   // 0: Name (Как вас зовут)
   // 1: Birthdate (Дата рождения)
-  // 2: Nickname (Никнейм) - с валидацией на лету
-  // 3: Email (Email) - с валидацией на занятость и иконкой инфо
-  // 4: Email Verification (Подтверждение email)
-  // 5: Password (Пароль)
-  // 6: Password Confirm (Подтверждение пароля)
-  // 7: Avatar (Аватар)
-  // 8: Preview (Превью)
+  // 2: Nickname (Никнейм)
+  // 3: Phone (Номер телефона)
+  // 4: Phone Verification (Подтверждение номера: 8-800 звонок для +7 / Flash Call)
+  // 5: Email (Email)
+  // 6: Email Verification (Подтверждение email)
+  // 7: Password (Пароль)
+  // 8: Password Confirm (Подтверждение пароля)
+  // 9: Avatar (Аватар)
+  // 10: Preview (Превью)
   int _currentStep = 0;
 
   final _nameController = TextEditingController();
   DateTime? _selectedBirthdate;
   final _usernameController = TextEditingController();
+  final _phoneController = TextEditingController(text: '+7');
+  final _phoneCodeController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _passwordConfirmController = TextEditingController();
@@ -53,6 +62,8 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   final _nameFocusNode = FocusNode();
   final _usernameFocusNode = FocusNode();
+  final _phoneFocusNode = FocusNode();
+  final _phoneCodeFocusNode = FocusNode();
   final _emailFocusNode = FocusNode();
   final _passwordFocusNode = FocusNode();
   final _passwordConfirmFocusNode = FocusNode();
@@ -61,6 +72,15 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _isNameValid = false;
   bool _isBirthdateValid = false;
   bool _isUsernameValid = false;
+  bool _isPhoneValid = false;
+  bool _isPhoneVerified = false;
+  bool _isSendingPhoneVerification = false;
+  bool _isCheckingPhoneStatus = false;
+  String? _phoneError;
+  int _inboundPollingGeneration = 0;
+  PhoneVerificationInitResponse? _phoneVerificationData;
+  Timer? _inboundPollTimer;
+
   bool _isEmailValid = false;
   bool _isPasswordValid = false;
   bool _isPasswordConfirmValid = false;
@@ -96,10 +116,13 @@ class _RegisterScreenState extends State<RegisterScreen>
     super.initState();
     _nameController.addListener(_validateFields);
     _usernameController.addListener(_onUsernameChanged);
+    _phoneController.addListener(_onPhoneChanged);
+    _phoneCodeController.addListener(_validateFields);
     _emailController.addListener(_onEmailChanged);
     _passwordController.addListener(_validateFields);
     _passwordConfirmController.addListener(_validateFields);
     _verificationCodeController.addListener(_validateFields);
+    _onPhoneChanged();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -112,14 +135,20 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   @override
   void dispose() {
+    _inboundPollingGeneration++;
+    _inboundPollTimer?.cancel();
     _nameController.dispose();
     _usernameController.dispose();
+    _phoneController.dispose();
+    _phoneCodeController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _passwordConfirmController.dispose();
     _verificationCodeController.dispose();
     _nameFocusNode.dispose();
     _usernameFocusNode.dispose();
+    _phoneFocusNode.dispose();
+    _phoneCodeFocusNode.dispose();
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
     _passwordConfirmFocusNode.dispose();
@@ -222,6 +251,215 @@ class _RegisterScreenState extends State<RegisterScreen>
         _validateEmail();
       }
     });
+  }
+
+  void _onPhoneChanged() {
+    var text = _phoneController.text.trim();
+    if (text.startsWith('8') && text.length == 11) {
+      text = '+7${text.substring(1)}';
+      _phoneController.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+    } else if (text.isNotEmpty && !text.startsWith('+')) {
+      text = '+$text';
+      _phoneController.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+    }
+    final digits = text.replaceAll(RegExp(r'\D'), '');
+    setState(() {
+      _isPhoneValid = text.startsWith('+') && digits.length >= 10;
+      _phoneError = null;
+    });
+  }
+
+  Future<void> _sendPhoneVerification() async {
+    final phone = _phoneController.text.trim();
+    setState(() {
+      _isSendingPhoneVerification = true;
+      _phoneError = null;
+    });
+
+    try {
+      final auth = context.read<AuthProvider>();
+      final result = await auth.sendPhoneVerification(phone);
+
+      if (mounted) {
+        setState(() {
+          _isSendingPhoneVerification = false;
+        });
+
+        if (result.success) {
+          _phoneVerificationData = result;
+          _isPhoneVerified = false;
+          if (_currentStep == 3) _goToNextStepInternal();
+          if (result.isInbound) {
+            _startInboundPolling();
+          } else {
+            _focusPhoneCodeInput();
+          }
+        } else {
+          setState(() {
+            _phoneError = result.message ??
+                PhoneAuthLocalizations.of(context)
+                    .text('phoneVerificationInitError');
+          });
+        }
+      }
+    } catch (e, stack) {
+      debugPrint('[RegisterScreen] sendPhoneVerification error: $e\n$stack');
+      if (mounted) {
+        setState(() {
+          _isSendingPhoneVerification = false;
+          if (e is ApiError) {
+            _phoneError = e.message;
+          } else {
+            _phoneError = PhoneAuthLocalizations.of(context)
+                .text('phoneVerificationInitError');
+          }
+        });
+      }
+    }
+  }
+
+  void _startInboundPolling() {
+    _inboundPollTimer?.cancel();
+    final generation = ++_inboundPollingGeneration;
+    final verification = _phoneVerificationData;
+    final deadline = DateTime.now().add(const Duration(minutes: 10));
+    var failures = 0;
+
+    Future<void> poll() async {
+      if (!mounted || _currentStep != 4 || _isPhoneVerified ||
+          !identical(verification, _phoneVerificationData) || generation != _inboundPollingGeneration) {
+        return;
+      }
+      if (DateTime.now().isAfter(deadline)) {
+        setState(() => _phoneError = 'Время ожидания истекло. Запросите звонок повторно.');
+        return;
+      }
+      var delay = const Duration(seconds: 3);
+      try {
+        final statusRes = await context.read<AuthProvider>().checkInboundPhoneStatus(
+          uid: verification?.uid,
+          phone: _phoneController.text.trim(),
+        );
+        if (!mounted || _currentStep != 4 ||
+            !identical(verification, _phoneVerificationData) || generation != _inboundPollingGeneration) {
+          return;
+        }
+        failures = 0;
+        if (statusRes.verified) {
+          setState(() { _isPhoneVerified = true; _phoneError = null; });
+          HapticFeedback.mediumImpact();
+          await Future.delayed(const Duration(milliseconds: 900));
+          if (mounted && _currentStep == 4 && identical(verification, _phoneVerificationData) && generation == _inboundPollingGeneration) {
+            _goToNextStepInternal();
+          }
+          return;
+        }
+        if (statusRes.expired || !statusRes.success) {
+          setState(() => _phoneError = statusRes.message ?? 'Запросите звонок повторно.');
+          return;
+        }
+        setState(() => _phoneError = null);
+      } catch (e) {
+        if (!mounted || _currentStep != 4 ||
+            !identical(verification, _phoneVerificationData) || generation != _inboundPollingGeneration) {
+          return;
+        }
+        setState(() => _phoneError = e is ApiError ? e.message : 'Не удалось проверить звонок.');
+        if (e is ApiError && e.statusCode != null &&
+            e.statusCode! < 500 && e.statusCode != 429) {
+          return;
+        }
+        failures++;
+        if (failures >= 5) return;
+        delay = e is RateLimitError
+            ? (e.retryAfter ?? const Duration(seconds: 60))
+            : Duration(seconds: failures * 5);
+      }
+      if (mounted && _currentStep == 4 && !_isPhoneVerified &&
+          identical(verification, _phoneVerificationData) && generation == _inboundPollingGeneration) {
+        _inboundPollTimer = Timer(delay, poll);
+      }
+    }
+    _inboundPollTimer = Timer(const Duration(seconds: 3), poll);
+  }
+
+  Future<void> _callInboundNumber() async {
+    final rawNumber = _phoneVerificationData?.rawNumber ??
+        _phoneVerificationData?.confirmationNumber
+            ?.replaceAll(RegExp(r'\D'), '') ??
+        '';
+    if (rawNumber.isEmpty) return;
+    final uri = Uri.parse('tel:$rawNumber');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('[RegisterScreen] Failed to launch dialer: $e');
+      if (mounted) {
+        setState(() => _phoneError = 'Не удалось открыть звонок. Наберите указанный номер вручную.');
+      }
+    }
+  }
+
+  Future<void> _verifyFlashCallCode() async {
+    final phone = _phoneController.text.trim();
+    final code = _phoneCodeController.text.trim();
+    if (code.length != 4 || _isCheckingPhoneStatus || _isPhoneVerified) return;
+
+    setState(() {
+      _isCheckingPhoneStatus = true;
+      _phoneError = null;
+    });
+
+    try {
+      final auth = context.read<AuthProvider>();
+      final res = await auth.verifyPhoneCode(phone: phone, code: code);
+      if (!mounted) return;
+      if (res.success) {
+        setState(() {
+          _isCheckingPhoneStatus = false;
+          _isPhoneVerified = true;
+        });
+        HapticFeedback.mediumImpact();
+        await Future.delayed(const Duration(milliseconds: 700));
+        if (mounted && _currentStep == 4) {
+          _goToNextStepInternal();
+        }
+      } else {
+        setState(() {
+          _isCheckingPhoneStatus = false;
+          _phoneError = res.message ??
+              PhoneAuthLocalizations.of(context).text('invalidCode');
+        });
+      }
+    } catch (e, stack) {
+      debugPrint('[RegisterScreen] verifyPhoneCode error: $e\n$stack');
+      if (mounted) {
+        setState(() {
+          _isCheckingPhoneStatus = false;
+          if (e is ApiError) {
+            _phoneError = e.message;
+          } else {
+            _phoneError = PhoneAuthLocalizations.of(context)
+                .text('codeVerificationError');
+          }
+        });
+      }
+    }
+  }
+
+  void _focusPhoneCodeInput() {
+    FocusScope.of(context).requestFocus(_phoneCodeFocusNode);
+    SystemChannels.textInput.invokeMethod('TextInput.show');
   }
 
   Future<void> _validateEmail() async {
@@ -344,21 +582,39 @@ class _RegisterScreenState extends State<RegisterScreen>
       if (_currentStep == 0) _nameFocusNode.requestFocus();
       if (_currentStep == 1) FocusScope.of(context).unfocus();
       if (_currentStep == 2) _usernameFocusNode.requestFocus();
-      if (_currentStep == 3) _emailFocusNode.requestFocus();
-      if (_currentStep == 4) _focusVerificationCodeInput();
-      if (_currentStep == 5) _passwordFocusNode.requestFocus();
-      if (_currentStep == 6) _passwordConfirmFocusNode.requestFocus();
-      if (_currentStep == 7) FocusScope.of(context).unfocus();
+      if (_currentStep == 3) _phoneFocusNode.requestFocus();
+      if (_currentStep == 4) {
+        if (_phoneVerificationData?.isFlashCall == true) {
+          _focusPhoneCodeInput();
+        } else {
+          FocusScope.of(context).unfocus();
+        }
+      }
+      if (_currentStep == 5) _emailFocusNode.requestFocus();
+      if (_currentStep == 6) _focusVerificationCodeInput();
+      if (_currentStep == 7) _passwordFocusNode.requestFocus();
+      if (_currentStep == 8) _passwordConfirmFocusNode.requestFocus();
+      if (_currentStep == 9) FocusScope.of(context).unfocus();
+      if (_currentStep == 10) FocusScope.of(context).unfocus();
     });
   }
 
   void _goToNextStep() {
-    if (_currentStep == 3 && _isEmailValid && _isEmailAvailable) {
+    if (_currentStep == 3 && _isPhoneValid) {
+      _sendPhoneVerification();
+    } else if (_currentStep == 4) {
+      if (_phoneVerificationData?.isFlashCall == true &&
+          _phoneCodeController.text.length == 4) {
+        _verifyFlashCallCode();
+      } else if (_isPhoneVerified) {
+        _goToNextStepInternal();
+      }
+    } else if (_currentStep == 5 && _isEmailValid && _isEmailAvailable) {
       // Send verification code and move to verification step
       _sendVerificationCode();
-    } else if (_currentStep == 4 && _isVerificationCodeValid) {
+    } else if (_currentStep == 6 && _isVerificationCodeValid) {
       _verifyEmailCode();
-    } else if (_currentStep == 8 && _isStepValid()) {
+    } else if (_currentStep == 10 && _isStepValid()) {
       // Final step - register the user
       _handleRegister();
     } else if (_isStepValid()) {
@@ -368,15 +624,22 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   void _goBack() {
     if (_currentStep > 0) {
+      if (_currentStep == 4) {
+        _inboundPollingGeneration++;
+        _inboundPollTimer?.cancel();
+      }
       setState(() {
         _currentStep--;
         if (_currentStep == 0) _nameFocusNode.requestFocus();
         if (_currentStep == 1) FocusScope.of(context).unfocus();
         if (_currentStep == 2) _usernameFocusNode.requestFocus();
-        if (_currentStep == 3) _emailFocusNode.requestFocus();
-        if (_currentStep == 4) _focusVerificationCodeInput();
-        if (_currentStep == 5) _passwordFocusNode.requestFocus();
-        if (_currentStep == 6) _passwordConfirmFocusNode.requestFocus();
+        if (_currentStep == 3) _phoneFocusNode.requestFocus();
+        if (_currentStep == 4) FocusScope.of(context).unfocus();
+        if (_currentStep == 5) _emailFocusNode.requestFocus();
+        if (_currentStep == 6) _focusVerificationCodeInput();
+        if (_currentStep == 7) _passwordFocusNode.requestFocus();
+        if (_currentStep == 8) _passwordConfirmFocusNode.requestFocus();
+        if (_currentStep == 9) FocusScope.of(context).unfocus();
       });
     } else {
       Navigator.of(context).pop();
@@ -395,6 +658,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     final success = await auth.register(
       username: _usernameController.text.trim(),
       email: _emailController.text.trim(),
+      phone: _phoneController.text.trim(),
       password: _passwordController.text,
       passwordConfirm: _passwordConfirmController.text,
       birthDate: birthDateStr,
@@ -428,16 +692,23 @@ class _RegisterScreenState extends State<RegisterScreen>
       case 2:
         return _isUsernameValid && _isUsernameAvailable && !_isCheckingUsername;
       case 3:
-        return _isEmailValid && _isEmailAvailable && !_isCheckingEmail;
+        return _isPhoneValid && !_isSendingPhoneVerification;
       case 4:
-        return _isVerificationCodeValid && !_isVerifyingCode;
+        return _isPhoneVerified ||
+            (_phoneVerificationData?.isFlashCall == true &&
+                _phoneCodeController.text.length == 4 &&
+                !_isCheckingPhoneStatus);
       case 5:
-        return _isPasswordValid;
+        return _isEmailValid && _isEmailAvailable && !_isCheckingEmail;
       case 6:
-        return _isPasswordConfirmValid;
+        return _isVerificationCodeValid && !_isVerifyingCode;
       case 7:
-        return true;
+        return _isPasswordValid;
       case 8:
+        return _isPasswordConfirmValid;
+      case 9:
+        return true;
+      case 10:
         return _agreedToTerms && _agreedToDataStorage;
       default:
         return false;
@@ -536,8 +807,10 @@ class _RegisterScreenState extends State<RegisterScreen>
               // Simple text with clickable link
               RichText(
                 text: TextSpan(
-                  style: AppStyles.bodyMedium
-                      .copyWith(color: context.xaneoTextSecondary),
+                  style: AppStyles.bodyMedium.copyWith(
+                    fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+                    color: context.xaneoTextSecondary,
+                  ),
                   children: [
                     TextSpan(
                         text: (AppLocalizations.of(context)
@@ -704,7 +977,9 @@ class _RegisterScreenState extends State<RegisterScreen>
                           _isCheckingUsername ||
                           _isCheckingEmail ||
                           _isSendingCode ||
-                          _isVerifyingCode
+                          _isVerifyingCode ||
+                          _isSendingPhoneVerification ||
+                          _isCheckingPhoneStatus
                       ? SizedBox(
                           height: 24,
                           width: 24,
@@ -712,12 +987,12 @@ class _RegisterScreenState extends State<RegisterScreen>
                               color: Theme.of(context).scaffoldBackgroundColor,
                               strokeWidth: 2))
                       : Text(
-                          _currentStep < 8
+                          _currentStep < 10
                               ? (AppLocalizations.of(context)?.dalee_c453 ??
-                                  'Fallback')
+                                  'Далее')
                               : (AppLocalizations.of(context)
                                       ?.sozdatAkkaunt_19ed ??
-                                  'Fallback'),
+                                  'Создать аккаунт'),
                           style: AppStyles.buttonText.copyWith(
                             color: Theme.of(context).scaffoldBackgroundColor,
                           )),
@@ -746,10 +1021,14 @@ class _RegisterScreenState extends State<RegisterScreen>
       case 2:
         return _buildUsernameStep(key);
       case 3:
-        return _buildEmailStep(key);
+        return _buildPhoneStep(key);
       case 4:
-        return _buildVerificationStep(key);
+        return _buildPhoneVerificationStep(key);
       case 5:
+        return _buildEmailStep(key);
+      case 6:
+        return _buildVerificationStep(key);
+      case 7:
         return _buildInputStep(
             key,
             (AppLocalizations.of(context)?.zadayteParol_53d2 ?? 'Fallback'),
@@ -758,14 +1037,329 @@ class _RegisterScreenState extends State<RegisterScreen>
             _passwordController,
             _passwordFocusNode,
             obscureText: true);
-      case 6:
-        return _buildPasswordConfirmStep(key);
-      case 7:
-        return _buildAvatarStep(key);
       case 8:
+        return _buildPasswordConfirmStep(key);
+      case 9:
+        return _buildAvatarStep(key);
+      case 10:
         return _buildProfilePreviewStep(key);
       default:
         return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildPhoneStep(Key? key) {
+    final phoneLoc = PhoneAuthLocalizations.of(context);
+    final hasText = _phoneController.text.trim().isNotEmpty;
+    final isRussian = RegExp(r'^\+7[93458]').hasMatch(_phoneController.text.trim());
+
+    Widget? suffix;
+    if (_isSendingPhoneVerification) {
+      suffix = SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: context.xaneoTextMuted,
+        ),
+      );
+    } else if (hasText && _isPhoneValid) {
+      suffix = const FaIcon(
+        FontAwesomeIcons.circleCheck,
+        color: Color(0xFF22C55E),
+        size: 16,
+      );
+    }
+
+    return Column(
+      key: key,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          phoneLoc.text('phoneStepTitle'),
+          style: AppStyles.titleGiant.copyWith(color: context.xaneoTextPrimary),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          isRussian
+              ? phoneLoc.text('phoneStepRuSubtitle')
+              : phoneLoc.text('phoneStepIntlSubtitle'),
+          style: AppStyles.bodyMuted.copyWith(color: context.xaneoTextMuted),
+        ),
+        const SizedBox(height: 32),
+        TextField(
+          controller: _phoneController,
+          focusNode: _phoneFocusNode,
+          style: AppStyles.inputText.copyWith(color: context.xaneoTextPrimary),
+          cursorColor: context.xaneoTextPrimary,
+          keyboardType: TextInputType.phone,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s\-()]')),
+          ],
+          decoration: InputDecoration(
+            filled: false,
+            hintText: '+7 900 123-45-67',
+            hintStyle:
+                AppStyles.inputHint.copyWith(color: context.xaneoTextMuted),
+            border: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoDivider)),
+            enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoDivider)),
+            focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: context.xaneoTextPrimary)),
+            contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            suffixIconConstraints:
+                const BoxConstraints(minWidth: 24, minHeight: 24),
+            suffixIcon: suffix,
+          ),
+          onSubmitted: (_) => _isStepValid() ? _goToNextStep() : null,
+        ),
+        if (_phoneError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              _phoneError!,
+              style: AppStyles.bodyMuted.copyWith(
+                color: const Color(0xFFEF4444),
+                fontSize: 13,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPhoneVerificationStep(Key? key) {
+    final phoneLoc = PhoneAuthLocalizations.of(context);
+    final isInbound = _phoneVerificationData?.isInbound ?? true;
+    final confNumber =
+        _phoneVerificationData?.confirmationNumber ?? '8 (800) ...';
+    final phone = _phoneController.text.trim();
+
+    if (isInbound) {
+      return Column(
+        key: key,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            phoneLoc.text('phoneConfirmation'),
+            style:
+                AppStyles.titleGiant.copyWith(color: context.xaneoTextPrimary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            phoneLoc.text('inboundCallSubtitle', params: {'phone': phone}),
+            style: AppStyles.bodyMuted.copyWith(color: context.xaneoTextMuted),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 20),
+            decoration: BoxDecoration(
+              color: context.xaneoOverlay(0.04),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: _isPhoneVerified
+                    ? const Color(0x8022C55E)
+                    : context.xaneoDivider,
+                width: 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  confNumber,
+                  style: AppStyles.titleGiant.copyWith(
+                    color: context.xaneoTextPrimary,
+                    fontSize: 26,
+                    letterSpacing: 1.1,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _callInboundNumber,
+                    icon: const FaIcon(FontAwesomeIcons.phoneFlip, size: 15),
+                    label: Text(
+                      phoneLoc.text('callFree'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: context.xaneoTextPrimary,
+                      foregroundColor:
+                          Theme.of(context).scaffoldBackgroundColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_isPhoneVerified) ...[
+                const FaIcon(
+                  FontAwesomeIcons.circleCheck,
+                  color: Color(0xFF22C55E),
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  phoneLoc.text('phoneVerifiedSuccess'),
+                  style: const TextStyle(
+                    color: Color(0xFF22C55E),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ] else ...[
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: context.xaneoTextMuted,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  phoneLoc.text('waitingForCall'),
+                  style: AppStyles.bodyMuted.copyWith(
+                    color: context.xaneoTextMuted,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (_phoneError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                _phoneError!,
+                style: AppStyles.bodyMuted.copyWith(
+                  color: const Color(0xFFEF4444),
+                  fontSize: 13,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: _isSendingPhoneVerification ? null : _sendPhoneVerification,
+            child: Text(phoneLoc.text('requestCallAgain')),
+          ),
+          Text(
+            phoneLoc.text('inboundCallHint'),
+            style: AppStyles.bodyMuted.copyWith(
+              color: context.xaneoTextMuted,
+              fontSize: 13,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          TextButton(
+            onPressed: () {
+              _inboundPollTimer?.cancel();
+              setState(() {
+                _currentStep = 3;
+                _phoneFocusNode.requestFocus();
+              });
+            },
+            child: Text(
+              phoneLoc.text('changePhone'),
+              style: TextStyle(
+                color: context.xaneoTextMuted,
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      // Flash Call mode (4 digits)
+      return Column(
+        key: key,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            phoneLoc.text('phoneConfirmation'),
+            style:
+                AppStyles.titleGiant.copyWith(color: context.xaneoTextPrimary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            phoneLoc.text(_phoneVerificationData?.isVoiceCall == true ? 'voiceCallSubtitle' : 'flashCallSubtitle', params: {'phone': phone}),
+            style: AppStyles.bodyMuted.copyWith(color: context.xaneoTextMuted),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          SixDigitCodeInput(
+            controller: _phoneCodeController,
+            focusNode: _phoneCodeFocusNode,
+            length: 4,
+            onChanged: (val) {
+              setState(() {});
+              if (val.length == 4) {
+                _verifyFlashCallCode();
+              }
+            },
+          ),
+          if (_phoneError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                _phoneError!,
+                style: AppStyles.bodyMuted.copyWith(
+                  color: const Color(0xFFEF4444),
+                  fontSize: 13,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          const SizedBox(height: 16),
+          TextButton(
+            onPressed:
+                _isSendingPhoneVerification ? null : _sendPhoneVerification,
+            child: Text(
+              phoneLoc.text('requestCallAgain'),
+              style: TextStyle(
+                color: _isSendingPhoneVerification
+                    ? context.xaneoTextMuted
+                    : context.xaneoTextPrimary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _currentStep = 3;
+                _phoneFocusNode.requestFocus();
+              });
+            },
+            child: Text(
+              phoneLoc.text('changePhone'),
+              style: TextStyle(
+                color: context.xaneoTextMuted,
+              ),
+            ),
+          ),
+        ],
+      );
     }
   }
 
@@ -1243,9 +1837,8 @@ class _RegisterScreenState extends State<RegisterScreen>
         height: 250,
         decoration: BoxDecoration(
           color: sheetContext.xaneoSurface,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(sheetContext.xaneoRadius(24)),
           ),
         ),
         child: Column(
@@ -1278,28 +1871,16 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
             ),
             Expanded(
-              child: CupertinoTheme(
-                data: CupertinoThemeData(
-                  brightness: Theme.of(sheetContext).brightness,
-                  scaffoldBackgroundColor: sheetContext.xaneoSurface,
-                  textTheme: CupertinoTextThemeData(
-                    dateTimePickerTextStyle: TextStyle(
-                        color: sheetContext.xaneoTextPrimary, fontSize: 22),
-                  ),
-                ),
-                child: CupertinoDatePicker(
-                  backgroundColor: sheetContext.xaneoSurface,
-                  mode: CupertinoDatePickerMode.date,
-                  initialDateTime: _selectedBirthdate ?? DateTime(2000, 1, 1),
-                  minimumDate: DateTime(1900),
-                  maximumDate: DateTime.now(),
-                  onDateTimeChanged: (val) {
-                    setState(() {
-                      _selectedBirthdate = val;
-                      _validateFields();
-                    });
-                  },
-                ),
+              child: ThemedCupertinoDatePicker(
+                initialDateTime: _selectedBirthdate ?? DateTime(2000, 1, 1),
+                minimumDate: DateTime(1900),
+                maximumDate: DateTime.now(),
+                onDateTimeChanged: (val) {
+                  setState(() {
+                    _selectedBirthdate = val;
+                    _validateFields();
+                  });
+                },
               ),
             ),
           ],
@@ -1573,7 +2154,7 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   Widget _buildProgressIndicator() {
     return Row(
-      children: List.generate(9, (index) {
+      children: List.generate(11, (index) {
         return Expanded(
           child: AnimatedContainer(
             duration: MediaQuery.disableAnimationsOf(context)

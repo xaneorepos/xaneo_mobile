@@ -164,7 +164,7 @@ class _CustomUpdateToastState extends State<CustomUpdateToast>
                           color: Colors.white,
                           fontSize: 13.5,
                           fontWeight: FontWeight.bold,
-                          fontFamily: 'Inter',
+                          fontFamily: null,
                         ),
                       ),
                     ],

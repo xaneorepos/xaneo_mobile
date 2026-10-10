@@ -75,7 +75,7 @@ class _AuthRejectedModalState extends BaseCustomModalState<AuthRejectedModal> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
-            textStyle: const TextStyle(
+            textStyle: Theme.of(context).textTheme.labelLarge!.copyWith(
               fontSize: 14.5,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.1,

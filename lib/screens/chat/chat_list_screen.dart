@@ -43,6 +43,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   Timer? _relativeTimeTimer;
   StreamSubscription<Map<String, dynamic>>? _wsEventsSub;
   bool _wasConnected = false;
+  bool _hasConnectedBefore = false;
 
   late final PresenceService _presenceService;
 
@@ -78,6 +79,7 @@ class _ChatListScreenState extends State<ChatListScreen>
     _groupChannelService = GroupChannelService(apiClient: apiClient);
     _presenceService = context.read<PresenceService>();
     _wasConnected = _presenceService.isConnected.value;
+    _hasConnectedBefore = _wasConnected;
     _presenceService.isConnected.addListener(_onWsConnectionChanged);
     _wsEventsSub = _presenceService.events.listen(_handleWsEvent);
 
@@ -118,8 +120,13 @@ class _ChatListScreenState extends State<ChatListScreen>
   void _onWsConnectionChanged() {
     final isConnected = _presenceService.isConnected.value;
     if (isConnected && !_wasConnected) {
-      // Синхронизация при восстановлении соединения (reconnect)
-      _syncChats(silent: true);
+      // Первая загрузка уже запущена при открытии экрана. Не загружаем те же
+      // чаты ещё раз при первом подключении сокета; обновляем лишь после
+      // восстановления соединения или ошибки начальной загрузки.
+      if (_hasConnectedBefore || _error != null) {
+        _syncChats(silent: _error == null);
+      }
+      _hasConnectedBefore = true;
     }
     _wasConnected = isConnected;
     if (mounted) {
@@ -190,6 +197,9 @@ class _ChatListScreenState extends State<ChatListScreen>
             final decrypted = await cryptoService.decryptChatMessage(
               chat.lastMessage!,
               chat.id,
+              message: chat.raw['last_message'] is Map
+                  ? Map<String, dynamic>.from(chat.raw['last_message'])
+                  : null,
             );
             if (decrypted != null) {
               String? inferredType = chat.lastMessageType;
@@ -493,12 +503,14 @@ class _ChatListScreenState extends State<ChatListScreen>
 
     final cryptoService = context.read<CryptoService>();
     var decrypted =
-        await cryptoService.decryptChatMessage(encryptedText, chatId);
+        await cryptoService.decryptChatMessage(encryptedText, chatId,
+            message: event);
 
     // If decryption returned null, attempt a forced key reload and retry decryption
     if (decrypted == null) {
       await cryptoService.ensureKeyForChat(chatId);
-      decrypted = await cryptoService.decryptChatMessage(encryptedText, chatId);
+      decrypted = await cryptoService.decryptChatMessage(encryptedText, chatId,
+          message: event);
     }
 
     final existing = await _localChatRepo.getChatByServerId(chatId);
@@ -647,7 +659,10 @@ class _ChatListScreenState extends State<ChatListScreen>
 
     if (!shouldDecrypt) return chat;
 
-    final decrypted = await cryptoService.decryptChatMessage(message, chat.id);
+    final decrypted = await cryptoService.decryptChatMessage(message, chat.id,
+        message: chat.raw['last_message'] is Map
+            ? Map<String, dynamic>.from(chat.raw['last_message'])
+            : null);
     if (decrypted == null) return chat;
 
     String? inferredType = chat.lastMessageType;
@@ -1019,9 +1034,6 @@ class _ChatListScreenState extends State<ChatListScreen>
     if (_isSyncInProgress) {
       title = (AppLocalizations.of(context)?.obnovlenie_53e2 ?? 'Fallback');
       textColor = context.xaneoTextSecondary;
-    } else if (!_presenceService.isConnected.value) {
-      title = (AppLocalizations.of(context)?.soedinenie_5a58 ?? 'Fallback');
-      textColor = context.xaneoTextSecondary;
     }
 
     return AnimatedSwitcher(
@@ -1044,7 +1056,7 @@ class _ChatListScreenState extends State<ChatListScreen>
           fontSize: 22,
           fontWeight: FontWeight.bold,
           color: textColor,
-          fontFamily: AppStyles.fontFamily,
+          fontFamily: null,
           letterSpacing: -0.5,
         ),
       ),

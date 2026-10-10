@@ -418,7 +418,7 @@ class _AvatarCropperState extends State<AvatarCropper> {
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                     color:
                         isActive ? Colors.white : Colors.white.withOpacity(0.7),
-                    fontFamily: AppStyles.fontFamily,
+                    fontFamily: null,
                   ),
                 ),
               ],

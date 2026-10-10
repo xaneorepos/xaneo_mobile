@@ -34,6 +34,27 @@ class AppConfig {
     return '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
   }
 
+  /// Builds aimed at loopback, LAN, or a .local host carry a visible Beta name.
+  static bool get isLocalBuild {
+    final host = Uri.tryParse(apiBaseUrl)?.host.toLowerCase() ?? '';
+    if (host == 'localhost' || host.endsWith('.local') ||
+        host == '::1' || host.startsWith('127.') ||
+        host.startsWith('10.') || host.startsWith('192.168.') ||
+        host.startsWith('169.254.') ||
+        (host.contains(':') && (host.startsWith('fc') ||
+            host.startsWith('fd') || host.startsWith('fe80:')))) {
+      return true;
+    }
+    final parts = host.split('.');
+    if (parts.length == 4 && parts.first == '172') {
+      final second = int.tryParse(parts[1]);
+      return second != null && second >= 16 && second <= 31;
+    }
+    return false;
+  }
+
+  static String get appDisplayName => isLocalBuild ? 'Xaneo Beta' : 'Xaneo';
+
   /// Преобразует относительный URL аватара/медиа (`/media/...`) в абсолютный URL (`https://xaneo.ru/media/...`)
   static String? formatImageUrl(String? url) {
     if (url == null || url.isEmpty) return null;
@@ -113,6 +134,16 @@ class AppConfig {
   /// Подтверждение кода email
   /// - Устанавливает флаг в сессии
   static const String authVerifyEmailCode = '/auth/verify-email-code/';
+
+  /// Инициализация верификации телефона (звонок 8-800 для РФ / Flash Call для зарубежных)
+  static const String authSendPhoneCode = '/auth/send-phone-code/';
+
+  /// Проверка статуса входящего звонка на 8-800
+  static const String authCheckInboundPhoneStatus =
+      '/auth/check-inbound-phone-status/';
+
+  /// Подтверждение кода из звонка (для Flash Call)
+  static const String authVerifyPhoneCode = '/auth/verify-phone-code/';
 
   /// Недавние аккаунты для устройства
   /// - IsMobileAppPermission

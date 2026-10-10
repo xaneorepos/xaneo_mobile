@@ -165,7 +165,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
             style: TextStyle(
               color: isDark ? Colors.white : Colors.black,
               fontSize: 14 * scale,
-              fontFamily: 'Inter',
+              fontFamily: null,
             ),
             decoration: InputDecoration(
               hintText: (AppLocalizations.of(context)
@@ -174,7 +174,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
               hintStyle: TextStyle(
                 color: isDark ? Colors.white38 : Colors.black38,
                 fontSize: 13 * scale,
-                fontFamily: 'Inter',
+                fontFamily: null,
               ),
               prefixIcon: Icon(
                 Icons.search_rounded,
@@ -305,7 +305,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
                     : (isDark ? Colors.white70 : Colors.black87),
                 fontSize: 12 * scale,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                fontFamily: 'Inter',
+                fontFamily: null,
               ),
             ),
           ),
@@ -333,7 +333,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
               style: TextStyle(
                 color: isDark ? Colors.white38 : Colors.black38,
                 fontSize: 13 * scale,
-                fontFamily: 'Inter',
+                fontFamily: null,
               ),
             ),
           ],
@@ -369,7 +369,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
               style: TextStyle(
                 color: isDark ? Colors.white38 : Colors.black38,
                 fontSize: 13 * scale,
-                fontFamily: 'Inter',
+                fontFamily: null,
               ),
             ),
           ],
@@ -435,7 +435,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
           fontSize: 10 * scale,
           fontWeight: FontWeight.w600,
           letterSpacing: 1.2 * scale,
-          fontFamily: 'Inter',
+          fontFamily: null,
         ),
       ),
     );
@@ -539,7 +539,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
                           color: isDark ? Colors.white : Colors.black87,
                           fontSize: 13 * scale,
                           fontWeight: FontWeight.w600,
-                          fontFamily: 'Inter',
+                          fontFamily: null,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -550,7 +550,7 @@ class _GlobalSearchModalState extends BaseCustomModalState<GlobalSearchModal> {
                         style: TextStyle(
                           color: isDark ? Colors.white54 : Colors.black54,
                           fontSize: 11 * scale,
-                          fontFamily: 'Inter',
+                          fontFamily: null,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -791,7 +791,7 @@ class _InitialsPainter extends CustomPainter {
           color: color,
           fontSize: fontSize,
           fontWeight: FontWeight.bold,
-          fontFamily: 'Inter',
+          fontFamily: null,
         ),
       ),
       textDirection: TextDirection.ltr,

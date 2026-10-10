@@ -112,7 +112,7 @@ class _DeviceAuthApprovalModalState
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
-            textStyle: const TextStyle(
+            textStyle: Theme.of(context).textTheme.labelLarge!.copyWith(
               fontSize: 14.5,
               fontWeight: FontWeight.w700,
             ),
@@ -130,7 +130,7 @@ class _DeviceAuthApprovalModalState
               borderRadius: BorderRadius.circular(14),
             ),
             side: BorderSide(color: context.xaneoDivider),
-            textStyle: const TextStyle(
+            textStyle: Theme.of(context).textTheme.labelLarge!.copyWith(
               fontSize: 14.5,
               fontWeight: FontWeight.w700,
             ),

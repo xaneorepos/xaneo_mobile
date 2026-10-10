@@ -157,7 +157,8 @@ abstract class BaseCustomModalState<T extends BaseCustomModal>
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: backgroundColor(context),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          borderRadius: BorderRadius.vertical(
+              top: Radius.circular(context.xaneoRadius(32))),
           border: Border(
             top: BorderSide(
               color: context.xaneoDivider,
@@ -165,7 +166,7 @@ abstract class BaseCustomModalState<T extends BaseCustomModal>
             ),
           ),
         ),
-        child: child,
+        child: Material(type: MaterialType.transparency, child: child),
       ),
     );
   }

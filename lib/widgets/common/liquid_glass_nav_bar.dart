@@ -18,7 +18,6 @@ class LiquidGlassNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final animationsEnabled =
         context.watch<AppearanceProvider>().animationsEnabled;
     return SafeArea(
@@ -28,12 +27,10 @@ class LiquidGlassNavBar extends StatelessWidget {
         child: Container(
           height: 56,
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xF2141416) : const Color(0xF5FFFFFF),
-            borderRadius: BorderRadius.circular(32),
+            color: context.xaneoSurface.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(context.xaneoRadius(32)),
             border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.15)
-                  : Colors.black.withValues(alpha: 0.1),
+              color: context.xaneoDivider,
               width: 1,
             ),
           ),
@@ -55,10 +52,9 @@ class LiquidGlassNavBar extends StatelessWidget {
                         height: 40,
                         margin: const EdgeInsets.symmetric(vertical: 8),
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.15)
-                              : Colors.black.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(16),
+                          color: context.xaneoAccent.withValues(alpha: 0.15),
+                          borderRadius:
+                              BorderRadius.circular(context.xaneoRadius(16)),
                         ),
                       ),
                     ),
@@ -134,12 +130,10 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final animationsEnabled =
         context.watch<AppearanceProvider>().animationsEnabled;
-    final selectedColor = isDark ? Colors.white : const Color(0xFF18181B);
-    final mutedColor =
-        isDark ? AppStyles.textMutedColor : const Color(0xFF71717A);
+    final selectedColor = context.xaneoAccent;
+    final mutedColor = context.xaneoTextMuted;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -165,12 +159,12 @@ class _NavItem extends StatelessWidget {
                   ? const Duration(milliseconds: 200)
                   : Duration.zero,
               curve: Curves.easeOutCubic,
-              style: TextStyle(
-                fontSize: isSelected ? 10 : 9,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? selectedColor : mutedColor,
-                fontFamily: AppStyles.fontFamily,
-              ),
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                    fontSize: isSelected ? 10 : 9,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected ? selectedColor : mutedColor,
+                    fontFamily: null,
+                  ),
               child: Text(
                 label,
                 maxLines: 1,

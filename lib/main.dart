@@ -25,6 +25,7 @@ import 'services/auth/recent_accounts_service.dart';
 import 'services/crypto/crypto_service.dart';
 import 'services/crypto/xsec2_service.dart';
 import 'styles/app_styles.dart';
+import 'styles/appearance_typography.dart';
 
 import 'package:path_provider/path_provider.dart';
 import 'services/database/database_key_service.dart';
@@ -56,13 +57,13 @@ class _DevHttpOverrides extends HttpOverrides {
   }
 }
 
-void main() {
+void main(List<String> args) {
   if (kReleaseMode) {
     debugPrint = (String? message, {int? wrapWidth}) {};
   }
 
   runZonedGuarded(
-    _bootstrap,
+    () => _bootstrap(args),
     (error, stackTrace) {
       if (!kReleaseMode) {
         debugPrint('Uncaught application error: $error\n$stackTrace');
@@ -76,7 +77,7 @@ void main() {
   );
 }
 
-Future<void> _bootstrap() async {
+Future<void> _bootstrap(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   xaneoAudioHandler = await AudioService.init<XaneoAudioHandler>(
@@ -122,6 +123,10 @@ Future<void> _bootstrap() async {
   }
 
   // Инициализируем пуш-уведомления
+  // Configure the development certificate before opening the notification socket.
+  if (AppConfig.allowInsecurePrivateCertificates) {
+    HttpOverrides.global = _DevHttpOverrides();
+  }
   await NotificationService().initialize();
 
   // Включаем подробное логирование для LiveKit в режиме отладки
@@ -133,11 +138,6 @@ Future<void> _bootstrap() async {
     });
   }
 
-  // TEMPORARY: also enable the private-host certificate override in release.
-  // The callback rejects public hosts, so their normal TLS validation remains.
-  if (AppConfig.allowInsecurePrivateCertificates) {
-    HttpOverrides.global = _DevHttpOverrides();
-  }
   LocalProxy.start();
 
   // Получаем путь к документам и ключ шифрования БД один раз при запуске
@@ -313,7 +313,7 @@ class XaneoApp extends StatelessWidget {
       child: Consumer2<LocaleProvider, AppearanceProvider>(
         builder: (context, localeProvider, appearance, child) {
           return MaterialApp(
-            title: 'Xaneo',
+            title: AppConfig.appDisplayName,
             locale: localeProvider.locale,
             supportedLocales: LocaleProvider.supportedLocales,
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -348,10 +348,10 @@ class XaneoApp extends StatelessWidget {
               );
             },
 
-            theme: _buildLightTheme(appearance.animationsEnabled),
+            theme: _applyXnx(_buildLightTheme(appearance.animationsEnabled), appearance, false),
 
             // Чёрно-белая тема
-            darkTheme: ThemeData(
+            darkTheme: _applyXnx(ThemeData(
               useMaterial3: true,
               brightness: Brightness.dark,
               scaffoldBackgroundColor: AppStyles.backgroundColor,
@@ -389,7 +389,7 @@ class XaneoApp extends StatelessWidget {
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                   letterSpacing: -0.4,
-                  fontFamily: 'Inter',
+                  fontFamily: null,
                 ),
               ),
               inputDecorationTheme: InputDecorationTheme(
@@ -444,7 +444,7 @@ class XaneoApp extends StatelessWidget {
               ),
               pageTransitionsTheme:
                   _pageTransitions(appearance.animationsEnabled),
-            ),
+            ), appearance, true),
 
             // Начальный экран
             home: const AuthWrapper(),
@@ -543,6 +543,57 @@ class XaneoApp extends StatelessWidget {
       ),
       pageTransitionsTheme: _pageTransitions(animationsEnabled),
     );
+  }
+
+  ThemeData _applyXnx(ThemeData base, AppearanceProvider appearance, bool dark) {
+    if (appearance.xnxTheme == null) {
+      return applyAppearanceFont(base, appearance.fontFamily);
+    }
+    Color color(String key, Color fallback) =>
+        appearance.xnxColor(key, dark: dark) ?? fallback;
+    final scheme = base.colorScheme;
+    final bg = color('bg', base.scaffoldBackgroundColor);
+    final surface = color('surface', base.cardColor);
+    final foreground = color('text', scheme.onSurface);
+    final accent = color('accent', scheme.primary);
+    final radius = appearance.xnxTheme!.radius.toDouble();
+    final themed = base.copyWith(
+      scaffoldBackgroundColor: bg,
+      canvasColor: bg,
+      cardColor: surface,
+      dividerColor: color('border', base.dividerColor),
+      colorScheme: scheme.copyWith(
+        primary: accent,
+        onPrimary: color('btn-primary-text', scheme.onPrimary),
+        secondary: color('text-secondary', scheme.secondary),
+        surface: surface,
+        surfaceContainerHigh: color('surface-hover', scheme.surfaceContainerHigh),
+        onSurface: foreground,
+        outline: color('border', scheme.outline),
+      ),
+      textTheme: base.textTheme.apply(
+        bodyColor: foreground,
+        displayColor: foreground,
+        fontFamily: appearance.fontFamily,
+        fontFamilyFallback: const ['Inter'],
+      ),
+      appBarTheme: AppBarTheme(backgroundColor: bg, foregroundColor: foreground),
+      dialogTheme: DialogThemeData(backgroundColor: surface),
+      bottomSheetTheme: BottomSheetThemeData(backgroundColor: surface),
+      inputDecorationTheme: base.inputDecorationTheme.copyWith(
+        fillColor: color('bg-secondary', surface),
+        hintStyle: TextStyle(color: color('text-muted', scheme.secondary)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(radius)),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color('btn-primary-bg', accent),
+          foregroundColor: color('btn-primary-text', scheme.onPrimary),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+        ),
+      ),
+    );
+    return applyAppearanceFont(themed, appearance.fontFamily);
   }
 
   PageTransitionsTheme _pageTransitions(bool animationsEnabled) {
@@ -752,7 +803,7 @@ class _SplashScreenState extends State<SplashScreen>
                       fontWeight: FontWeight.w700,
                       color: context.xaneoTextPrimary,
                       letterSpacing: -0.5,
-                      fontFamily: AppStyles.fontFamily,
+                      fontFamily: null,
                     ),
                   ),
 

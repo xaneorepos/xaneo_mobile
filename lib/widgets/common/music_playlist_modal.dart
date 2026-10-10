@@ -57,6 +57,9 @@ class _MusicPlaylistModalState
   late List<PlaybackItem> _cachedPlaylist;
   int _playlistBuildGeneration = 0;
   int? _scheduledMessagesSignature;
+  Stream<List<Message>>? _messagesStream;
+  Animation<double>? _openingAnimation;
+  bool _isOpening = true;
 
   @override
   double get initialExtent => 0.82;
@@ -76,7 +79,41 @@ class _MusicPlaylistModalState
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final animation = ModalRoute.of(context)?.animation;
+    if (!identical(animation, _openingAnimation)) {
+      _openingAnimation?.removeStatusListener(_onOpeningStatus);
+      _openingAnimation = animation;
+      animation?.addStatusListener(_onOpeningStatus);
+    }
+    if (_isOpening &&
+        (animation == null || animation.status == AnimationStatus.completed)) {
+      _isOpening = false;
+      _initializeMessagesStream();
+    }
+  }
+
+  void _initializeMessagesStream() {
+    final chatId = widget.chatServerId;
+    if (_messagesStream == null && chatId != null && chatId.isNotEmpty) {
+      _messagesStream = context
+          .read<LocalChatRepository>()
+          .watchMessagesForServerChat(chatId);
+    }
+  }
+
+  void _onOpeningStatus(AnimationStatus status) {
+    if (!_isOpening || status != AnimationStatus.completed || !mounted) return;
+    setState(() {
+      _isOpening = false;
+      _initializeMessagesStream();
+    });
+  }
+
+  @override
   void dispose() {
+    _openingAnimation?.removeStatusListener(_onOpeningStatus);
     _playlistBuildGeneration++;
     super.dispose();
   }
@@ -240,10 +277,14 @@ class _MusicPlaylistModalState
 
   @override
   Widget buildContent(BuildContext context, ScrollController scrollController) {
-    if (widget.chatServerId != null && widget.chatServerId!.isNotEmpty) {
-      final localChatRepo = context.read<LocalChatRepository>();
+    // Animate the cached playlist first; query and parse chat history only
+    // after the opening transition has finished.
+    if (_isOpening) {
+      return _buildPlaylistUI(context, scrollController, _cachedPlaylist);
+    }
+    if (_messagesStream != null) {
       return StreamBuilder<List<Message>>(
-        stream: localChatRepo.watchMessagesForServerChat(widget.chatServerId!),
+        stream: _messagesStream,
         initialData: widget.initialMessages?.whereType<Message>().toList(),
         builder: (context, snapshot) {
           final rawMessages = snapshot.data ?? widget.initialMessages ?? [];
@@ -323,7 +364,7 @@ class _MusicPlaylistModalState
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: context.xaneoTextPrimary,
-                          fontFamily: 'Inter',
+                          fontFamily: null,
                         ),
                       ),
                       const SizedBox(height: 1),
@@ -332,7 +373,7 @@ class _MusicPlaylistModalState
                         style: TextStyle(
                           fontSize: 12,
                           color: context.xaneoTextMuted,
-                          fontFamily: 'Inter',
+                          fontFamily: null,
                         ),
                       ),
                     ],
@@ -416,7 +457,7 @@ class _MusicPlaylistModalState
                                   color: context.xaneoTextPrimary,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
-                                  fontFamily: 'Inter',
+                                  fontFamily: null,
                                 ),
                               ),
                               if (playback.subtitle.isNotEmpty) ...[
@@ -428,7 +469,7 @@ class _MusicPlaylistModalState
                                   style: TextStyle(
                                     color: context.xaneoTextSecondary,
                                     fontSize: 11,
-                                    fontFamily: 'Inter',
+                                    fontFamily: null,
                                   ),
                                 ),
                               ],
@@ -452,7 +493,7 @@ class _MusicPlaylistModalState
                           style: TextStyle(
                             color: context.xaneoTextMuted,
                             fontSize: 10.5,
-                            fontFamily: 'Inter',
+                            fontFamily: null,
                           ),
                         ),
                         Expanded(
@@ -499,7 +540,7 @@ class _MusicPlaylistModalState
                           style: TextStyle(
                             color: context.xaneoTextMuted,
                             fontSize: 10.5,
-                            fontFamily: 'Inter',
+                            fontFamily: null,
                           ),
                         ),
                       ],
@@ -638,7 +679,7 @@ class _MusicPlaylistModalState
               style: TextStyle(
                 color: context.xaneoTextMuted,
                 fontSize: 13,
-                fontFamily: 'Inter',
+                fontFamily: null,
               ),
             ),
           ],
@@ -732,7 +773,7 @@ class _MusicPlaylistModalState
                                     ? FontWeight.w700
                                     : FontWeight.w500,
                                 fontSize: 13,
-                                fontFamily: 'Inter',
+                                fontFamily: null,
                               ),
                             ),
                             const SizedBox(height: 1),
@@ -743,7 +784,7 @@ class _MusicPlaylistModalState
                               style: TextStyle(
                                 color: context.xaneoTextMuted,
                                 fontSize: 11,
-                                fontFamily: 'Inter',
+                                fontFamily: null,
                               ),
                             ),
                           ],
@@ -756,7 +797,7 @@ class _MusicPlaylistModalState
                           style: TextStyle(
                             color: context.xaneoTextMuted,
                             fontSize: 11,
-                            fontFamily: 'Inter',
+                            fontFamily: null,
                           ),
                         ),
                       if (isItemPlaying) ...[

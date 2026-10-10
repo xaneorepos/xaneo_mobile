@@ -8,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/message_color_presets.dart';
+import '../models/xnx_theme.dart';
+import '../services/xnx_font_loader.dart';
 
 class AppearanceProvider extends ChangeNotifier {
   static const double minFontSize = 12;
@@ -24,6 +26,7 @@ class AppearanceProvider extends ChangeNotifier {
   static const _notificationStyleKey = 'appearance_notification_style';
   static const _darkModeKey = 'mobile_dark_mode';
   static const _animationsKey = 'mobile_animations';
+  static const _xnxKey = 'imported_xnx_theme';
 
   double _chatFontSize = defaultFontSize;
   ChatWallpaper _wallpaper = const ChatWallpaper();
@@ -32,6 +35,8 @@ class AppearanceProvider extends ChangeNotifier {
   NotificationStyle _notificationStyle = NotificationStyle.standard;
   bool _isDarkMode = true;
   bool _animationsEnabled = true;
+  XnxTheme? _xnxTheme;
+  String? _customFontFamily;
   bool _loaded = false;
 
   AppearanceProvider() {
@@ -45,10 +50,18 @@ class AppearanceProvider extends ChangeNotifier {
   NotificationStyle get notificationStyle => _notificationStyle;
   bool get isDarkMode => _isDarkMode;
   bool get animationsEnabled => _animationsEnabled;
+  XnxTheme? get xnxTheme => _xnxTheme;
+  String get fontFamily => _customFontFamily ?? _xnxTheme?.fontFamily ?? 'Inter';
+  Color? xnxColor(String key, {bool? dark}) =>
+      _xnxTheme?.color(key, dark ?? _isDarkMode);
   bool get isLoaded => _loaded;
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
+    final savedXnx = prefs.getString(_xnxKey);
+    if (savedXnx != null) {
+      try { _xnxTheme = XnxTheme.parse(savedXnx); } catch (_) { await prefs.remove(_xnxKey); }
+    }
     _chatFontSize = prefs.getDouble(_fontSizeKey) ?? defaultFontSize;
 
     final presetName = prefs.getString(_wallpaperPresetKey);
@@ -70,6 +83,20 @@ class AppearanceProvider extends ChangeNotifier {
     _animationsEnabled = prefs.getBool(_animationsKey) ?? true;
     _loaded = true;
     notifyListeners();
+    final currentTheme = _xnxTheme;
+    if (currentTheme != null) _loadSavedFont(currentTheme);
+  }
+
+  Future<void> _loadSavedFont(XnxTheme theme) async {
+    try {
+      final loaded = await XnxFontLoader.load(theme);
+      if (identical(_xnxTheme, theme)) {
+        _customFontFamily = loaded;
+        notifyListeners();
+      }
+    } catch (error) {
+      debugPrint('XNX font could not be restored: $error');
+    }
   }
 
   MessageColorSetting _decodeColor(String? raw) {
@@ -180,6 +207,26 @@ class AppearanceProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_darkModeKey, value);
+  }
+
+  Future<void> importXnx(String source) async {
+    final parsed = XnxTheme.parse(source);
+    final loadedFont = await XnxFontLoader.load(parsed);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_xnxKey, source);
+    _xnxTheme = parsed;
+    _customFontFamily = loadedFont;
+    _isDarkMode = parsed.defaultMode == 'dark';
+    await prefs.setBool(_darkModeKey, _isDarkMode);
+    notifyListeners();
+  }
+
+  Future<void> clearXnx() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_xnxKey);
+    _xnxTheme = null;
+    _customFontFamily = null;
+    notifyListeners();
   }
 
   Future<void> setAnimationsEnabled(bool value) async {

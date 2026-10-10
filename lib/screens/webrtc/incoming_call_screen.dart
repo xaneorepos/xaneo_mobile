@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
+import '../../styles/app_styles.dart';
 import '../../services/webrtc/call_manager.dart';
 import '../../widgets/common/avatar_widget.dart';
 import 'active_call_screen.dart';
@@ -54,13 +55,14 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       });
-      return const Scaffold(backgroundColor: Colors.black);
+      return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor);
     }
 
     final isVideo = callManager.callType == 'video';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Deep Slate
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Deep Slate
       body: Stack(
         alignment: Alignment.center,
         children: [
@@ -76,7 +78,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
                     height: 140 + (_pulseController.value * 60),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF3B82F6).withValues(
+                      color: context.xaneoAccent.withValues(
                           alpha: 0.15 * (1 - _pulseController.value)),
                     ),
                   ),
@@ -85,7 +87,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
                     height: 140 + ((_pulseController.value + 0.5) % 1 * 60),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF3B82F6).withValues(
+                      color: context.xaneoAccent.withValues(
                           alpha:
                               0.1 * (1 - ((_pulseController.value + 0.5) % 1))),
                     ),
@@ -99,7 +101,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Spacer(flex: 3),
+              const Spacer(flex: 3),
 
               // Аватар собеседника
               AvatarWidget(
@@ -121,8 +123,8 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
                         'Fallback')
                     : (AppLocalizations.of(context)?.vhodyaschiyZvonok_5ce9 ??
                         'Fallback'),
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: context.xaneoTextPrimary,
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
@@ -136,7 +138,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
                     (AppLocalizations.of(context)?.neizvestnyy_be89 ??
                         'Fallback'),
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: context.xaneoTextSecondary,
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                 ),
@@ -162,20 +164,22 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
                             height: 72,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Color(0xFFEF4444),
+                              color: Theme.of(context).colorScheme.error,
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFFEF4444)
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .error
                                       .withValues(alpha: 0.3),
                                   blurRadius: 16,
                                   spreadRadius: 4,
                                 ),
                               ],
                             ),
-                            child: const Center(
+                            child: Center(
                               child: FaIcon(
                                 FontAwesomeIcons.phoneSlash,
-                                color: Colors.white,
+                                color: Theme.of(context).colorScheme.onError,
                                 size: 24,
                               ),
                             ),
@@ -185,7 +189,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
                             (AppLocalizations.of(context)?.otklonit_8b0d ??
                                 'Fallback'),
                             style: TextStyle(
-                              color: Colors.white70,
+                              color: context.xaneoTextSecondary,
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
@@ -215,10 +219,10 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
                             height: 72,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Color(0xFF10B981),
+                              color: context.xaneoButtonBackground,
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF10B981)
+                                  color: context.xaneoButtonBackground
                                       .withValues(alpha: 0.3),
                                   blurRadius: 16,
                                   spreadRadius: 4,
@@ -230,7 +234,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
                                 isVideo
                                     ? FontAwesomeIcons.video
                                     : FontAwesomeIcons.phone,
-                                color: Colors.white,
+                                color: context.xaneoButtonForeground,
                                 size: 24,
                               ),
                             ),
@@ -240,7 +244,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
                             (AppLocalizations.of(context)?.prinyat_5dc5 ??
                                 'Fallback'),
                             style: TextStyle(
-                              color: Colors.white70,
+                              color: context.xaneoTextSecondary,
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),

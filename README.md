@@ -48,7 +48,7 @@
   - Опциональная биометрическая аутентификация (`local_auth`).
 
 - 🔔 **Push-Уведомления**:
-  - Интеграция с **Firebase Cloud Messaging (FCM)** и **Flutter Local Notifications** для моментального получения сообщений и вызовов.
+  - Прямое соединение с Xaneo по защищённому WebSocket и локальные уведомления о сообщениях и звонках. На iOS фоновая доставка ограничена системой.
 
 - 🎨 **Современный UI/UX**:
   - Адаптивный и интуитивный интерфейс с поддержкой плавных Lottie-анимаций, кастомных шрифтов **Inter** и Google Fonts.
@@ -83,7 +83,7 @@
 | :--- | :--- |
 | **LiveKit Client & WebRTC** | Видио- и аудиосвязь для личных и групповых звонков |
 | **Flutter CallKit Incoming** | Нативный экран входящего вызова на Android / iOS |
-| **Firebase Messaging & Local Notifications** | Push-уведомления |
+| **WebSocket & Local Notifications** | Уведомления при активном соединении |
 | **Just Audio & Record** | Запись и воспроизведение голосовых сообщений |
 | **Chewie & Video Player** | Воспроизведение видео в чатах |
 
@@ -116,6 +116,17 @@ flutter run
 flutter build apk --release
 flutter build appbundle --release
 ```
+
+При сборке для локального адреса Android использует отдельный идентификатор
+`net.xaneo.beta` и имя **Xaneo Beta**. Такая сборка устанавливается рядом с
+обычным **Xaneo** (`net.xaneo`), с отдельными данными и настройками:
+
+```bash
+flutter run --release --dart-define=API_BASE_URL=https://192.168.3.95/api/v1
+```
+
+На iOS локальный адрес меняет имя на экране, но отдельный Bundle ID пока не
+настроен. Для параллельной установки на iPhone нужна отдельная iOS-схема.
 
 #### iOS (IPA)
 ```bash

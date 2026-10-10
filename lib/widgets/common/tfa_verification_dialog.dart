@@ -206,7 +206,7 @@ class _TfaVerificationDialogState
                   height: 50,
                   child: ElevatedButton(
                     onPressed: canSubmit ? _verify : null,
-                    style: AppStyles.primaryButton,
+                    style: Theme.of(context).elevatedButtonTheme.style,
                     child: auth.isLoading
                         ? const SizedBox(
                             width: 20,

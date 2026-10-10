@@ -161,6 +161,79 @@ class VerifyCodeResponse {
   }
 }
 
+/// Ответ на инициализацию проверки телефона
+class PhoneVerificationInitResponse {
+  final bool success;
+  final String? message;
+  final String? phone;
+  final String? method; // 'inbound' или 'flash_call'
+  final String? uid;
+  final String? confirmationNumber;
+  final String? rawNumber;
+  final String? expiresAt;
+  final int? retryAfter;
+
+  const PhoneVerificationInitResponse({
+    required this.success,
+    this.message,
+    this.phone,
+    this.method,
+    this.uid,
+    this.confirmationNumber,
+    this.rawNumber,
+    this.expiresAt,
+    this.retryAfter,
+  });
+
+  bool get isInbound => method == 'inbound';
+  bool get isFlashCall => method == 'flash_call' || method == 'voice_call';
+  bool get isVoiceCall => method == 'voice_call';
+
+  factory PhoneVerificationInitResponse.fromJson(Map<String, dynamic> json) {
+    return PhoneVerificationInitResponse(
+      success: json['success'] as bool? ?? false,
+      message: json['message'] as String?,
+      phone: json['phone'] as String?,
+      method: json['method'] as String?,
+      uid: json['uid']?.toString(),
+      confirmationNumber: json['confirmation_number'] as String?,
+      rawNumber: json['raw_number'] as String?,
+      expiresAt: json['expires_at'] as String?,
+      retryAfter: json['retry_after'] as int?,
+    );
+  }
+}
+
+/// Статус проверки входящего звонка (8-800)
+class InboundCallStatusResponse {
+  final bool success;
+  final bool verified;
+  final int? callStatus;
+  final bool expired;
+  final String? message;
+  final String? phone;
+
+  const InboundCallStatusResponse({
+    required this.success,
+    required this.verified,
+    this.callStatus,
+    this.expired = false,
+    this.message,
+    this.phone,
+  });
+
+  factory InboundCallStatusResponse.fromJson(Map<String, dynamic> json) {
+    return InboundCallStatusResponse(
+      success: json['success'] as bool? ?? false,
+      verified: json['verified'] as bool? ?? false,
+      callStatus: json['call_status'] as int?,
+      expired: json['expired'] as bool? ?? false,
+      message: json['message'] as String?,
+      phone: json['phone'] as String?,
+    );
+  }
+}
+
 /// Ответ при необходимости 2FA
 class TfaRequiredResponse {
   final bool tfaRequired;

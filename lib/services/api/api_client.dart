@@ -95,9 +95,11 @@ class ApiClient {
     dynamic data,
     Map<String, dynamic>? queryParameters,
     Options? options,
+    ProgressCallback? onSendProgress,
   }) async {
     return await _dio.post(path,
-        data: data, queryParameters: queryParameters, options: options);
+        data: data, queryParameters: queryParameters, options: options,
+        onSendProgress: onSendProgress);
   }
 
   /// PUT запрос
@@ -268,6 +270,9 @@ class _AuthInterceptor extends Interceptor {
         path == AppConfig.authMobileRegister ||
         path == AppConfig.authCheckUsername ||
         path == AppConfig.authCheckEmail ||
+        path == AppConfig.authSendPhoneCode ||
+        path == AppConfig.authCheckInboundPhoneStatus ||
+        path == AppConfig.authVerifyPhoneCode ||
         path == AppConfig.authSendVerificationCode ||
         path == AppConfig.authVerifyEmailCode ||
         path == AppConfig.authTokenRefresh ||

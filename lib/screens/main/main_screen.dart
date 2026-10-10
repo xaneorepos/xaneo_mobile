@@ -1,3 +1,4 @@
+import '../../config/feature_flags.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -16,8 +17,10 @@ import '../../widgets/common/incoming_call_modal.dart';
 import '../../providers/locale_provider.dart';
 import '../../providers/appearance_provider.dart';
 import '../../widgets/common/mobile_settings_modals.dart';
+import '../../widgets/common/mobile_xnx_theme_modal.dart';
 import '../../widgets/common/mobile_language_modal.dart';
 import '../../widgets/common/mobile_accounts_modal.dart';
+import '../../widgets/common/mobile_xb_subscription_modal.dart';
 import '../../widgets/common/avatar_widget.dart';
 import '../../widgets/common/music_playlist_modal.dart';
 import '../../widgets/common/track_artwork.dart';
@@ -31,6 +34,8 @@ import '../../widgets/common/custom_update_toast.dart';
 import '../../widgets/common/device_auth_approval_modal.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
 import '../../l10n/account_localizations.dart';
+import '../../l10n/appearance_strings.dart';
+import '../../l10n/xb_subscription_localizations.dart';
 
 /// Главный экран приложения (после авторизации)
 class MainScreen extends StatefulWidget {
@@ -419,8 +424,19 @@ class _SettingsScreen extends StatelessWidget {
               icon: FontAwesomeIcons.lock,
               title: (l10n?.bezopasnost_3677 ?? 'Fallback'),
               subtitle: (l10n?.parolSessii2fa_de9e ?? 'Fallback'),
-              isLast: true,
+              isLast: !FeatureFlags.xbSubscriptionEnabled,
               onTap: () => MobileSecurityModal.show(context),
+            ),
+            if (FeatureFlags.xbSubscriptionEnabled)
+              _buildItem(
+              context,
+              icon: FontAwesomeIcons.star,
+              title: XbSubscriptionLocalizations.of(context)
+                  .text('messenger.premium.menuTitle'),
+              subtitle: XbSubscriptionLocalizations.of(context)
+                  .text('messenger.premium.menuSubtitle'),
+              isLast: true,
+              onTap: () => MobileXbSubscriptionModal.show(context),
             ),
           ]),
           const SizedBox(height: 20),
@@ -428,8 +444,15 @@ class _SettingsScreen extends StatelessWidget {
             _buildItem(
               context,
               icon: FontAwesomeIcons.palette,
-              title: (l10n?.vneshniyVid_6873 ?? 'Fallback'),
-              subtitle: (l10n?.temaRazmerTekstaAnimatsii_f0a8 ?? 'Fallback'),
+              title: AppearanceStrings.of(context).get('themeSection'),
+              subtitle: AppearanceStrings.of(context).get('themeSectionDesc'),
+              onTap: () => MobileXnxThemeModal.show(context),
+            ),
+            _buildItem(
+              context,
+              icon: FontAwesomeIcons.commentDots,
+              title: AppearanceStrings.of(context).get('chatSection'),
+              subtitle: AppearanceStrings.of(context).get('chatSectionDesc'),
               onTap: () => MobileAppearanceModal.show(context),
             ),
             _buildItem(
@@ -505,7 +528,7 @@ class _SettingsScreen extends StatelessWidget {
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                           color: context.xaneoTextPrimary,
-                          fontFamily: 'Inter',
+                          fontFamily: null,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -517,7 +540,7 @@ class _SettingsScreen extends StatelessWidget {
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: context.xaneoTextSecondary,
-                          fontFamily: 'Inter',
+                          fontFamily: null,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -528,7 +551,7 @@ class _SettingsScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           color: context.xaneoTextMuted,
-                          fontFamily: 'Inter',
+                          fontFamily: null,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -551,7 +574,7 @@ class _SettingsScreen extends StatelessWidget {
                     fontSize: 12,
                     fontStyle: FontStyle.italic,
                     color: context.xaneoTextSecondary,
-                    fontFamily: 'Inter',
+                    fontFamily: null,
                   ),
                 ),
               ),
@@ -580,7 +603,7 @@ class _SettingsScreen extends StatelessWidget {
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: context.xaneoTextPrimary,
-                        fontFamily: 'Inter',
+                        fontFamily: null,
                       ),
                     ),
                   ],
@@ -609,7 +632,7 @@ class _SettingsScreen extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: context.xaneoTextMuted,
-              fontFamily: 'Inter',
+              fontFamily: null,
               letterSpacing: 1.3,
             ),
           ),
@@ -666,7 +689,7 @@ class _SettingsScreen extends StatelessWidget {
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: context.xaneoTextPrimary,
-                        fontFamily: 'Inter',
+                        fontFamily: null,
                       ),
                     ),
                     if (subtitle != null) ...[
@@ -676,7 +699,7 @@ class _SettingsScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           color: context.xaneoTextMuted,
-                          fontFamily: 'Inter',
+                          fontFamily: null,
                         ),
                       ),
                     ],
@@ -718,7 +741,7 @@ class _SettingsScreen extends StatelessWidget {
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: Color(0xFF888888),
-                fontFamily: 'Inter',
+                fontFamily: null,
               ),
             ),
           ),
@@ -747,9 +770,9 @@ class _MediaBarContent extends StatelessWidget {
       height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF18181B),
+        color: context.xaneoSurfaceElevated,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppStyles.borderColor),
+        border: Border.all(color: context.xaneoDivider),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -776,7 +799,7 @@ class _MediaBarContent extends StatelessWidget {
                       isPlaying
                           ? Icons.pause_rounded
                           : Icons.play_arrow_rounded,
-                      color: AppStyles.textPrimaryColor,
+                      color: context.xaneoTextPrimary,
                       size: 24,
                     ),
                   ],
@@ -800,11 +823,11 @@ class _MediaBarContent extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppStyles.textPrimaryColor,
+                    style: TextStyle(
+                      color: context.xaneoTextPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      fontFamily: AppStyles.fontFamily,
+                      fontFamily: null,
                     ),
                   ),
                   if (subtitle.isNotEmpty) ...[
@@ -813,10 +836,10 @@ class _MediaBarContent extends StatelessWidget {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppStyles.textSecondaryColor,
+                      style: TextStyle(
+                        color: context.xaneoTextSecondary,
                         fontSize: 10.5,
-                        fontFamily: AppStyles.fontFamily,
+                        fontFamily: null,
                       ),
                     ),
                   ],
@@ -826,9 +849,9 @@ class _MediaBarContent extends StatelessWidget {
           ),
           IconButton(
             onPressed: playbackProvider.dismissPlayerControls,
-            icon: const Icon(
+            icon: Icon(
               Icons.close_rounded,
-              color: AppStyles.textMutedColor,
+              color: context.xaneoTextMuted,
               size: 20,
             ),
             padding: EdgeInsets.zero,

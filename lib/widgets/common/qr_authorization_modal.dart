@@ -123,7 +123,7 @@ class _QrAuthorizationConfirmationModalState
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
-            textStyle: const TextStyle(
+            textStyle: Theme.of(context).textTheme.labelLarge!.copyWith(
               fontSize: 14.5,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.1,
@@ -145,7 +145,7 @@ class _QrAuthorizationConfirmationModalState
               borderRadius: BorderRadius.circular(14),
             ),
             side: BorderSide(color: context.xaneoDivider),
-            textStyle: const TextStyle(
+            textStyle: Theme.of(context).textTheme.labelLarge!.copyWith(
               fontSize: 14.5,
               fontWeight: FontWeight.w700,
             ),

@@ -17,12 +17,9 @@ class CreatePollModal extends BaseCustomModal {
       BuildContext context,
       Function(String question, List<String> options, bool isMultipleChoice)
           onCreate) {
-    showModalBottomSheet(
+    BaseCustomModal.show<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      barrierColor: Colors.black54,
-      builder: (context) => CreatePollModal(onCreate: onCreate),
+      child: CreatePollModal(onCreate: onCreate),
     );
   }
 
@@ -71,7 +68,7 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
             fontWeight: FontWeight.w700,
             color: context.xaneoTextSecondary,
             letterSpacing: 1.5,
-            fontFamily: AppStyles.fontFamily,
+            fontFamily: null,
           ),
         ),
         const SizedBox(height: 24),
@@ -85,12 +82,12 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
                 (AppLocalizations.of(context)?.vopros_0911 ?? 'Fallback'),
             labelStyle: TextStyle(color: context.xaneoTextMuted, fontSize: 13),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(context.xaneoRadius(12)),
               borderSide: BorderSide(color: context.xaneoDivider),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: context.xaneoTextPrimary),
+              borderRadius: BorderRadius.circular(context.xaneoRadius(12)),
+              borderSide: BorderSide(color: context.xaneoAccent),
             ),
             filled: true,
             fillColor: context.xaneoOverlay(0.02),
@@ -108,7 +105,7 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: context.xaneoTextSecondary,
-                fontFamily: AppStyles.fontFamily,
+                fontFamily: null,
               ),
             ),
             if (_optionsControllers.length < 10)
@@ -158,12 +155,14 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius:
+                            BorderRadius.circular(context.xaneoRadius(12)),
                         borderSide: BorderSide(color: context.xaneoDivider),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: context.xaneoTextPrimary),
+                        borderRadius:
+                            BorderRadius.circular(context.xaneoRadius(12)),
+                        borderSide: BorderSide(color: context.xaneoAccent),
                       ),
                       filled: true,
                       fillColor: context.xaneoOverlay(0.02),
@@ -187,11 +186,11 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
             ),
           );
         }),
-        SizedBox(height: 10),
+        const SizedBox(height: 10),
 
         // Multiple Choice Setting
         Theme(
-          data: ThemeData(
+          data: Theme.of(context).copyWith(
             unselectedWidgetColor: context.xaneoTextMuted,
           ),
           child: CheckboxListTile(
@@ -201,11 +200,11 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
               style: TextStyle(
                   color: context.xaneoTextPrimary,
                   fontSize: 14,
-                  fontFamily: AppStyles.fontFamily),
+                  fontFamily: null),
             ),
             value: _isMultipleChoice,
-            activeColor: context.xaneoTextPrimary,
-            checkColor: Theme.of(context).scaffoldBackgroundColor,
+            activeColor: context.xaneoButtonBackground,
+            checkColor: context.xaneoButtonForeground,
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
             onChanged: (val) {
@@ -237,7 +236,7 @@ class _CreatePollModalState extends BaseCustomModalState<CreatePollModal> {
             Navigator.pop(context);
             widget.onCreate(question, options, _isMultipleChoice);
           },
-          style: AppStyles.primaryButton,
+          style: Theme.of(context).elevatedButtonTheme.style,
           child: Text(
               (AppLocalizations.of(context)?.sozdatOpros_8401 ?? 'Fallback')),
         ),
@@ -256,12 +255,9 @@ class CreateTodoModal extends BaseCustomModal {
 
   static void show(BuildContext context,
       Function(String title, List<String> items) onCreate) {
-    showModalBottomSheet(
+    BaseCustomModal.show<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      barrierColor: Colors.black54,
-      builder: (context) => CreateTodoModal(onCreate: onCreate),
+      child: CreateTodoModal(onCreate: onCreate),
     );
   }
 
@@ -308,7 +304,7 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
             fontWeight: FontWeight.w700,
             color: context.xaneoTextSecondary,
             letterSpacing: 1.5,
-            fontFamily: AppStyles.fontFamily,
+            fontFamily: null,
           ),
         ),
         const SizedBox(height: 24),
@@ -322,12 +318,12 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
                 'Fallback'),
             labelStyle: TextStyle(color: context.xaneoTextMuted, fontSize: 13),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(context.xaneoRadius(12)),
               borderSide: BorderSide(color: context.xaneoDivider),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: context.xaneoTextPrimary),
+              borderRadius: BorderRadius.circular(context.xaneoRadius(12)),
+              borderSide: BorderSide(color: context.xaneoAccent),
             ),
             filled: true,
             fillColor: context.xaneoOverlay(0.02),
@@ -345,7 +341,7 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: context.xaneoTextSecondary,
-                fontFamily: AppStyles.fontFamily,
+                fontFamily: null,
               ),
             ),
             if (_itemsControllers.length < 20)
@@ -395,12 +391,14 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius:
+                            BorderRadius.circular(context.xaneoRadius(12)),
                         borderSide: BorderSide(color: context.xaneoDivider),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: context.xaneoTextPrimary),
+                        borderRadius:
+                            BorderRadius.circular(context.xaneoRadius(12)),
+                        borderSide: BorderSide(color: context.xaneoAccent),
                       ),
                       filled: true,
                       fillColor: context.xaneoOverlay(0.02),
@@ -446,7 +444,7 @@ class _CreateTodoModalState extends BaseCustomModalState<CreateTodoModal> {
             Navigator.pop(context);
             widget.onCreate(title, items);
           },
-          style: AppStyles.primaryButton,
+          style: Theme.of(context).elevatedButtonTheme.style,
           child: Text((AppLocalizations.of(context)?.sozdatSpisokZadach_0416 ??
               'Fallback')),
         ),

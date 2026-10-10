@@ -5,13 +5,16 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart' as file_picker;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api/api_client.dart';
+import '../../services/notifications/notification_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/update/update_service.dart';
 import '../../models/update/app_version_info.dart';
 import 'base_custom_modal.dart';
 import 'package:xaneo/l10n/app_localizations.dart';
+import '../../l10n/appearance_strings.dart';
 import '../../screens/qr_scan_screen.dart';
 import '../../services/runtime_translations.dart';
 import '../../models/message_color_presets.dart';
@@ -175,7 +178,7 @@ class _MobilePersonalModalState
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.2,
                 color: context.xaneoTextMuted,
-                fontFamily: 'Inter',
+                fontFamily: null,
               ),
             ),
             IconButton(
@@ -740,7 +743,7 @@ class _MobilePrivacyModalState
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.2,
                 color: context.xaneoTextMuted,
-                fontFamily: 'Inter',
+                fontFamily: null,
               ),
             ),
             IconButton(
@@ -904,6 +907,17 @@ class MobileAppearanceModal extends BaseCustomModal {
 
 class _MobileAppearanceModalState
     extends BaseCustomModalState<MobileAppearanceModal> {
+  bool _backgroundConnectionEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      if (mounted) setState(() => _backgroundConnectionEnabled =
+          prefs.getBool('background_connection_enabled') ?? true);
+    });
+  }
+
   @override
   bool get isResizable => false;
   @override
@@ -921,13 +935,13 @@ class _MobileAppearanceModalState
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              (AppLocalizations.of(context)?.vneshniyVid_5a0f ?? 'Fallback'),
+              AppearanceStrings.of(context).get('chatSection'),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.2,
                 color: context.xaneoTextMuted,
-                fontFamily: 'Inter',
+                fontFamily: null,
               ),
             ),
             IconButton(
@@ -938,14 +952,6 @@ class _MobileAppearanceModalState
           ],
         ),
         const SizedBox(height: 12),
-        _switchRow(
-            context,
-            (AppLocalizations.of(context)?.temnayaTema_cb48 ?? 'Fallback'),
-            (AppLocalizations.of(context)?.rezhimOformleniyaInterfeysa_b91d ??
-                'Fallback'),
-            appearance.isDarkMode,
-            appearance.setDarkMode),
-        SizedBox(height: 14),
         _switchRow(
             context,
             (AppLocalizations.of(context)?.animatsii_05c7 ?? 'Fallback'),
@@ -990,6 +996,15 @@ class _MobileAppearanceModalState
         _buildMessageColorPicker(context, appearance, isMe: false),
         const SizedBox(height: 24),
         _buildNotificationStylePicker(context, appearance),
+        SwitchListTile(
+          title: const Text('Фоновое соединение для звонков и сообщений'),
+          subtitle: const Text('Поддерживать прямое соединение с Xaneo, пока приложение работает'),
+          value: _backgroundConnectionEnabled,
+          onChanged: (enabled) async {
+            await NotificationService().setBackgroundConnectionEnabled(enabled);
+            if (mounted) setState(() => _backgroundConnectionEnabled = enabled);
+          },
+        ),
       ],
     );
   }
@@ -1606,7 +1621,7 @@ class _MobileSecurityModalState
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.2,
                 color: context.xaneoTextMuted,
-                fontFamily: 'Inter',
+                fontFamily: null,
               ),
             ),
             IconButton(
@@ -1892,7 +1907,7 @@ class _MobileAboutModalState extends BaseCustomModalState<MobileAboutModal> {
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : Colors.black87,
-                      fontFamily: 'Inter',
+                      fontFamily: null,
                     ),
                   ),
                   Text(
@@ -1902,7 +1917,7 @@ class _MobileAboutModalState extends BaseCustomModalState<MobileAboutModal> {
                     style: TextStyle(
                       fontSize: 13,
                       color: isDark ? Colors.white60 : Colors.black54,
-                      fontFamily: 'Inter',
+                      fontFamily: null,
                     ),
                   ),
                 ],
@@ -1926,7 +1941,7 @@ class _MobileAboutModalState extends BaseCustomModalState<MobileAboutModal> {
                   color: _foundUpdate != null
                       ? Colors.greenAccent
                       : (isDark ? Colors.white70 : Colors.black87),
-                  fontFamily: 'Inter',
+                  fontFamily: null,
                 ),
               ),
             ),

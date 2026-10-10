@@ -1696,6 +1696,145 @@
       "fallback_ru": "Введите номер телефона",
       "description": "Web localization key register.enterPhone"
     },
+    "register.phoneStepTitle": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Номер телефона",
+      "description": "Phone input step title"
+    },
+    "register.phoneStepRuSubtitle": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Для подтверждения потребуется совершить бесплатный звонок на 8-800",
+      "description": "Phone step Russian number subtitle"
+    },
+    "register.phoneStepIntlSubtitle": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Для зарубежных номеров поступит проверочный звонок",
+      "description": "Phone step International number subtitle"
+    },
+    "register.phoneConfirmation": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Подтверждение номера",
+      "description": "Phone confirmation step title"
+    },
+    "register.inboundCallSubtitle": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [
+        "phone"
+      ],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Совершите бесплатный звонок с вашего номера\n{phone}",
+      "description": "Inbound call instruction subtitle"
+    },
+    "register.callFree": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Позвонить (бесплатно)",
+      "description": "Call toll-free button label"
+    },
+    "register.waitingForCall": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Ожидание звонка…",
+      "description": "Waiting for inbound call indicator"
+    },
+    "register.phoneVerifiedSuccess": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Номер успешно подтверждён!",
+      "description": "Phone verified success message"
+    },
+    "register.inboundCallHint": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Звонок бесплатный. Вызов сбросится автоматически, отвечать не потребуется.",
+      "description": "Inbound call explanation hint"
+    },
+    "register.changePhone": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Изменить номер",
+      "description": "Change phone number button"
+    },
+    "register.flashCallSubtitle": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [
+        "phone"
+      ],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Мы совершаем проверочный звонок на номер\n{phone}\nВведите последние 4 цифры входящего номера:",
+      "description": "Flash call subtitle and instructions"
+    },
+    "register.requestCallAgain": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Запросить звонок повторно",
+      "description": "Request verification call again button"
+    },
+    "register.invalidCode": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Неверный код",
+      "description": "Invalid code error message"
+    },
+    "register.codeVerificationError": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Ошибка проверки кода",
+      "description": "Code verification error message"
+    },
+    "register.phoneVerificationInitError": {
+      "scope": "mobile",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Ошибка при инициализации верификации",
+      "description": "Phone verification init error message"
+    },
     "register.codeFromEmail": {
       "scope": "web",
       "type": "text",
@@ -5004,38 +5143,66 @@
       "description": "Web localization key messenger.forward.searchPlaceholder"
     },
     "messenger.forward.typePersonal": {
-      "scope": "web", "type": "text", "placeholders": [], "max_length": 4096,
-      "security_critical": false, "fallback_ru": "Личный",
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Личный",
       "description": "Forward target type: personal chat"
     },
     "messenger.forward.typeGroup": {
-      "scope": "web", "type": "text", "placeholders": [], "max_length": 4096,
-      "security_critical": false, "fallback_ru": "Группа",
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Группа",
       "description": "Forward target type: group"
     },
     "messenger.forward.typeChannel": {
-      "scope": "web", "type": "text", "placeholders": [], "max_length": 4096,
-      "security_critical": false, "fallback_ru": "Канал",
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Канал",
       "description": "Forward target type: channel"
     },
     "messenger.forward.empty": {
-      "scope": "web", "type": "text", "placeholders": [], "max_length": 4096,
-      "security_critical": false, "fallback_ru": "Нет доступных чатов",
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Нет доступных чатов",
       "description": "Empty state for forward targets"
     },
     "messenger.forward.loadError": {
-      "scope": "web", "type": "text", "placeholders": [], "max_length": 4096,
-      "security_critical": false, "fallback_ru": "Не удалось загрузить чаты",
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Не удалось загрузить чаты",
       "description": "Error shown when forward targets cannot be loaded"
     },
     "messenger.forward.sendError": {
-      "scope": "web", "type": "text", "placeholders": [], "max_length": 4096,
-      "security_critical": false, "fallback_ru": "Не удалось переслать сообщение",
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Не удалось переслать сообщение",
       "description": "Error shown when a message cannot be forwarded"
     },
     "messenger.message.forwardedFrom": {
-      "scope": "web", "type": "text", "placeholders": [], "max_length": 4096,
-      "security_critical": false, "fallback_ru": "переслано от",
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "переслано от",
       "description": "Forwarded message source label"
     },
     "messenger.call.return": {
@@ -5820,7 +5987,7 @@
       "placeholders": [],
       "max_length": 4096,
       "security_critical": false,
-      "fallback_ru": "Попробовать без долгих обязательств",
+      "fallback_ru": "159 ₽ каждые 30 дней · автопродление",
       "description": "Web localization key messenger.premium.planMonthNote"
     },
     "messenger.premium.planYear": {
@@ -5847,7 +6014,7 @@
       "placeholders": [],
       "max_length": 4096,
       "security_critical": false,
-      "fallback_ru": "Экономия 909 ₽ (≈ 83 ₽/мес)",
+      "fallback_ru": "999 ₽ каждые 365 дней · экономия 909 ₽",
       "description": "Web localization key messenger.premium.planYearNote"
     },
     "messenger.premium.benefitCustomization": {
@@ -5928,7 +6095,7 @@
       "placeholders": [],
       "max_length": 4096,
       "security_critical": false,
-      "fallback_ru": "Оплата и управление подпиской — в вашем биллинге/аккаунте. Отменить можно в любой момент до продления.",
+      "fallback_ru": "Подписка продлевается автоматически. Автопродление можно отключить здесь в любой момент; оплаченный срок сохранится.",
       "description": "Web localization key messenger.premium.footnote"
     },
     "messenger.premium.planChoice": {
@@ -14648,6 +14815,395 @@
       "security_critical": false,
       "fallback_ru": "Подтвердить",
       "description": "Mobile multi-account UI"
+    },
+    "messenger.emoji.closePanel": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Закрыть панель эмодзи",
+      "description": "Emoji picker closePanel"
+    },
+    "messenger.emoji.close": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Закрыть",
+      "description": "Emoji picker close"
+    },
+    "messenger.emoji.category.recent": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Недавние",
+      "description": "Emoji picker recent"
+    },
+    "messenger.emoji.category.smileys": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Смайлы",
+      "description": "Emoji picker smileys"
+    },
+    "messenger.emoji.category.people": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Люди",
+      "description": "Emoji picker people"
+    },
+    "messenger.emoji.category.animals": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Животные",
+      "description": "Emoji picker animals"
+    },
+    "messenger.emoji.category.food": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Еда",
+      "description": "Emoji picker food"
+    },
+    "messenger.emoji.category.activities": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Активности",
+      "description": "Emoji picker activities"
+    },
+    "messenger.emoji.category.travel": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Путешествия",
+      "description": "Emoji picker travel"
+    },
+    "messenger.emoji.category.objects": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Объекты",
+      "description": "Emoji picker objects"
+    },
+    "messenger.emoji.category.symbols": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Символы",
+      "description": "Emoji picker symbols"
+    },
+    "messenger.emoji.category.flags": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Флаги",
+      "description": "Emoji picker flags"
+    },
+    "messenger.premium.buyYear": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Оформить за 999 ₽/год",
+      "description": "Web localization key messenger.premium.buyYear"
+    },
+    "messenger.premium.stopAutoRenew": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Отключить автопродление XB",
+      "description": "Web localization key messenger.premium.stopAutoRenew"
+    },
+    "messenger.premium.confirmStop": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Отключить автопродление XB? Оплаченный срок сохранится.",
+      "description": "Web localization key messenger.premium.confirmStop"
+    },
+    "messenger.premium.openingCheckout": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Открываем страницу оплаты…",
+      "description": "Web localization key messenger.premium.openingCheckout"
+    },
+    "messenger.premium.checkoutTitle": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Оформление XB",
+      "description": "Web localization key messenger.premium.checkoutTitle"
+    },
+    "messenger.premium.checkoutIntro": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Подтвердите подписку на защищённой странице Rolly Pay. Здесь можно следить за её состоянием.",
+      "description": "Web localization key messenger.premium.checkoutIntro"
+    },
+    "messenger.premium.checkoutOpen": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Перейти к оплате",
+      "description": "Web localization key messenger.premium.checkoutOpen"
+    },
+    "messenger.premium.checkoutCheck": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Проверить статус",
+      "description": "Web localization key messenger.premium.checkoutCheck"
+    },
+    "messenger.premium.checkoutChecking": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Проверяем оплату…",
+      "description": "Web localization key messenger.premium.checkoutChecking"
+    },
+    "messenger.premium.checkoutPending": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Ожидаем подтверждения оплаты. Доступ включится после подтверждённого платежа.",
+      "description": "Web localization key messenger.premium.checkoutPending"
+    },
+    "messenger.premium.checkoutPaid": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Оплата подтверждена. XB активирован.",
+      "description": "Web localization key messenger.premium.checkoutPaid"
+    },
+    "messenger.premium.checkoutFailed": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Оплата не подтверждена. Проверьте статус или откройте оплату снова.",
+      "description": "Web localization key messenger.premium.checkoutFailed"
+    },
+    "messenger.premium.checkoutSandboxBadge": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Тест Rolly Pay · без списаний",
+      "description": "Web localization key messenger.premium.checkoutSandboxBadge"
+    },
+    "messenger.premium.checkoutSandboxIntro": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Откройте тестовую страницу Rolly Pay и подтвердите платёж. XB включится после подписанного уведомления.",
+      "description": "Web localization key messenger.premium.checkoutSandboxIntro"
+    },
+    "messenger.premium.planMonthSandboxNote": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Тестовый платёж · 30 дней XB · без автопродления",
+      "description": "Web localization key messenger.premium.planMonthSandboxNote"
+    },
+    "messenger.premium.planYearSandboxNote": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Тестовый платёж · 365 дней XB · без автопродления",
+      "description": "Web localization key messenger.premium.planYearSandboxNote"
+    },
+    "messenger.premium.footnoteSandbox": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Тестовая оплата через Rolly Pay без списаний и автопродления. XB включится после подтверждения тестового платежа.",
+      "description": "Web localization key messenger.premium.footnoteSandbox"
+    },
+    "messenger.premium.sandboxActive": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Тестовая подписка XB активна.",
+      "description": "Web localization key messenger.premium.sandboxActive"
+    },
+    "messenger.premium.renewalEnabled": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Автопродление XB включено. Оплаченный срок сохранится после отключения.",
+      "description": "Web localization key messenger.premium.renewalEnabled"
+    },
+    "messenger.premium.stopPending": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Отключение автопродления обрабатывается.",
+      "description": "Web localization key messenger.premium.stopPending"
+    },
+    "messenger.premium.stoppingRenewal": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Отключаем автопродление…",
+      "description": "Web localization key messenger.premium.stoppingRenewal"
+    },
+    "messenger.premium.renewalStopped": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Автопродление отключено. Оплаченный срок XB сохранён.",
+      "description": "Web localization key messenger.premium.renewalStopped"
+    },
+    "messenger.premium.paymentUnavailable": {
+      "scope": "web",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 4096,
+      "security_critical": false,
+      "fallback_ru": "Платёжная система временно недоступна",
+      "description": "Web localization key messenger.premium.paymentUnavailable"
+    },
+    "messenger.premium.menuTitle": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 128,
+      "security_critical": false,
+      "fallback_ru": "Подписка XB",
+      "description": "Settings menu title for XB subscription"
+    },
+    "messenger.premium.menuSubtitle": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 256,
+      "security_critical": false,
+      "fallback_ru": "XaneoBenefits и расширенные возможности",
+      "description": "Settings menu subtitle for XB subscription"
+    },
+    "messenger.premium.activeUntil": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [
+        "date"
+      ],
+      "max_length": 256,
+      "security_critical": false,
+      "fallback_ru": "Активна до {date}",
+      "description": "Subscription expiration date"
+    },
+    "messenger.premium.stopConfirmTitle": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 128,
+      "security_critical": false,
+      "fallback_ru": "Отключить автопродление?",
+      "description": "Dialog title for stopping auto-renewal"
+    },
+    "messenger.premium.stopConfirmText": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 512,
+      "security_critical": false,
+      "fallback_ru": "Подписка останется активной до конца текущего оплаченного периода. Новые списания производиться не будут.",
+      "description": "Dialog description for stopping auto-renewal"
+    },
+    "messenger.premium.cancel": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 64,
+      "security_critical": false,
+      "fallback_ru": "Отмена",
+      "description": "Cancel button"
+    },
+    "messenger.premium.payNow": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 64,
+      "security_critical": false,
+      "fallback_ru": "Перейти к оплате",
+      "description": "Proceed to payment button"
+    },
+    "messenger.premium.checkStatus": {
+      "scope": "messenger",
+      "type": "text",
+      "placeholders": [],
+      "max_length": 64,
+      "security_critical": false,
+      "fallback_ru": "Проверить статус",
+      "description": "Check payment status button"
     }
   }
 }

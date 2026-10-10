@@ -193,7 +193,7 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                               color: Colors.white,
                               fontSize: 13.5,
                               fontWeight: FontWeight.w600,
-                              fontFamily: 'Inter',
+                              fontFamily: null,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -209,7 +209,7 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                                       color:
                                           Colors.white.withValues(alpha: 0.55),
                                       fontSize: 11.5,
-                                      fontFamily: 'Inter',
+                                      fontFamily: null,
                                     ),
                                   ),
                                 ),
@@ -220,7 +220,7 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.45),
                                   fontSize: 11,
-                                  fontFamily: 'Inter',
+                                  fontFamily: null,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -477,7 +477,7 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                               color: Colors.white,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              fontFamily: 'Inter',
+                              fontFamily: null,
                             ),
                           ),
                           if (subtitle.isNotEmpty)
@@ -488,7 +488,7 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.5),
                                 fontSize: 11,
-                                fontFamily: 'Inter',
+                                fontFamily: null,
                               ),
                             ),
                         ],
@@ -506,7 +506,7 @@ class _MusicPlaybackWidgetState extends State<MusicPlaybackWidget>
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 11,
-                      fontFamily: 'Inter',
+                      fontFamily: null,
                     ),
                   ),
 
@@ -920,7 +920,7 @@ class _MusicFullPlayerModalState
                 color: Colors.white,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                fontFamily: 'Inter',
+                fontFamily: null,
               ),
             ),
 
@@ -935,7 +935,7 @@ class _MusicFullPlayerModalState
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 14,
-                fontFamily: 'Inter',
+                fontFamily: null,
               ),
             ),
 
@@ -985,7 +985,7 @@ class _MusicFullPlayerModalState
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 12,
-                      fontFamily: 'Inter',
+                      fontFamily: null,
                     ),
                   ),
                   Text(
@@ -993,7 +993,7 @@ class _MusicFullPlayerModalState
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 12,
-                      fontFamily: 'Inter',
+                      fontFamily: null,
                     ),
                   ),
                 ],

@@ -18,6 +18,15 @@ import '../api/api_client.dart';
 /// - Обновление токенов
 /// - Выход из системы
 class AuthService {
+  final Map<String, String> _phoneProofs = {};
+  final Map<String, String> _emailProofs = {};
+  final Map<String, String> _phoneChallenges = {};
+
+  void _rememberProof(Map<String, dynamic> data, Map<String, String> proofs, String contact) {
+    final token = data['verification_token'];
+    if (token is String && token.isNotEmpty) proofs[contact] = token;
+  }
+
   final ApiClient _apiClient;
   final TokenStorage _tokenStorage;
 
@@ -229,11 +238,11 @@ class AuthService {
   /// 2. verifyEmailCode(email, code) - устанавливает флаг в сессии
   /// 3. register(...) - проверяет флаг в сессии
   ///
-  /// Возвращает MobileRegisterResponse (без JWT токенов!)
-  /// Для получения токенов нужно использовать loginWithTokens после регистрации.
+  /// Возвращает MobileRegisterResponse и сохраняет JWT после регистрации.
   Future<MobileRegisterResponse> register({
     required String username,
     required String email,
+    required String phone,
     required String password,
     required String passwordConfirm,
     String? birthDate,
@@ -245,6 +254,9 @@ class AuthService {
       final Map<String, dynamic> mapData = {
         'username': username,
         'email': email,
+        'phone': phone,
+        if (_phoneProofs[phone] != null) 'phone_verification_token': _phoneProofs[phone],
+        if (_emailProofs[email.toLowerCase()] != null) 'email_verification_token': _emailProofs[email.toLowerCase()],
         'password': password,
         'password_confirm': passwordConfirm,
         'birth_date': birthDate,
@@ -394,6 +406,71 @@ class AuthService {
           'code': code,
         },
       );
+      _rememberProof(response.data, _emailProofs, email.trim().toLowerCase());
+      return VerifyCodeResponse.fromJson(response.data);
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  /// Инициализация подтверждения номера телефона
+  ///
+  /// Для +7: входящий бесплатный звонок на 8-800
+  /// Для зарубежных: исходящий Flash Call с 4-значным кодом
+  Future<PhoneVerificationInitResponse> sendPhoneVerification(
+      String phone) async {
+    try {
+      final response = await _apiClient.post(
+        AppConfig.authSendPhoneCode,
+        data: {'phone': phone},
+      );
+      final result = PhoneVerificationInitResponse.fromJson(response.data);
+      if (result.success) {
+        _phoneProofs.remove(phone);
+        final challenge = response.data['challenge'];
+        if (challenge is String) _phoneChallenges[phone] = challenge;
+      }
+      return result;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  /// Проверка статуса входящего звонка на 8-800
+  Future<InboundCallStatusResponse> checkInboundPhoneStatus({
+    String? uid,
+    String? phone,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        AppConfig.authCheckInboundPhoneStatus,
+        data: {
+          if (uid != null) 'uid': uid,
+          if (phone != null) 'phone': phone,
+          if (_phoneChallenges[phone] != null) 'challenge': _phoneChallenges[phone],
+        },
+      );
+      if (phone != null) _rememberProof(response.data, _phoneProofs, phone);
+      return InboundCallStatusResponse.fromJson(response.data);
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  /// Проверка 4-значного кода подтверждения телефона (для Flash Call)
+  Future<VerifyCodeResponse> verifyPhoneCode({
+    required String phone,
+    required String code,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        AppConfig.authVerifyPhoneCode,
+        data: {
+          'phone': phone,
+          'code': code,
+        },
+      );
+      _rememberProof(response.data, _phoneProofs, phone);
       return VerifyCodeResponse.fromJson(response.data);
     } on DioException catch (e) {
       throw _handleDioError(e);
@@ -464,10 +541,11 @@ class AuthService {
         // Rate limit
         if (statusCode == 429) {
           final retryAfter = e.response?.headers.value('Retry-After');
+          final seconds = int.tryParse(retryAfter ?? '') ??
+              (data is Map ? int.tryParse('${data['retry_after']}') : null) ?? 60;
           return RateLimitError(
-            retryAfter: retryAfter != null
-                ? Duration(seconds: int.parse(retryAfter))
-                : null,
+            message: data is Map && data['message'] is String ? data['message'] as String : null,
+            retryAfter: Duration(seconds: seconds.clamp(1, 600).toInt()),
           );
         }
 
@@ -578,25 +656,6 @@ class AuthService {
       }
     }
     await _tokenStorage.removeAccount(accountKey);
-  }
-
-  /// Регистрация FCM пуш-токена на бэкенде
-  Future<void> registerFcmToken(String token) async {
-    try {
-      await _apiClient.post(
-        '/api/notifications/register-token/',
-        data: {
-          'token': token,
-          'device_id': _apiClient.deviceId,
-          'device_type': Platform.isAndroid ? 'android' : 'ios',
-        },
-      );
-      debugPrint('FCM: Token registered with backend successfully.');
-    } on DioException catch (e) {
-      debugPrint('FCM: Error registering token with backend: ${e.type}');
-    } catch (e) {
-      debugPrint('FCM: Unexpected token registration error: ${e.runtimeType}');
-    }
   }
 
   /// Обновляет видимое создающему клиенту состояние сканирования QR-кода.

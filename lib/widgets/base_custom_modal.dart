@@ -125,7 +125,7 @@ abstract class BaseCustomModalState<T extends BaseCustomModal> extends State<T> 
                           fontWeight: FontWeight.w600,
                           letterSpacing: 1.5 * scale,
                           color: isDark ? Colors.white38 : Colors.black38,
-                          fontFamily: 'Inter',
+                          fontFamily: null,
                         ),
                       ),
                       GestureDetector(

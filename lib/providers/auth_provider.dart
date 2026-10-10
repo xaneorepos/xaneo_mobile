@@ -340,6 +340,7 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> register({
     required String username,
     required String email,
+    required String phone,
     required String password,
     required String passwordConfirm,
     String? birthDate,
@@ -353,6 +354,7 @@ class AuthProvider extends ChangeNotifier {
       final registerResponse = await _authService.register(
         username: username,
         email: email,
+        phone: phone,
         password: password,
         passwordConfirm: passwordConfirm,
         birthDate: birthDate,
@@ -411,6 +413,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    await NotificationService().reconnect();
     await _authService.logout();
     if (_cryptoService != null) {
       await _cryptoService!.deactivateAccountScope();
@@ -517,6 +520,43 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<PhoneVerificationInitResponse> sendPhoneVerification(
+      String phone) async {
+    try {
+      return await _authService.sendPhoneVerification(phone);
+    } on ApiError catch (e) {
+      _error = e;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<InboundCallStatusResponse> checkInboundPhoneStatus({
+    String? uid,
+    String? phone,
+  }) async {
+    try {
+      return await _authService.checkInboundPhoneStatus(uid: uid, phone: phone);
+    } on ApiError catch (e) {
+      _error = e;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<VerifyCodeResponse> verifyPhoneCode({
+    required String phone,
+    required String code,
+  }) async {
+    try {
+      return await _authService.verifyPhoneCode(phone: phone, code: code);
+    } on ApiError catch (e) {
+      _error = e;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   Future<RecentAccountsResponse> getRecentAccounts() async {
     return _recentAccountsService.getRecentAccounts();
   }
@@ -612,20 +652,8 @@ class AuthProvider extends ChangeNotifier {
     _error = null;
   }
 
-  /// Вспомогательный метод для регистрации токена устройства при успешном входе
-  Future<void> _registerDeviceTokenIfAuthenticated() async {
-    if (_status == AuthStatus.authenticated) {
-      try {
-        final token = await NotificationService().getDeviceToken();
-        if (token != null) {
-          await _authService.registerFcmToken(token);
-        }
-      } catch (e) {
-        debugPrint(
-            'FCM: Failed to fetch/register device token: ${e.runtimeType}');
-      }
-    }
-  }
+  Future<void> _registerDeviceTokenIfAuthenticated() =>
+      NotificationService().reconnect();
 }
 
 class AuthProviderFactory {

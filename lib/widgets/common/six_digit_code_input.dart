@@ -9,6 +9,7 @@ class SixDigitCodeInput extends StatefulWidget {
     required this.controller,
     this.focusNode,
     this.autofocus = true,
+    this.length = 6,
     this.onChanged,
     this.onSubmitted,
   });
@@ -16,6 +17,7 @@ class SixDigitCodeInput extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode? focusNode;
   final bool autofocus;
+  final int length;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
@@ -59,12 +61,12 @@ class _SixDigitCodeInputState extends State<SixDigitCodeInput> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        const codeLength = 6;
+        final codeLength = widget.length;
         const spacing = 8.0;
-        final availableWidth = constraints.maxWidth - spacing * 5;
+        final availableWidth = constraints.maxWidth - spacing * (codeLength - 1);
         final calculatedWidth = availableWidth / codeLength;
-        final boxWidth = calculatedWidth.clamp(36.0, 48.0);
-        final rowWidth = boxWidth * codeLength + spacing * 5;
+        final boxWidth = calculatedWidth.clamp(36.0, 52.0);
+        final rowWidth = boxWidth * codeLength + spacing * (codeLength - 1);
 
         return Center(
           child: SizedBox(
