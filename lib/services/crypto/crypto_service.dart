@@ -1527,6 +1527,69 @@ class CryptoService {
   /// Шифрует сообщение для отправки
   /// Группы/Каналы: XChaCha20-Poly1305 (24-байт nonce) — единый стандарт с веб-клиентом
   /// Личные/Избранное: AES-256-GCM (12-байт nonce)
+  Future<Map<String, dynamic>> encryptScheduledMessage(
+    String text,
+    String chatId,
+  ) async {
+    String? encrypted;
+    int? epoch;
+    var bot = false;
+    if (chatId.startsWith('group_') || chatId.startsWith('channel_')) {
+      final response = await _apiClient.get(
+        '/xsec2/group/$chatId/epoch/current/',
+      );
+      final data = Map<String, dynamic>.from(response.data as Map);
+      final key =
+          _decodeServerKey(data['server_epoch_key']?.toString() ?? '') ??
+          await _tryExtractGroupEpochKeyFromDistribution(chatId, data);
+      if (key == null) throw StateError('Group key unavailable');
+      epoch = int.tryParse(data['epoch_id']?.toString() ?? '');
+      encrypted = await _encryptXChaCha20(text, key);
+    } else {
+      final key = await ensureKeyForChat(chatId);
+      if (key == null) throw StateError('Chat key unavailable');
+      bot = key.isEmpty;
+      encrypted = await encryptMessage(text, chatId);
+    }
+    if (encrypted == null) throw StateError('Encryption failed');
+    return {
+      'encrypted_text': encrypted,
+      'signature': bot ? '' : await signMessage(encrypted),
+      if (epoch != null) 'epoch_id': epoch,
+    };
+  }
+
+  Future<String> decryptScheduledMessage(
+    Map<String, dynamic> payload,
+    String chatId,
+  ) async {
+    final text = payload['encrypted_text']?.toString() ?? '';
+    final epoch = int.tryParse(payload['epoch_id']?.toString() ?? '');
+    if (epoch != null &&
+        (chatId.startsWith('group_') || chatId.startsWith('channel_'))) {
+      final response = await _apiClient.get(
+        '/xsec2/group/$chatId/epoch/$epoch/',
+      );
+      final data = Map<String, dynamic>.from(response.data as Map);
+      final key =
+          _decodeServerKey(data['server_epoch_key']?.toString() ?? '') ??
+          await _tryExtractGroupEpochKeyFromDistribution(chatId, data);
+      if (key == null) throw StateError('Group key unavailable');
+      final decrypted = await _tryDecryptWithSingleKey(
+        base64Decode(text),
+        key,
+        chatId,
+      );
+      if (decrypted == null) throw StateError('Decryption failed');
+      return decrypted;
+    }
+    final key = await ensureKeyForChat(chatId);
+    if (key?.isEmpty == true) return text;
+    final result = await decryptMessage(text, chatId);
+    if (result == null) throw StateError('Decryption failed');
+    return result;
+  }
+
   Future<String?> encryptMessage(String plaintext, String chatId) async {
     try {
       final key = await ensureKeyForChat(chatId);
@@ -1743,7 +1806,7 @@ class CryptoService {
     const nonceLen = 24;
     const tagLen = 16;
 
-    if (data.length <= nonceLen + tagLen) return null;
+    if (data.length < nonceLen + tagLen) return null;
 
     final nonce = data.sublist(0, nonceLen);
     final ciphertextWithTag = data.sublist(nonceLen);

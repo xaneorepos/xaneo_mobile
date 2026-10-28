@@ -13,6 +13,295 @@
   "max_pack_size_bytes": 2097152,
   "max_string_length": 4096,
   "keys": {
+  "messenger.scheduled.title": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Отложить сообщение",
+    "description": "Scheduled message UI: title"
+  },
+  "messenger.scheduled.list": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Отложенные сообщения",
+    "description": "Scheduled message UI: list"
+  },
+  "messenger.scheduled.schedule": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Запланировать",
+    "description": "Scheduled message UI: schedule"
+  },
+  "messenger.scheduled.reschedule": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Перенести",
+    "description": "Scheduled message UI: reschedule"
+  },
+  "messenger.scheduled.cancel": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Отменить отправку",
+    "description": "Scheduled message UI: cancel"
+  },
+  "messenger.scheduled.edit": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Редактировать",
+    "description": "Scheduled message UI: edit"
+  },
+  "messenger.scheduled.save": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Сохранить",
+    "description": "Scheduled message UI: save"
+  },
+  "messenger.scheduled.discard": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Отмена",
+    "description": "Scheduled message UI: discard"
+  },
+  "messenger.scheduled.done": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Готово",
+    "description": "Scheduled message UI: done"
+  },
+  "messenger.scheduled.close": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Закрыть",
+    "description": "Scheduled message UI: close"
+  },
+  "messenger.scheduled.refresh": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Обновить список",
+    "description": "Scheduled message UI: refresh"
+  },
+  "messenger.scheduled.loadMore": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Показать ещё",
+    "description": "Scheduled message UI: loadMore"
+  },
+  "messenger.scheduled.empty": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Нет отложенных сообщений.",
+    "description": "Scheduled message UI: empty"
+  },
+  "messenger.scheduled.pending": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Ожидает отправки",
+    "description": "Scheduled message UI: pending"
+  },
+  "messenger.scheduled.sending": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Отправляется",
+    "description": "Scheduled message UI: sending"
+  },
+  "messenger.scheduled.failed": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Ошибка отправки",
+    "description": "Scheduled message UI: failed"
+  },
+  "messenger.scheduled.messageText": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Текст сообщения",
+    "description": "Scheduled message UI: messageText"
+  },
+  "messenger.scheduled.attachments": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Вложения",
+    "description": "Scheduled message UI: attachments"
+  },
+  "messenger.scheduled.encryptedPreview": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Зашифрованное сообщение",
+    "description": "Scheduled message UI: encryptedPreview"
+  },
+  "messenger.scheduled.addFiles": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Добавить файлы",
+    "description": "Scheduled message UI: addFiles"
+  },
+  "messenger.scheduled.removeFile": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Удалить",
+    "description": "Scheduled message UI: removeFile"
+  },
+  "messenger.scheduled.replaceFile": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Заменить",
+    "description": "Scheduled message UI: replaceFile"
+  },
+  "messenger.scheduled.fileUnavailable": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Файл недоступен",
+    "description": "Scheduled message UI: fileUnavailable"
+  },
+  "messenger.scheduled.fileLimit": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Можно прикрепить до 10 файлов.",
+    "description": "Scheduled message UI: fileLimit"
+  },
+  "messenger.scheduled.draftRequired": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Введите сообщение; можно приложить до 10 файлов.",
+    "description": "Scheduled message UI: draftRequired"
+  },
+  "messenger.scheduled.futureRequired": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Выберите время в будущем.",
+    "description": "Scheduled message UI: futureRequired"
+  },
+  "messenger.scheduled.timezone": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Время указано в часовом поясе устройства. Приложение можно закрыть.",
+    "description": "Scheduled message UI: timezone"
+  },
+  "messenger.scheduled.keyRequired": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Не удалось загрузить ключ чата. Попробуйте ещё раз.",
+    "description": "Scheduled message UI: keyRequired"
+  },
+  "messenger.scheduled.unsupportedReply": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Выберите ответ на обычное сообщение.",
+    "description": "Scheduled message UI: unsupportedReply"
+  },
+  "messenger.scheduled.uploadRequired": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Дождитесь загрузки вложений.",
+    "description": "Scheduled message UI: uploadRequired"
+  },
+  "messenger.scheduled.saved": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Сообщение запланировано",
+    "description": "Scheduled message UI: saved"
+  },
+  "messenger.scheduled.error": {
+    "scope": "web",
+    "type": "text",
+    "placeholders": [],
+    "max_length": 4096,
+    "security_critical": false,
+    "fallback_ru": "Не удалось сохранить изменения.",
+    "description": "Scheduled message UI: error"
+  },
+
     "header.home": {
       "scope": "web",
       "type": "text",

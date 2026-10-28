@@ -33,6 +33,12 @@ import '../../services/grpc_service.dart';
 import '../../services/database/app_database.dart';
 import '../../styles/app_styles.dart';
 import '../../utils/audio_metadata.dart';
+import '../../utils/message_links.dart';
+import '../../services/scheduled_messages.dart';
+import '../../widgets/scheduled_messages_dialog.dart';
+import '../../widgets/linked_message_text.dart';
+import '../../controllers/draft_link_preview_controller.dart';
+import '../../widgets/draft_link_preview_composer.dart';
 import '../../utils/chat_name_localizer.dart';
 import '../../utils/avatar_resolver.dart';
 import '../../widgets/common/chat_info_modal.dart';
@@ -381,6 +387,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   StreamSubscription? _wsEventsSub;
 
   final _messageController = FormattedTextEditingController();
+  late final DraftLinkPreviewController _draftLinkPreview = DraftLinkPreviewController(
+    fetch: (uri) async {
+      final response = await context.read<ApiClient>().post('/link-preview/', data: {'url': uri.toString()});
+      return response.data;
+    },
+  );
+  String get _draftPreviewScope =>
+      '${widget.chat.id}:${widget.discussion?.channelId}:${widget.discussion?.postId}';
   final List<AttachmentComposition> _attachments = [];
   final Map<String, List<AttachmentComposition>> _outgoingTransfers = {};
   final _messageFocusNode = FocusNode();
@@ -646,6 +660,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _commentSummaryTimer?.cancel();
     _discussionRefreshTimer?.cancel();
     _scrollController.removeListener(_scrollListener);
+    _draftLinkPreview.dispose();
     _messageController.removeListener(_onTextChanged);
     _wsEventsSub?.cancel();
     _chatWebSocketService.dispose();
@@ -2626,7 +2641,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ? jsonEncode(event['votes_by_option'])
           : null;
       final eventMessageData = event['message_data'];
-      final messageDataVal = _encodeMessageData(eventMessageData);
+      final messageDataVal = event['link_preview'] is Map ? _encodeMessageData({
+        if (eventMessageData is Map) ...Map<String, dynamic>.from(eventMessageData),
+        'link_preview': event['link_preview'],
+      }) : _encodeMessageData(eventMessageData);
       final replyMarkupVal =
           (eventMessageData is Map && eventMessageData['reply_markup'] != null)
               ? jsonEncode(eventMessageData['reply_markup'])
@@ -3471,6 +3489,126 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  ScheduledMessagesApi _scheduledApi() {
+    final client = context.read<ApiClient>();
+    return ScheduledMessagesApi(
+      baseUrl: Uri.parse(AppConfig.apiBaseUrl),
+      request: (method, path, data, query) => client.dio.request(
+        path,
+        data: data,
+        queryParameters: query,
+        options: Options(
+          method: method,
+          contentType: data is FormData
+              ? 'multipart/form-data'
+              : Headers.jsonContentType,
+        ),
+      ),
+    );
+  }
+
+  void _showScheduledMenu() {
+    if (_isRecording || _isRecordingVideo) return;
+    ChatActionSheet.show(
+      context,
+      actions: [
+        if (_messageController.text.trim().isNotEmpty ||
+            _attachments.isNotEmpty)
+          ChatSheetAction(
+            icon: Icons.schedule_rounded,
+            title: scheduleText(context, 'title'),
+            subtitle: scheduleText(context, 'timezone'),
+            onSelected: _scheduleDraft,
+          ),
+        ChatSheetAction(
+          icon: Icons.event_note_rounded,
+          title: scheduleText(context, 'list'),
+          subtitle: scheduleText(context, 'reschedule'),
+          onSelected: _openScheduledList,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openScheduledList() async {
+    final chatId = widget.chat.id;
+    final crypto = context.read<CryptoService>();
+    await showScheduledMessages(
+      context,
+      api: _scheduledApi(),
+      chatId: chatId,
+      seal: (text) => crypto.encryptScheduledMessage(text, chatId),
+      decrypt: (payload) => crypto.decryptScheduledMessage(payload, chatId),
+      foreground: context.xaneoTextPrimary,
+      background: context.xaneoSurface,
+    );
+  }
+
+  Future<void> _scheduleDraft() async {
+    final original = _messageController.text;
+    final text = original.trim();
+    final files = List<AttachmentComposition>.from(_attachments);
+    final chatId = widget.chat.id;
+    try {
+      if ((text.isEmpty && files.isEmpty) ||
+          text.length > 4096 ||
+          files.length > 10)
+        throw ScheduleException(scheduleText(context, 'draftRequired'));
+      if (files.any((file) => file.status == 'preparing'))
+        throw ScheduleException(scheduleText(context, 'uploadRequired'));
+      final reply = _replyingToMessage;
+      final replyId =
+          _discussionMirrorId ?? int.tryParse(reply?.serverMessageId ?? '');
+      if (reply != null && replyId == null)
+        throw ScheduleException(scheduleText(context, 'unsupportedReply'));
+      final comment = widget.discussion != null;
+      final crypto = context.read<CryptoService>();
+      final submission = ScheduledSubmission(
+        api: _scheduledApi(),
+        prepare: () async {
+          await Future.wait(
+            files.map((file) => file.uploadFuture).whereType<Future<void>>(),
+          );
+          if (files.any(
+            (file) => file.status != 'success' || file.fileId == null,
+          ))
+            throw ScheduleException(scheduleText(context, 'uploadRequired'));
+          return {
+            ...await crypto.encryptScheduledMessage(text, chatId),
+            'chat_id': chatId,
+            'images': files.map((file) => {'file_id': file.fileId}).toList(),
+            if (replyId != null) 'reply_to_id': replyId,
+            'is_channel_comment': comment,
+          };
+        },
+      );
+      final saved = await showScheduleCreate(
+        context,
+        submission: submission,
+        preview: text.isEmpty ? scheduleText(context, 'attachments') : text,
+        foreground: context.xaneoTextPrimary,
+        background: context.xaneoSurface,
+      );
+      if (!saved || !mounted) return;
+      if (widget.chat.id == chatId && _messageController.text == original) {
+        _messageController.clear();
+        setState(() {
+          _attachments.removeWhere(files.contains);
+          if (identical(reply, _replyingToMessage)) _replyingToMessage = null;
+        });
+        _stopTypingState();
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(scheduleText(context, 'saved'))));
+    } catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
+
   Future<void> _sendMessage() async {
     if (widget.discussion != null) {
       await _sendDiscussionMessage();
@@ -3499,6 +3637,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     final localAttachments = List<AttachmentComposition>.from(_attachments);
+    final linkPreviewFuture = _draftLinkPreview.snapshotForSend(text, scope: _draftPreviewScope);
     _messageController.clear();
     setState(() {
       _attachments.clear();
@@ -3701,6 +3840,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               })
           .toList();
 
+      final linkPreview = await linkPreviewFuture;
+      if (linkPreview != null) {
+        await _localChatRepo.saveMessage(MessagesCompanion(
+          serverMessageId: Value(tempId), chatId: Value(localId),
+          senderId: Value(currentSenderId), textContent: Value(text), timestamp: Value(timestamp),
+          messageData: Value(jsonEncode({'link_preview': linkPreview})),
+        ));
+      }
       final bool sent;
       _pendingTextTempIds.add(tempId);
       if (localAttachments.isNotEmpty) {
@@ -3708,6 +3855,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           'type': 'encrypted_message',
           'chat_id': widget.chat.id,
           'encrypted_text': encryptedText,
+          if (linkPreview != null) 'link_preview': linkPreview,
           'file_id': firstFileId,
           'images': allFilesList,
           if (replyToId != null) 'reply_to_id': replyToId,
@@ -3717,6 +3865,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           'type': 'encrypted_message',
           'chat_id': widget.chat.id,
           'encrypted_text': encryptedText,
+          if (linkPreview != null) 'link_preview': linkPreview,
           'images': [],
           'image': null,
           if (replyToId != null) 'reply_to_id': replyToId,
@@ -3769,6 +3918,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (_attachments.any((file) => file.status != 'success')) return;
     final crypto = context.read<CryptoService>();
     final api = context.read<ApiClient>();
+    final linkPreviewFuture = _draftLinkPreview.snapshotForSend(text, scope: _draftPreviewScope);
     try {
       final cipher = await crypto.encryptMessage(text, widget.chat.id);
       if (cipher == null || cipher.isEmpty) throw StateError('No group key');
@@ -3781,10 +3931,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 'mime_type': file.fileType,
               })
           .toList();
+      final linkPreview = await linkPreviewFuture;
       final sent = await _chatWebSocketService.send({
         'type': 'encrypted_message',
         'chat_id': widget.chat.id,
         'encrypted_text': cipher,
+        if (linkPreview != null) 'link_preview': linkPreview,
         'reply_to_id': mirrorId,
         'is_channel_comment': true,
         'images': files,
@@ -3801,7 +3953,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             });
       }
       if (!mounted) return;
-      _messageController.clear();
+      if (_messageController.text.trim() == text) _messageController.clear();
       setState(() => _attachments.clear());
       await _loadDiscussion();
     } catch (_) {
@@ -4279,6 +4431,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _showAttachmentMenu() {
     final l10n = AppLocalizations.of(context);
     ChatActionSheet.show(context, actions: [
+      ChatSheetAction(icon: Icons.event_note_rounded, title: scheduleText(context, 'list'),
+        subtitle: scheduleText(context, 'reschedule'), onSelected: _openScheduledList),
       ChatSheetAction(
         icon: Icons.insert_drive_file_rounded,
         title: l10n?.fayly_200c ?? 'Fallback',
@@ -6679,6 +6833,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildInputArea(BuildContext context) {
+    return DraftLinkPreviewComposer(
+      preview: _draftLinkPreview, textController: _messageController, scope: _draftPreviewScope,
+      foreground: context.xaneoTextPrimary, background: context.xaneoSurface,
+      child: _buildInputAreaBody(context),
+    );
+  }
+
+  Widget _buildInputAreaBody(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         boxShadow: const [
@@ -6979,6 +7141,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               child: hasText
                                   ? GestureDetector(
                                       key: const ValueKey('send'),
+                                      onLongPress: _showScheduledMenu,
+                                      onSecondaryTap: _showScheduledMenu,
                                       onTap: _isSlowModeActive
                                           ? _showSlowModeBlockedMessage
                                           : _sendMessage,
@@ -7017,6 +7181,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                     )
                                   : GestureDetector(
                                       key: const ValueKey('mic_video_toggle'),
+                                      onSecondaryTap: _showScheduledMenu,
                                       onLongPressStart: _isSlowModeActive
                                           ? null
                                           : (_) async {
@@ -8360,11 +8525,13 @@ class FormattedTextEditingController extends TextEditingController {
 class FormattedText extends StatelessWidget {
   final String content;
   final TextStyle baseStyle;
+  final Map<String, dynamic>? linkPreview;
 
   const FormattedText({
     super.key,
     required this.content,
     required this.baseStyle,
+    this.linkPreview,
   });
 
   static final RegExp _regExp = RegExp(
@@ -8455,7 +8622,16 @@ class FormattedText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RichText(text: _buildSpans());
+    final text = LinkedMessageText(content: content, baseStyle: baseStyle,
+      format: (protectedText, style) {
+        final span = FormattedText(content: protectedText, baseStyle: style)._buildSpans();
+        return span.children ?? [span];
+      });
+    if (linkPreview == null) {
+      return text;
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min,
+      children: [text, MessageLinkPreview(data: linkPreview, foreground: baseStyle.color ?? Colors.black)]);
   }
 }
 
@@ -8636,6 +8812,16 @@ class MessageBubble extends StatelessWidget {
     final forwarded = messageData?['forwarded_from'];
     if (forwarded is! Map) return null;
     return Map<String, dynamic>.from(forwarded);
+  }
+
+  Map<String, dynamic>? _messageLinkPreviewData() {
+    final raw = message.messageData;
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final metadata = jsonDecode(raw);
+      final preview = metadata is Map ? metadata['link_preview'] : null;
+      return matchingMessageLinkPreview(preview, message.textContent);
+    } catch (_) { return null; }
   }
 
   Widget _buildForwardedHeader(
@@ -10475,6 +10661,7 @@ class MessageBubble extends StatelessWidget {
                                     if (displayContent.isNotEmpty)
                                       FormattedText(
                                         content: displayContent,
+                                        linkPreview: _messageLinkPreviewData(),
                                         baseStyle: bodyStyle,
                                       ),
                                     const SizedBox(height: 4),
@@ -10527,6 +10714,7 @@ class MessageBubble extends StatelessWidget {
                                   children: [
                                     FormattedText(
                                       content: displayContent,
+                                        linkPreview: _messageLinkPreviewData(),
                                       baseStyle: bodyStyle,
                                     ),
                                     const SizedBox(width: 8),
@@ -10556,6 +10744,7 @@ class MessageBubble extends StatelessWidget {
                                 if (displayContent.isNotEmpty)
                                   FormattedText(
                                     content: displayContent,
+                                        linkPreview: _messageLinkPreviewData(),
                                     baseStyle: bodyStyle,
                                   ),
                                 if (!isOnlyMedia)

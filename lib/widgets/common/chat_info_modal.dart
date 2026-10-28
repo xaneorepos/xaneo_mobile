@@ -9,6 +9,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../models/chat/chat_model.dart';
+import '../../utils/message_links.dart';
 import '../../screens/chat/chat_screen.dart' show FullScreenVideoPlayer;
 import '../../services/database/app_database.dart';
 import '../../services/chat/chat_local_repository.dart';
@@ -1788,21 +1789,16 @@ class _ChatInfoModalState extends BaseCustomModalState<ChatInfoModal> {
     return [];
   }
 
-  static final RegExp _urlRegex = RegExp(
-    r'(https?:\/\/[^\s]+)',
-    caseSensitive: false,
-  );
-
   static List<SharedLinkItem> _extractLinksInBackground(Message message) {
     if (message.textContent.isEmpty) return [];
     if (message.textContent.trim().startsWith('{')) return [];
 
-    final matches = _urlRegex.allMatches(message.textContent);
+    final matches = findMessageLinks(message.textContent);
     if (matches.isEmpty) return [];
 
     return matches.map((match) {
       return SharedLinkItem(
-        url: match.group(0)!,
+        url: match.uri.toString(),
         text: message.textContent,
         timestamp: message.timestamp,
         senderId: message.senderId,
